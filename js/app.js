@@ -1284,6 +1284,29 @@
     renderExport();
   });
 
+  /* The Prabhu logo for the top of every sheet, read once from the app's own
+     cache. A logo that will not load costs the file its header picture only. */
+  var logoPromise = null;
+  function loadLogo() {
+    if (logoPromise) return logoPromise;
+    logoPromise = fetch(SA.EXCEL_LOGO).then(function (response) {
+      if (!response.ok) throw new Error('logo ' + response.status);
+      return response.blob();
+    }).then(function (blob) {
+      return new Promise(function (resolve) {
+        var url = URL.createObjectURL(blob);
+        var img = new Image();
+        img.onload = function () {
+          URL.revokeObjectURL(url);
+          resolve({ blob: blob, width: img.naturalWidth, height: img.naturalHeight });
+        };
+        img.onerror = function () { URL.revokeObjectURL(url); resolve(null); };
+        img.src = url;
+      });
+    }).catch(function () { logoPromise = null; return null; });
+    return logoPromise;
+  }
+
   $('export-build').addEventListener('click', function () {
     var button = this;
     var records = state.chosen.slice();
@@ -1292,8 +1315,10 @@
     var status = $('export-status');
     status.textContent = 'Menyusun file…';
 
-    SA.xlsx.build(SA.secRecords.sheets(records), function (done, total) {
-      status.textContent = 'Menulis foto ' + done + ' dari ' + total + '…';
+    loadLogo().then(function (logo) {
+      return SA.xlsx.build(SA.secRecords.sheets(records), function (done, total) {
+        status.textContent = 'Menulis foto ' + done + ' dari ' + total + '…';
+      }, { primary: SA.EXCEL_THEMES.security.primary, logo: logo });
     }).then(function (blob) {
       var post = state.session ? state.session.post : records[0].post;
       var filename = 'SECURITY_' + SA.fileSafe(post) + '_' + SA.stampOf(new Date()) + '.xlsx';
@@ -1394,7 +1419,7 @@
   /* BUILD and CACHE_VERSION in sw.js are a PAIR -- bump both on every upload.
      The marker prints both; when they differ, the new version has downloaded
      but the app has not been restarted. */
-  var BUILD = 'v6';
+  var BUILD = 'v7';
   var CACHE_PREFIX = 'superapp-laporan-';
 
   function showVersion() {

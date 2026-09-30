@@ -69,9 +69,34 @@
       ];
     },
 
-    /** The workbook: one sheet per kind, always all three, in report order. */
+    /**
+     * The workbook: one sheet per kind, always all three, in report order, each
+     * headed the way Prabhu's own daily report is (see xlsx.js).
+     */
     sheets: function (records) {
-      return [
+      var theme = SA.EXCEL_THEMES.security;
+      var posts = unique(records.map(function (r) { return r.post; }));
+      var dates = unique(records.map(function (r) { return r.shiftDate; })).sort();
+      var period = !dates.length ? '-' : dates.length === 1 ? dates[0]
+        : dates[0] + ' s/d ' + dates[dates.length - 1];
+      var now = new Date();
+      var titles = { Pengecekan: 'PENGECEKAN PER JAM', Kejadian: 'LAPORAN KEJADIAN', Shift: 'LAPORAN SHIFT' };
+
+      return build().map(function (sheet) {
+        sheet.title = theme.title + ' — ' + titles[sheet.name];
+        sheet.subtitle = 'PT Prabhu · Pos ' + (posts.join(', ') || '-');
+        sheet.meta = [
+          ['Periode', period],
+          ['Pos', posts.join(', ') || '-'],
+          ['Jumlah', sheet.rows.length + ' laporan'],
+          ['Diexport', SA.dateOf(now) + ' ' + SA.timeOf(now).slice(0, 5)]
+        ];
+        sheet.note = 'Kode Foto adalah kode verifikasi yang tercetak di pojok kanan bawah foto. ' +
+          'Bila waktu yang tercetak di foto berbeda dengan Waktu Foto di sini, foto itu diubah setelah diambil.';
+        return sheet;
+      });
+
+      function build() { return [
         sheet('Pengecekan', records.filter(function (r) { return r.kind === 'check'; }), [
           col('Tanggal', 12, 'center', function (r) {
             return SA.dateOf(SA.shiftHourDate(r.shiftDate, r.hour));
@@ -124,9 +149,15 @@
           col('Pelapor', 20, 'text', 'reporter'),
           col('Waktu Simpan', 19, 'center', 'timestamp')
         ]), 3)
-      ];
+      ]; }
     }
   };
+
+  function unique(list) {
+    var out = [];
+    list.forEach(function (v) { if (v && out.indexOf(v) === -1) out.push(v); });
+    return out;
+  }
 
   function hours(record, done) {
     return (record.checkLines || [])
@@ -151,7 +182,7 @@
       return Math.max(most, (r.photos || []).length);
     }, 1);
 
-    var columns = fixed.slice();
+    var columns = [{ header: 'No', width: 5, type: 'index' }].concat(fixed);
     var firstPhoto = columns.length;
     var i;
     for (i = 0; i < slots; i++) columns.push({ header: 'Foto ' + (i + 1), type: 'photo' });
@@ -163,7 +194,7 @@
     }
 
     var rows = records.map(function (record) {
-      var cells = fixed.map(function (c) { return c.value(record); });
+      var cells = [records.indexOf(record) + 1].concat(fixed.map(function (c) { return c.value(record); }));
       for (var s = 0; s < slots; s++) cells.push('');
       var pictures = [];
       for (var p = 0; p < slots; p++) {
@@ -182,6 +213,6 @@
       return { cells: cells, pictures: pictures };
     });
 
-    return { name: name, columns: columns, rows: rows, freeze: freeze };
+    return { name: name, columns: columns, rows: rows, freeze: freeze + 1 };
   }
 }(window.SA));

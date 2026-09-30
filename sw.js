@@ -13,7 +13,7 @@
    BYTES of this file, and only the new worker re-caches everything else.
    Upload twenty changed files with this line untouched and every phone that
    already has the app keeps the old ones, silently. */
-var CACHE_VERSION = 'superapp-laporan-v6';
+var CACHE_VERSION = 'superapp-laporan-v7';
 
 var SHELL = [
   './',
@@ -30,6 +30,7 @@ var SHELL = [
   './js/sec-caption.js',
   './js/sec-records.js',
   './js/app.js',
+  './assets/brand/prabhu-logo.png',
   './assets/fonts/fonts.css',
   './assets/fonts/barlow-400.woff2',
   './assets/fonts/barlow-500.woff2',

@@ -18,12 +18,12 @@ Exif reader, .xlsx writer, share handling, version marker). The other apps in
 This folder is **not** a git repo. Upload the whole folder to GitHub Pages by
 hand. On **every** upload, bump both of these together — they are a pair:
 
-- `CACHE_VERSION` in `sw.js` (`superapp-laporan-v6`)
-- `BUILD` in `js/app.js` (`v6`)
+- `CACHE_VERSION` in `sw.js` (`superapp-laporan-v7`)
+- `BUILD` in `js/app.js` (`v7`)
 
 If only files change and `sw.js` does not, phones that already have the app keep
 the old files forever. The line at the foot of the main screen prints
-`kode v6 · cache v6`; if the two differ, the new version downloaded but the app
+`kode v7 · cache v7`; if the two differ, the new version downloaded but the app
 has not been restarted.
 
 ---
@@ -123,10 +123,22 @@ Manggala); Yessicika Relaise Tamba and Mega Suryaningrumnugroho left out for now
 
 ### The Excel
 
-One file, three sheets: **Pengecekan**, **Kejadian**, **Shift**. Photos at
-5.00 × 3.75 cm; Waktu / Kode / Lat / Long per photo; as many photo columns as the
-busiest row needs. Android saves the file (Chrome will not share .xlsx); send it
-from WhatsApp › Lampirkan › Dokumen.
+One file, three sheets: **Pengecekan**, **Kejadian**, **Shift**. Since v7 each
+sheet is laid out like Prabhu's own *Daily Report Dashboard Patroli* workbook:
+Prabhu logo, a title band and column headers in the **team colour**, a Prabhu
+green (`#6FB92C`) subtitle band, an info row (Periode / Pos / Jumlah /
+Diexport) on light green, zebra rows, Arial 10, no gridlines, and a note on how
+to read the photo codes. Team colours (`SA.EXCEL_THEMES` in `js/options.js`):
+Security navy `#0A5C8C`, Patrol blue `#0090C8` (the dashboard's own),
+Walkthrough dark green `#548235`.
+
+**The column headers are on row 8**, so a script reading these files must skip
+seven rows (pandas: `header=7`).
+
+Photos at 5.00 × 3.75 cm; Waktu / Kode / Lat / Long per photo; as many photo
+columns as the busiest row needs. Android saves the file (Chrome will not share
+.xlsx); send it from WhatsApp › Lampirkan › Dokumen. Checked by opening a
+generated file in real Excel 16 (no repair prompt) on 2026-10-01.
 
 ---
 

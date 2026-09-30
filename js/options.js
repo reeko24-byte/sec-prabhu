@@ -29,6 +29,20 @@ SA.TEAMS = [
     icon: 'i-steps',  note: 'Jalan kaki sepanjang ROW' }
 ];
 
+/* Excel colours, one per team (Billy, 2026-10-01), taken from Prabhu's own
+   "Daily Report Dashboard Patroli" workbook so the exports match the reports the
+   office already makes. The title band and column headers use the team colour;
+   the subtitle band is Prabhu green for all three.
+     patrol       #0090C8  exactly the dashboard's blue
+     walkthrough  #548235  the dashboard's dark green
+     security     #0A5C8C  Prabhu navy, from the post badges */
+SA.EXCEL_THEMES = {
+  security:    { primary: '0A5C8C', title: 'LAPORAN SECURITY OFFICER' },
+  patrol:      { primary: '0090C8', title: 'LAPORAN MONITORING PATROLI SECURITY' },
+  walkthrough: { primary: '548235', title: 'LAPORAN TEAM WALKTHROUGH' }
+};
+SA.EXCEL_LOGO = 'assets/brand/prabhu-logo.png';
+
 /* Badge artwork for the two teams not built yet, received 2026-10-01.
    Assumed: Patrol N = ZONA N of the personnel file, Walkthrough N = TIM N.
    `team` is the plain "TEAM Walkthrough" badge. Wire these in when the
