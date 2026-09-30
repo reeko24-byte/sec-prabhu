@@ -13,7 +13,7 @@
    BYTES of this file, and only the new worker re-caches everything else.
    Upload twenty changed files with this line untouched and every phone that
    already has the app keeps the old ones, silently. */
-var CACHE_VERSION = 'superapp-laporan-v2';
+var CACHE_VERSION = 'superapp-laporan-v6';
 
 var SHELL = [
   './',
@@ -30,6 +30,13 @@ var SHELL = [
   './js/sec-caption.js',
   './js/sec-records.js',
   './js/app.js',
+  './assets/fonts/fonts.css',
+  './assets/fonts/barlow-400.woff2',
+  './assets/fonts/barlow-500.woff2',
+  './assets/fonts/barlow-600.woff2',
+  './assets/fonts/barlow-700.woff2',
+  './assets/fonts/barlow-condensed-600.woff2',
+  './assets/fonts/barlow-condensed-700.woff2',
   './assets/badges/sec-sora.png',
   './assets/badges/sec-spo.png',
   './assets/badges/sec-warehouse.png',
@@ -42,7 +49,11 @@ var SHELL = [
   './assets/badges/sec-dumai-metering.png',
   './icons/icon-180.png',
   './icons/icon-192.png',
-  './icons/icon-512.png'
+  './icons/icon-512.png',
+  './icons/maskable-192.png',
+  './icons/maskable-512.png',
+  './icons/icon-32.png',
+  './icons/icon.svg'
 ];
 
 self.addEventListener('install', function (event) {

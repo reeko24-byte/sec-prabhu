@@ -18,26 +18,36 @@ Exif reader, .xlsx writer, share handling, version marker). The other apps in
 This folder is **not** a git repo. Upload the whole folder to GitHub Pages by
 hand. On **every** upload, bump both of these together — they are a pair:
 
-- `CACHE_VERSION` in `sw.js` (`superapp-laporan-v2`)
-- `BUILD` in `js/app.js` (`v2`)
+- `CACHE_VERSION` in `sw.js` (`superapp-laporan-v6`)
+- `BUILD` in `js/app.js` (`v6`)
 
 If only files change and `sw.js` does not, phones that already have the app keep
 the old files forever. The line at the foot of the main screen prints
-`kode v2 · cache v2`; if the two differ, the new version downloaded but the app
+`kode v6 · cache v6`; if the two differ, the new version downloaded but the app
 has not been restarted.
 
 ---
 
 ## Look and feel (redesign, v2, 2026-10-01)
 
-- **Colours come from the Prabhu badge artwork**: navy `#0A5C8C` (actions,
-  header `#07405F`), sky `#01ACF1` (focus rings and the "now" marker only), leaf
-  `#4AC231` (sent/done). Sky and leaf fail contrast as text on white, so they are
-  used as fills; text uses darker variants. All tokens are at the top of
-  `styles.css`.
+- **Prabhu green is the main colour** (v3, Billy's choice): the logo's leaf green
+  `#4AC231` fills main buttons and selections, with DARK text on it — white on that
+  green is only 2.3:1. Header is deep Prabhu green `#1D5217`. Sky `#01ACF1` is only
+  the focus ring and the timeline's "now" ring. Navy stays in the badges. Tokens
+  are at the top of `styles.css`.
+- **App icon** (v6) is Billy's flat vector set: shield, pin and road on Prabhu
+  green. Chosen over the v5 boot/guard-post picture because it stays readable at
+  home-screen size. `icons/` holds the rounded `any` icons, full-bleed
+  `maskable` ones for Android, `icon-180.png` for iPhone, and `icon.svg`;
+  `design/icon-master.svg` is the source. The icon's green `#63B245` is a shade
+  darker than the UI's `#4AC231`, left as drawn. The old picture is kept as
+  `design/icon-old-boot.webp`.
+- **Type is Barlow / Barlow Condensed** (v5, SIL OFL — `assets/fonts/OFL.txt`),
+  latin subset, bundled so it works offline (≈135 KB, in the service-worker
+  cache). Condensed for the header, labels, button titles and hour numbers.
+  The photo stamp still uses the system font.
 - **Dark theme follows the phone's setting** — for the Malam shift. Checked for
   contrast in both.
-- **System fonts** (Roboto / SF): instant offline, most legible in sun.
 - **Main screen**: the post's own badge on top (the mark its photos will
   carry), then the **shift timeline** — one cell per hour: green ✓ sent, amber !
   missed, blue ring = now, dashed = not yet. Tap a cell to send that hour.

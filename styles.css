@@ -1,51 +1,54 @@
 /* Laporan Tim — Prabhu field reporting.
  *
- * Colours are taken from the Prabhu badge artwork itself:
- *   navy  #0A5C8C  the team/post name on every badge — primary actions, header
- *   sky   #01ACF1  the "p" of the logo — focus rings and the "now" marker only
- *   leaf  #4AC231  the logo's leaves — "sent / done", never text on white
- * Sky and leaf fail contrast as text on white, so they are used as fills and
- * marks; text uses the darker ink variants below.
+ * PRABHU GREEN IS THE MAIN COLOUR (Billy, 2026-10-01), taken from the leaves of
+ * the Prabhu logo: #4AC231. It is too light to carry white text (2.3:1), so the
+ * main buttons are that exact green with DARK text on it (6.7:1) rather than a
+ * darker, off-brand green with white text. The header is a deep Prabhu green.
+ * Neutrals are tinted green-grey so the whole screen sits in one family.
  *
- * System fonts on purpose: the app must render instantly offline, and Roboto /
- * SF are the most legible faces these phones have in direct sun. Personality
- * comes from weight, tracking and tabular figures rather than a web font.
+ *   leaf   #4AC231  main buttons, selected chips, "sent"
+ *   forest #1D5217  app bar
+ *   sky    #01ACF1  focus rings and the timeline's "now" ring only
+ *   navy   #0A5C8C  kept for the badges and the icon's pin — not in the UI
  *
- * A dark theme follows the phone's own setting — a white screen at 03:00 in a
- * guard post is the Malam shift's problem, not the Pagi shift's.
+ * Type: Barlow (body) and Barlow Condensed (headings, labels, hour numbers) —
+ * a sturdy grotesk drawn from road signage, recommended by ui-ux-pro-max.
+ * Bundled in assets/fonts so it works offline; the system font is the fallback.
+ *
+ * A dark theme follows the phone's own setting — for the Malam shift.
  */
 
 :root {
-  --navy:        #0A5C8C;
-  --navy-deep:   #07405F;
-  --sky:         #01ACF1;
   --leaf:        #4AC231;
+  --forest:      #1D5217;
+  --sky:         #01ACF1;
   --leaf-ink:    #2B7A1B;
-  --leaf-soft:   #E6F6E1;
+  --leaf-soft:   #E3F5DD;
   --red:         #C0342B;
   --red-soft:    #FBE9E7;
   --amber-ink:   #8A5300;
   --amber-soft:  #FFF1D9;
   --amber-line:  #EFC67A;
 
-  --page:        #EDF2F6;
+  --page:        #EEF3EF;
   --surface:     #FFFFFF;
-  --surface-2:   #F5F8FA;
-  --ink:         #0D2536;
-  --ink-2:       #4B6072;
-  --ink-3:       #6F8292;
-  --line:        #D3DDE5;
-  --line-strong: #B9C7D3;
+  --surface-2:   #F4F8F5;
+  --ink:         #10241A;
+  --ink-2:       #4A5F52;
+  --ink-3:       #5F7466;
+  --line:        #D4DFD7;
+  --line-strong: #B8C8BD;
 
-  --primary:     var(--navy);
-  --link:        var(--navy);
-  --on-primary:  #FFFFFF;
-  --bar:         var(--navy-deep);
+  --primary:     var(--leaf);
+  --on-primary:  #0F2A12;
+  --link:        var(--leaf-ink);
+  --bar:         var(--forest);
 
   --radius:      12px;
   --radius-sm:   8px;
   --tap:         48px;
-  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font: "Barlow", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  --display: "Barlow Condensed", "Barlow", -apple-system, "Segoe UI", Roboto, sans-serif;
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, "Roboto Mono", monospace;
   --ease: cubic-bezier(.2, .7, .2, 1);
   color-scheme: light;
@@ -53,24 +56,23 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --page:        #071722;
-    --surface:     #0E2433;
-    --surface-2:   #122C3E;
-    --ink:         #E6EEF4;
-    --ink-2:       #A3B6C5;
-    --ink-3:       #8098AB;
-    --line:        #1F3B50;
-    --line-strong: #2C4D66;
+    --page:        #0B1510;
+    --surface:     #122019;
+    --surface-2:   #172A20;
+    --ink:         #E8F1EA;
+    --ink-2:       #A6B9AC;
+    --ink-3:       #82988A;
+    --line:        #22382B;
+    --line-strong: #2E4A39;
     --leaf-ink:    #7FD968;
-    --leaf-soft:   #173A20;
+    --leaf-soft:   #1B3A1F;
     --red:         #F06A60;
     --red-soft:    #3A1714;
     --amber-ink:   #F2B75C;
     --amber-soft:  #33240B;
     --amber-line:  #6B4A12;
-    --primary:     #1373AC;
-    --link:        #6CC8F4;
-    --bar:         #05121B;
+    --link:        #7FD968;
+    --bar:         #0E2A0C;
     color-scheme: dark;
   }
 }
@@ -81,7 +83,7 @@ html, body {
   margin: 0;
   background: var(--page);
   color: var(--ink);
-  font: 16px/1.5 var(--font);
+  font: 16.5px/1.5 var(--font);
   -webkit-text-size-adjust: 100%;
 }
 
@@ -103,7 +105,7 @@ button:disabled { cursor: default; }
   margin: 0 auto;
 }
 
-/* The app bar: deep navy, one title, at most one action each side. */
+/* The app bar: deep Prabhu green, one title, at most one action each side. */
 .bar {
   position: sticky;
   top: 0;
@@ -121,7 +123,7 @@ button:disabled { cursor: default; }
   flex: 1;
   min-width: 0;
   padding: 0 8px;
-  font-weight: 650;
+  font-weight: 600;
   font-size: 17px;
   letter-spacing: .1px;
   white-space: nowrap;
@@ -133,7 +135,7 @@ button:disabled { cursor: default; }
   min-height: 44px;
   padding: 0 10px;
   font-size: 15px;
-  font-weight: 550;
+  font-weight: 500;
   border-radius: var(--radius-sm);
 }
 .bar .link:active { background: rgba(255, 255, 255, .12); }
@@ -168,7 +170,7 @@ button:disabled { cursor: default; }
   gap: 14px;
   margin: 28px 0 8px;
 }
-.brandmark img { width: 56px; height: 56px; border-radius: 14px; background: #fff; box-shadow: 0 0 0 1px var(--line); }
+.brandmark img { width: 56px; height: 56px; }
 .brandmark h1 { margin: 0; font-size: 26px; line-height: 1.1; letter-spacing: -.3px; color: var(--ink); }
 .brandmark p { margin: 2px 0 0; font-size: 13px; color: var(--ink-2); letter-spacing: .2px; }
 .brand-note { color: var(--ink-2); font-size: 14px; margin: 16px 0 28px; max-width: 40ch; }
@@ -200,7 +202,7 @@ button:disabled { cursor: default; }
   color: var(--link);
 }
 .team .t-text { flex: 1; min-width: 0; }
-.team b { display: block; font-size: 17px; font-weight: 650; }
+.team b { display: block; font-size: 17px; font-weight: 600; }
 .team small { display: block; font-size: 13px; color: var(--ink-2); }
 .team .t-go { color: var(--ink-3); }
 .team:disabled { opacity: .6; }
@@ -227,7 +229,7 @@ button:disabled { cursor: default; }
   display: block;
   margin-bottom: 6px;
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--ink-2);
 }
 
@@ -270,7 +272,7 @@ input:focus, select:focus, textarea:focus {
   background: var(--surface);
   color: var(--ink);
   font-size: 15px;
-  font-weight: 550;
+  font-weight: 500;
   line-height: 1.25;
   transition: background .15s var(--ease), border-color .15s var(--ease);
 }
@@ -370,7 +372,7 @@ input:focus, select:focus, textarea:focus {
 .assign-line small {
   display: block;
   margin-top: 2px;
-  font-weight: 450;
+  font-weight: 400;
   font-size: 13px;
   line-height: 1.45;
   color: var(--ink-2);
@@ -426,7 +428,7 @@ input:focus, select:focus, textarea:focus {
 
 .due { margin: 10px 4px 0; font-size: 13.5px; color: var(--ink-2); }
 .due:empty { display: none; }
-.due b { color: var(--amber-ink); font-weight: 650; }
+.due b { color: var(--amber-ink); font-weight: 600; }
 
 /* ── Main screen: actions ────────────────────────────────────────────── */
 
@@ -443,7 +445,7 @@ input:focus, select:focus, textarea:focus {
 }
 .action:active { transform: scale(.985); filter: brightness(.95); }
 .action svg { flex: 0 0 auto; }
-.action b { display: block; font-size: 17px; font-weight: 650; line-height: 1.25; }
+.action b { display: block; font-size: 17px; font-weight: 600; line-height: 1.25; }
 .action small { display: block; font-size: 13px; opacity: .88; font-variant-numeric: tabular-nums; }
 .action.main { background: var(--primary); color: var(--on-primary); min-height: 76px; margin-bottom: 10px; }
 .action.main b { font-size: 19px; }
@@ -500,7 +502,7 @@ input:focus, select:focus, textarea:focus {
   padding: 12px 16px;
   border-radius: var(--radius);
   font-size: 16px;
-  font-weight: 650;
+  font-weight: 600;
   transition: transform .12s var(--ease), filter .12s var(--ease);
 }
 .primary { background: var(--primary); color: var(--on-primary); }
@@ -539,7 +541,7 @@ input:focus, select:focus, textarea:focus {
 .subtle-link { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; margin: -8px 0 12px; color: var(--red); font-weight: 600; font-size: 14px; }
 
 .photo-head { display: flex; align-items: baseline; justify-content: space-between; margin: 6px 0 8px; }
-.photo-head span { font-size: 13px; font-weight: 650; color: var(--ink-2); }
+.photo-head span { font-size: 13px; font-weight: 600; color: var(--ink-2); }
 .photo-head em { font-style: normal; font-size: 12.5px; color: var(--ink-3); }
 
 .strip { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
@@ -609,7 +611,7 @@ input:focus, select:focus, textarea:focus {
   min-height: 48px;
   padding: 0 14px;
   font-size: 14px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--ink-2);
   cursor: pointer;
   list-style: none;
@@ -701,6 +703,26 @@ input:focus, select:focus, textarea:focus {
   padding: 10px;
   margin: 18px 0 0;
 }
+
+/* ── Display face ────────────────────────────────────────────────────── */
+
+/* Condensed caps and titles: the header, section labels, button titles and the
+   hour numbers. Everything a guard reads at a glance; body text stays Barlow. */
+.bar .who, .brandmark h1, .eyebrow, .pick-head, .tl-count, .timeline button,
+.action b, .team b, .assign-line, .chip b, .primary, .secondary, .soon {
+  font-family: var(--display);
+}
+.bar .who { font-size: 20px; font-weight: 600; letter-spacing: .3px; }
+.brandmark h1 { font-size: 32px; font-weight: 700; letter-spacing: 0; }
+.eyebrow, .pick-head { font-size: 13px; font-weight: 600; letter-spacing: 1.4px; }
+.action b { font-size: 20px; font-weight: 600; letter-spacing: .2px; }
+.action.main b { font-size: 23px; }
+.team b { font-size: 20px; font-weight: 600; }
+.assign-line { font-size: 19px; font-weight: 700; letter-spacing: .3px; }
+.assign-line small { font-family: var(--font); letter-spacing: 0; }
+.timeline button { font-size: 16px; font-weight: 700; }
+.primary, .secondary { font-size: 18px; font-weight: 600; letter-spacing: .3px; }
+.chip b { font-size: 16px; }
 
 /* ── Toast ───────────────────────────────────────────────────────────── */
 

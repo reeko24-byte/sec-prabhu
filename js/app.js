@@ -918,6 +918,10 @@
     if (this.disabled || missingForPhoto().length) { updateReport(); return; }
     var button = this;
     button.disabled = true;
+    /* Saving writes the photos to the phone's database, which takes a moment
+       with several pictures -- say so, or the tap looks ignored. */
+    var label = button.innerHTML;
+    button.lastChild.nodeValue = 'Menyimpan…';
 
     var draft = state.draft;
     var now = new Date();
@@ -974,13 +978,15 @@
       return SA.db.add(record);
     }).then(function (saved) {
       button.disabled = false;
+      button.innerHTML = label;
       state.photos = [];
       state.draft = null;
       toast('Tersimpan.');
       openSend(saved);
     }).catch(function (error) {
       button.disabled = false;
-      toast('Gagal menyimpan: ' + describe(error));
+      button.innerHTML = label;
+      toast('Gagal menyimpan: ' + describe(error) + '. Laporan masih di layar — coba lagi.');
     });
   });
 
@@ -1388,7 +1394,7 @@
   /* BUILD and CACHE_VERSION in sw.js are a PAIR -- bump both on every upload.
      The marker prints both; when they differ, the new version has downloaded
      but the app has not been restarted. */
-  var BUILD = 'v2';
+  var BUILD = 'v6';
   var CACHE_PREFIX = 'superapp-laporan-';
 
   function showVersion() {

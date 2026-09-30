@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <clipPath id="sh"><path d="M256 112 L364 146 V262 C364 330 318 380 256 404 C194 380 148 330 148 262 V146 Z"/></clipPath>
+  </defs>
+  <rect id="bg" width="512" height="512" rx="0" fill="#63B245"/>
+  <path d="M256 92 L384 132 V262 C384 344 330 402 256 430 C182 402 128 344 128 262 V132 Z" fill="#ffffff"/>
+  <g clip-path="url(#sh)">
+    <rect x="140" y="100" width="232" height="320" fill="#0B3C6E"/>
+    <path d="M140 262 C200 238 300 232 372 250 V300 H140 Z" fill="#00AEEE"/>
+    <path d="M140 300 C190 280 230 284 262 300 C300 282 340 280 372 292 V420 H140 Z" fill="#63B245"/>
+    <path d="M178 420 C216 382 236 342 236 304 C236 286 248 274 250 262 L262 262 C265 276 272 290 272 308 C272 350 292 390 314 420 Z" fill="#ffffff"/>
+    <path d="M246 420 C248 380 256 344 254 308 C253 290 256 278 256 266" stroke="#0B3C6E" stroke-width="7" stroke-linecap="round" stroke-dasharray="16 14" fill="none"/>
+  </g>
+  <g transform="translate(256 206)">
+    <path d="M0 40 C-10 22 -40 2 -40 -26 A40 40 0 0 1 40 -26 C40 2 10 22 0 40 Z" fill="#00AEEE" stroke="#ffffff" stroke-width="9" stroke-linejoin="round"/>
+    <path d="M0 -46 L20 -26 L0 -6 L-20 -26 Z" fill="#ffffff"/>
+  </g>
+</svg>
