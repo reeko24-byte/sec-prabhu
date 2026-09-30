@@ -80,6 +80,33 @@
         .join('\n');
     },
 
+    /**
+     * Access Control: goods going in or out, checked against the Cargo Manifest.
+     * "Pukul" is the actual time the check happened, typed or picked -- not a
+     * scheduled hour. "Dari" defaults to the post; "menuju" and the approver are
+     * typed.
+     */
+    access: function (record) {
+      var line = SA.aligner(['Hari/Tgl', 'Shift']);
+      var direction = String(record.direction || S.accessDirections[0]).toLowerCase();
+      var sentence =
+        'Pukul ' + (record.accessTime || '-') + ' WIB, petugas melakukan access control ' +
+        direction + ' dari ' + (record.from || record.post).trim() + ' menuju ' +
+        ((record.to || '').trim() || '-') + '. Barang tertera di Cargo Manifest dan telah di-ACC oleh ' +
+        ((record.approvedBy || '').trim() || '-') + '.';
+
+      return header('LAPORAN ACCESS CONTROL ' + record.post)
+        .concat([
+          line('Hari/Tgl', SA.longDate(SA.parseDate(record.date))),
+          line('Shift', SA.shiftText(record.shift)),
+          ''
+        ])
+        .concat(officerBlock(record))
+        .concat(['', sentence, S.ACCESS_SITUATION, '', 'Salam,'])
+        .concat(record.officers || [])
+        .join('\n');
+    },
+
     /** One incident, sent the moment it is written. */
     incident: function (record) {
       var labels = ['Hari/Tgl', 'Shift', 'Kejadian', 'Tindakan'];
@@ -145,7 +172,7 @@
       lines.push('');
       lines.push('C. SITUASI AKHIR SERAH TERIMA :');
       var cLine = SA.aligner(['Jam serah terima', 'Shift lanjut']);
-      lines.push('   - ' + cLine('Jam serah terima', (record.handover || '') + ' WIB'));
+      lines.push('   - ' + cLine('Jam serah terima', record.handover ? record.handover + ' WIB' : '-'));
       lines.push('   - ' + cLine.head('Shift lanjut'));
       lines = lines.concat(numbered(record.nextOfficers, 'BKO', record.nextBko, '     '));
       lines.push('   - ' + (record.finalSituation || S.FINAL_SITUATION).trim());

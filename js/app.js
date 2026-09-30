@@ -30,6 +30,7 @@
     draft: null,         // the report being written
     nextOthers: false,   // "Tampilkan pos lain" on the Shift lanjut picker
     photos: [],
+    processing: 0,       // photos still being stamped; saving waits for them
     lastAddress: null,
     sessionRecords: [],
     sending: null,
@@ -323,13 +324,13 @@
     return !window_ || now.getTime() > window_.end.getTime() + 60 * 60 * 1000;
   }
 
+  /* Only this shift's reports, through the bySession index -- this runs every
+     minute on the main screen and on every report opened or saved. */
   function loadSessionRecords() {
-    return SA.db.all().then(function (records) {
-      var id = state.session ? state.session.id : null;
-      state.sessionRecords = records.filter(function (r) {
-        return r.team === 'security' && r.sessionId === id;
-      });
-      return records;
+    if (!state.session) { state.sessionRecords = []; return Promise.resolve([]); }
+    return SA.db.bySession(state.session.id).then(function (records) {
+      state.sessionRecords = records.filter(function (r) { return r.team === 'security'; });
+      return state.sessionRecords;
     });
   }
 
@@ -341,7 +342,9 @@
     return done;
   }
 
-  function renderMain() {
+  /** `tick` is the once-a-minute refresh: it redraws the timeline only, and
+      leaves the whole-phone counters to the moments a person opens the screen. */
+  function renderMain(tick) {
     var session = state.session;
     if (!session) return;
     var now = new Date();
@@ -369,9 +372,9 @@
       : '';
     $('main-over').classList.toggle('hidden', !over);
 
-    loadSessionRecords().then(function (records) {
+    loadSessionRecords().then(function () {
       renderDue(now);
-      renderCount(records);
+      if (!tick) return SA.db.all().then(renderCount);
     });
   }
 
@@ -388,51 +391,77 @@
   function renderDue(now) {
     var session = state.session;
     var done = hoursDone();
-    var hours = SA.shiftHours(session.shift);
+    var hours = SA.checkHours(session.shift);
+    var end = SA.shiftById(session.shift).end;
     var window_ = SA.shiftWindow(session.shiftDate, session.shift);
     var current = defaultHour(session, now);
+    var handedOver = state.sessionRecords.some(function (r) { return r.kind === 'shift'; });
+    var HOUR = 60 * 60 * 1000;
     var list = $('timeline');
     list.innerHTML = '';
 
     var missing = [];
-    hours.forEach(function (h) {
+    function cell(h, isHandover) {
       var at = SA.shiftHourDate(session.shiftDate, h).getTime();
-      var inHour = now.getTime() >= at && now.getTime() < at + 60 * 60 * 1000;
+      var inHour = now.getTime() >= at && now.getTime() < at + HOUR;
       var past = at <= now.getTime();
-      var status = done[h] ? 'done' : past && !inHour ? 'missed' : inHour ? 'now' : 'future';
-      if (status === 'missed') missing.push(h);
+      var sent = isHandover ? handedOver : done[h];
+      var status = sent ? 'done' : past && !inHour ? 'missed' : inHour ? 'now' : 'future';
+      if (status === 'missed') missing.push(isHandover ? 'serah terima ' + SA.hourText(h) : SA.hourText(h));
 
       var item = document.createElement('li');
-      var cell = document.createElement('button');
-      cell.type = 'button';
-      cell.className = status + (inHour && done[h] ? ' now' : '');
-      var label = SA.pad2(h % 24);
-      var icon = status === 'done' ? 'i-check' : status === 'missed' ? 'i-bang' : 'i-dot';
-      cell.innerHTML = '<span>' + label + '</span>' +
+      if (isHandover) item.className = 'handover';
+      var button = document.createElement('button');
+      button.type = 'button';
+      button.className = status + (inHour && sent ? ' now' : '');
+      var icon = status === 'done' ? 'i-check' : status === 'missed' ? 'i-bang'
+        : isHandover ? 'i-clipboard' : 'i-dot';
+      button.innerHTML = '<span>' + SA.pad2(h % 24) + '</span>' +
         '<svg class="mark" aria-hidden="true"><use href="#' + icon + '"/></svg>';
-      cell.setAttribute('aria-label', 'Pukul ' + SA.hourText(h) + ': ' +
+      button.setAttribute('aria-label', (isHandover ? 'Serah terima ' : 'Pukul ') + SA.hourText(h) + ': ' +
         (status === 'done' ? 'sudah dikirim' : status === 'missed' ? 'belum dikirim'
           : status === 'now' ? 'jam sekarang' : 'belum waktunya'));
-      cell.addEventListener('click', function () { openReport('check', h); });
-      item.appendChild(cell);
+      button.addEventListener('click', function () {
+        // A sent cell opens the report that was sent (to read or re-send it);
+        // making a second one would send a duplicate to the group.
+        var already = latestRecord(isHandover ? 'shift' : 'check', isHandover ? null : h);
+        if (already) { openSend(already); return; }
+        if (isHandover) openReport('shift'); else openReport('check', h);
+      });
+      item.appendChild(button);
       list.appendChild(item);
-    });
+    }
+    hours.forEach(function (h) { cell(h, false); });
+    cell(end, true);
 
-    var sent = hours.filter(function (h) { return done[h]; }).length;
-    $('tl-count').textContent = sent + ' / ' + hours.length + ' terkirim';
+    var sentCount = hours.filter(function (h) { return done[h]; }).length + (handedOver ? 1 : 0);
+    $('tl-count').textContent = sentCount + ' / ' + (hours.length + 1) + ' terkirim';
     $('go-check-sub').textContent = 'Pukul ' + SA.hourText(current) + ' WIB' +
       (done[current] ? ' · sudah dikirim' : '');
 
+    var first = SA.shiftHourDate(session.shiftDate, hours[0]).getTime();
     var due = $('main-due');
     due.textContent = now.getTime() < window_.start.getTime()
-      ? 'Shift belum mulai — mulai pukul ' + SA.hourText(hours[0]) + ' WIB.'
+      ? 'Shift belum mulai — pengecekan pertama pukul ' + SA.hourText(hours[0]) + ' WIB.'
+      : now.getTime() < first
+      ? 'Serah terima sudah dilaporkan shift sebelumnya. Pengecekan pertama pukul ' +
+        SA.hourText(hours[0]) + ' WIB.'
       : '';
     if (missing.length) {
       var warn = document.createElement('b');
-      warn.textContent = 'Belum dikirim: ' + missing.map(SA.hourText).join(', ') + '. ' ;
+      warn.textContent = 'Belum dikirim: ' + missing.join(', ') + '. ';
       due.appendChild(warn);
       due.appendChild(document.createTextNode('Ketuk jamnya untuk mengirim.'));
     }
+  }
+
+  /** The newest report of a kind in this shift (for a check: of that hour). */
+  function latestRecord(kind, hour) {
+    var found = null;
+    state.sessionRecords.forEach(function (r) {
+      if (r.kind === kind && (hour == null || r.hour === hour)) found = r;
+    });
+    return found;
   }
 
   function renderCount(records) {
@@ -452,24 +481,34 @@
   $('main-edit').addEventListener('click', function () { openSetup(); });
   $('go-check').addEventListener('click', function () { openReport('check'); });
   $('go-incident').addEventListener('click', function () { openReport('incident'); });
-  $('go-shift').addEventListener('click', function () { openReport('shift'); });
+  $('go-shift').addEventListener('click', function () {
+    var sent = latestRecord('shift', null);
+    if (sent && !confirm('Laporan shift sudah dikirim pukul ' + String(sent.time).slice(0, 5) +
+        '. Buat laporan shift lagi?')) return;
+    openReport('shift');
+  });
+  $('go-access').addEventListener('click', function () { openReport('access'); });
 
   /* ── 4. One report ──────────────────────────────────────────────────── */
 
-  var TITLES = { check: 'Pengecekan', incident: 'Laporan Kejadian', shift: 'Laporan Shift' };
+  var TITLES = { check: 'Pengecekan', incident: 'Laporan Kejadian', shift: 'Laporan Shift',
+    access: 'Access Control' };
 
   /** The hour a check most likely belongs to: the hour we are in, if it is in
       the shift; otherwise the first one nobody has reported yet. */
   function defaultHour(session, now) {
-    var hours = SA.shiftHours(session.shift);
+    var hours = SA.checkHours(session.shift);
     var done = hoursDone();
     for (var i = 0; i < hours.length; i++) {
       var from = SA.shiftHourDate(session.shiftDate, hours[i]).getTime();
       var to = from + 60 * 60 * 1000;
       if (now.getTime() >= from && now.getTime() < to) return hours[i];
     }
+    // Before the first check (the hour the previous shift's handover covers),
+    // the first check is the one coming up.
+    if (now.getTime() < SA.shiftHourDate(session.shiftDate, hours[0]).getTime()) return hours[0];
     var open = hours.filter(function (h) { return !done[h]; });
-    return open.length ? open[0] : hours[0];
+    return open.length ? open[0] : hours[hours.length - 1];
   }
 
   function openReport(kind, hour) {
@@ -480,6 +519,8 @@
     loadSessionRecords().then(function () {
       state.draft = {
         kind: kind,
+        // The captions read `date`; a draft has one too, so the preview is right.
+        date: SA.dateOf(now),
         post: session.post,
         shift: session.shift,
         shiftDate: session.shiftDate,
@@ -494,17 +535,27 @@
         handover: SA.hourText(SA.shiftById(session.shift).end),
         nextOfficers: [],
         nextBko: '',
-        finalSituation: S.FINAL_SITUATION
+        finalSituation: S.FINAL_SITUATION,
+        direction: S.accessDirections[0],
+        accessTime: hhmm(now),
+        from: session.post,
+        to: '',
+        approvedBy: ''
       };
       state.nextOthers = false;
+      releasePhotoUrls(state.photos);
       state.photos = [];
 
       $('r-title').textContent = TITLES[kind];
       $('r-check').classList.toggle('hidden', kind !== 'check');
       $('r-incident').classList.toggle('hidden', kind !== 'incident');
       $('r-shift').classList.toggle('hidden', kind !== 'shift');
+      $('r-access').classList.toggle('hidden', kind !== 'access');
+      // Access control has its own three named photo slots.
+      $('r-photos-generic').classList.toggle('hidden', kind === 'access');
 
       if (kind === 'check') renderHourSelect();
+      if (kind === 'access') renderAccessFields();
       if (kind === 'incident') renderIncidentFields();
       if (kind === 'shift') renderShiftFields();
 
@@ -515,13 +566,15 @@
   }
 
   $('r-back').addEventListener('click', function () {
-    if (state.photos.length && !confirm('Laporan belum disimpan. Keluar dan buang fotonya?')) return;
+    if ((state.photos.length || state.processing) &&
+        !confirm('Laporan belum disimpan. Keluar dan buang fotonya?')) return;
     renderMain();
     show('main');
   });
 
   $('r-to-incident').addEventListener('click', function () {
-    if (state.photos.length && !confirm('Pengecekan ini belum disimpan. Pindah ke Laporan Kejadian?')) return;
+    if ((state.photos.length || state.processing) &&
+        !confirm('Pengecekan ini belum disimpan. Pindah ke Laporan Kejadian?')) return;
     openReport('incident');
   });
 
@@ -531,7 +584,7 @@
     var select = $('r-hour');
     var done = hoursDone();
     select.innerHTML = '';
-    SA.shiftHours(state.draft.shift).forEach(function (h) {
+    SA.checkHours(state.draft.shift).forEach(function (h) {
       var option = document.createElement('option');
       option.value = String(h);
       option.textContent = SA.hourText(h) + ' WIB' + (done[h] ? '  ✓ sudah dikirim' : '');
@@ -605,7 +658,7 @@
   /** Section A: every hour of the shift up to now, and whether it was sent. */
   function checkLines(draft, now) {
     var done = hoursDone();
-    return SA.shiftHours(draft.shift).filter(function (h) {
+    return SA.checkHours(draft.shift).filter(function (h) {
       return done[h] || SA.shiftHourDate(draft.shiftDate, h).getTime() <= now.getTime();
     }).map(function (h) { return { hour: h, done: !!done[h] }; });
   }
@@ -684,6 +737,136 @@
     updateReport();
   });
 
+  /* Access control */
+
+  function renderAccessFields() {
+    var draft = state.draft;
+    var chips = $('r-direction');
+    chips.innerHTML = '';
+    S.accessDirections.forEach(function (direction) {
+      var chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'chip';
+      chip.textContent = direction;
+      chip.setAttribute('aria-pressed', String(direction === draft.direction));
+      chip.addEventListener('click', function () {
+        state.draft.direction = direction;
+        Array.prototype.forEach.call(chips.children, function (c) {
+          c.setAttribute('aria-pressed', String(c.textContent === direction));
+        });
+        updateReport();
+      });
+      chips.appendChild(chip);
+    });
+    $('r-time').value = draft.accessTime;
+    $('r-from').value = draft.from;
+    $('r-to').value = '';
+    $('r-acc').value = '';
+  }
+
+  [['r-time', 'accessTime'], ['r-from', 'from'], ['r-to', 'to'], ['r-acc', 'approvedBy']]
+    .forEach(function (pair) {
+      $(pair[0]).addEventListener('input', function () {
+        if (!state.draft) return;
+        state.draft[pair[1]] = this.value;
+        if (pair[1] === 'accessTime') state.draft.date = accessDate(this.value, new Date());
+        updateReport();          // redraws the slots once, via renderStaleWarning
+      });
+    });
+
+  /**
+   * The day an access control happened, from its Pukul. A time later than now
+   * belongs to yesterday: goods out at 23:50, report saved at 00:10, is dated
+   * the day the goods left -- not the day the guard finished the photos. Five
+   * minutes of slack so a clock a little ahead of the phone's is still today.
+   */
+  function accessDate(hhmmText, now) {
+    var parts = String(hhmmText || '').split(':');
+    var day = new Date(now.getTime());
+    if (parts.length === 2) {
+      var at = new Date(now.getTime());
+      at.setHours(Number(parts[0]), Number(parts[1]), 0, 0);
+      if (at.getTime() > now.getTime() + 5 * 60 * 1000) day.setDate(day.getDate() - 1);
+    }
+    return SA.dateOf(day);
+  }
+
+  /** Which slot the next camera or gallery pick fills. */
+  var pendingSlot = null;
+
+  function photoInSlot(slot) {
+    var found = null;
+    state.photos.forEach(function (photo) { if (photo.slot === slot) found = photo; });
+    return found;
+  }
+
+  /* A photo's thumbnail URL is made once and kept on the photo, so redrawing
+     the slots on every keystroke does not re-create and re-decode them. */
+  function thumbUrl(photo) {
+    if (!photo.url) photo.url = URL.createObjectURL(photo.thumb);
+    return photo.url;
+  }
+  function releasePhotoUrls(photos) {
+    (photos || []).forEach(function (p) {
+      if (p.url) { URL.revokeObjectURL(p.url); p.url = null; }
+    });
+  }
+
+  function renderSlots() {
+    var box = $('r-slots');
+    box.innerHTML = '';
+    var blocked = missingForPhoto().length > 0;
+    var current = overlaySignature();
+
+    S.accessPhotos.forEach(function (name, slot) {
+      var photo = photoInSlot(slot);
+      var row = document.createElement('div');
+      row.className = 'slot' + (photo ? ' done' : '') +
+        (photo && photo.signature !== current ? ' stale' : '');
+
+      var thumb = document.createElement('span');
+      thumb.className = 'thumb';
+      if (photo) {
+        var img = document.createElement('img');
+        img.src = thumbUrl(photo);
+        img.alt = 'Foto ' + name;
+        thumb.appendChild(img);
+      } else {
+        thumb.innerHTML = '<svg width="22" height="22" aria-hidden="true"><use href="#i-camera"/></svg>';
+      }
+      row.appendChild(thumb);
+
+      var text = document.createElement('span');
+      text.className = 's-text';
+      var b = document.createElement('b');
+      b.textContent = (slot + 1) + '. ' + name;
+      var small = document.createElement('small');
+      small.textContent = photo ? '✓ ' + photo.takenAt.slice(11, 16) +
+        (photo.source === 'gallery' ? ' · galeri' : '') : 'Belum ada foto';
+      text.appendChild(b);
+      text.appendChild(small);
+      row.appendChild(text);
+
+      var actions = document.createElement('span');
+      actions.className = 's-actions';
+      [['camera-input', 'i-camera', 'Ambil foto ' + name],
+       ['gallery-input', 'i-image', 'Pilih ' + name + ' dari galeri']].forEach(function (a) {
+        var button = document.createElement('button');
+        button.type = 'button';
+        button.disabled = blocked;
+        button.setAttribute('aria-label', a[2]);
+        button.innerHTML = '<svg width="20" height="20" aria-hidden="true"><use href="#' + a[1] + '"/></svg>';
+        button.addEventListener('click', function () {
+          pendingSlot = slot;
+          $(a[0]).click();
+        });
+        actions.appendChild(button);
+      });
+      row.appendChild(actions);
+      box.appendChild(row);
+    });
+  }
+
   /* Shared: readiness, preview, photos */
 
   /** What must be set before a photo, because it is burned into the stamp. */
@@ -694,12 +877,34 @@
       if (!draft.incidentType) missing.push('jenis kejadian');
       else if (draft.incidentType === S.OTHER && !draft.otherText.trim()) missing.push('penjelasan Other');
     }
+    // Pukul, Dari and Menuju are burned into the access control photos.
+    if (draft.kind === 'access') {
+      if (!draft.accessTime) missing.push('Pukul');
+      if (!String(draft.from).trim()) missing.push('Dari');
+      if (!String(draft.to).trim()) missing.push('Menuju');
+    }
+    return missing;
+  }
+
+  /** What saving needs on top of that. Only access control requires photos. */
+  function missingForSave() {
+    var draft = state.draft;
+    var missing = missingForPhoto();
+    if (state.processing) missing.push('foto masih diproses');
+    if (draft.kind === 'shift' && !draft.handover) missing.push('Jam serah terima');
+    if (draft.kind === 'access') {
+      if (!String(draft.approvedBy).trim()) missing.push('ACC oleh');
+      S.accessPhotos.forEach(function (name, slot) {
+        if (!photoInSlot(slot)) missing.push('foto ' + name);
+      });
+    }
     return missing;
   }
 
   function captionOf(record) {
     return record.kind === 'check' ? SA.secCaption.check(record)
       : record.kind === 'incident' ? SA.secCaption.incident(record)
+      : record.kind === 'access' ? SA.secCaption.access(record)
       : SA.secCaption.shift(record);
   }
 
@@ -721,10 +926,11 @@
 
     /* The photo count is a suggestion, never a gate: a guard who has none, or
        wants more, still sends. Only what the report cannot be written without
-       blocks saving. */
-    $('r-save').disabled = missing.length > 0;
-    $('r-blocker').textContent = missing.length ? 'Isi dulu: ' + missing.join(', ') + '.'
-      : taken < hint.min ? 'Belum ada foto — tetap bisa dikirim.'
+       blocks saving -- and for access control that includes its three photos. */
+    var saveMissing = missingForSave();
+    $('r-save').disabled = saveMissing.length > 0;
+    $('r-blocker').textContent = saveMissing.length ? 'Isi dulu: ' + saveMissing.join(', ') + '.'
+      : draft.kind !== 'access' && taken < hint.min ? 'Belum ada foto — tetap bisa dikirim.'
       : '';
 
     $('r-preview').textContent = captionOf(draft);
@@ -790,6 +996,21 @@
   /* One at a time: several full-size decodes at once is how a mid-range phone
      ends up reloading the tab. */
   function addPhotos(files, source) {
+    if (state.draft && state.draft.kind === 'access') {
+      if (pendingSlot == null) return;
+      var slot = pendingSlot;
+      pendingSlot = null;
+      toast('Memproses foto…');
+      addOnePhoto(files[0], source, slot).then(function () {
+        renderPhotoStrip();
+        updateReport();
+      }).catch(function (error) {
+        renderPhotoStrip();
+        updateReport();
+        toast(error.message || 'Foto gagal diproses.');
+      });
+      return;
+    }
     var room = S.MAX_PHOTOS - state.photos.length;
     if (room <= 0) return;
     var queue = files.slice(0, room);
@@ -807,10 +1028,13 @@
     });
   }
 
-  function addOnePhoto(file, source) {
+  function addOnePhoto(file, source, slot) {
     var draft = state.draft;
     var signature = overlaySignature();
     var fromGallery = source === 'gallery';
+    state.processing += 1;
+    function finished() { state.processing = Math.max(0, state.processing - 1); }
+    updateReport();              // Save greys out while the photo is stamped
 
     return (fromGallery ? SA.exif.read(file) : Promise.resolve(null)).then(function (exif) {
       var fix = null;
@@ -828,9 +1052,13 @@
       return (fix ? addressFor(fix.latitude, fix.longitude) : Promise.resolve(null)).then(function (address) {
         if (address) state.lastAddress = address;
         var facts = SA.secRecords.sealFacts(draft, timestamp, fix);
+        // Which of the three access-control photos this is: stamped and sealed.
+        var subject = slot != null ? S.accessPhotos[slot] : '';
+        if (subject) facts.push(subject);
 
         return SA.seal.compute(file, facts).then(function (seal) {
           var lines = SA.secRecords.stampLines(draft).concat([
+            subject ? 'Foto: ' + subject : '',
             timestamp,
             fix ? 'Lat: ' + fix.latitude.toFixed(6) + ', Long: ' + fix.longitude.toFixed(6) : '',
             SA.geo.addressText(address)
@@ -843,7 +1071,18 @@
             badge: badgeOf(draft.post),
             fallback: 'SECURITY OFFICER\n' + draft.post
           }).then(function (processed) {
-            if (state.photos.length >= S.MAX_PHOTOS) return;
+            /* The guard may have left this report while the photo was being
+               stamped. Its stamp and seal belong to that report, so it must not
+               land in whichever one is on screen now. */
+            if (state.draft !== draft) return;
+            if (slot != null) {
+              // A new picture for a slot replaces the old one.
+              releasePhotoUrls(state.photos.filter(function (p) { return p.slot === slot; }));
+              state.photos = state.photos.filter(function (p) { return p.slot !== slot; });
+              processed.slot = slot;
+            } else if (state.photos.length >= S.MAX_PHOTOS) {
+              return;
+            }
             processed.signature = signature;
             processed.source = source;
             processed.latitude = fix ? fix.latitude : null;
@@ -856,11 +1095,12 @@
           });
         });
       });
-    });
+    }).then(function () { finished(); }, function (error) { finished(); throw error; });
   }
 
   var stripUrls = [];
   function renderPhotoStrip() {
+    if (state.draft && state.draft.kind === 'access') { renderSlots(); return; }
     stripUrls.forEach(URL.revokeObjectURL);
     stripUrls = [];
     var strip = $('photo-strip');
@@ -898,6 +1138,8 @@
 
   function renderStaleWarning() {
     if (!state.draft) return;
+    // Access control marks a stale photo on its own slot row.
+    if (state.draft.kind === 'access') { renderSlots(); return; }
     var current = overlaySignature();
     var cells = $('photo-strip').children;
     var stale = false;
@@ -915,7 +1157,7 @@
   /* ── Saving ─────────────────────────────────────────────────────────── */
 
   $('r-save').addEventListener('click', function () {
-    if (this.disabled || missingForPhoto().length) { updateReport(); return; }
+    if (this.disabled || missingForSave().length) { updateReport(); return; }
     var button = this;
     button.disabled = true;
     /* Saving writes the photos to the phone's database, which takes a moment
@@ -938,7 +1180,7 @@
         team: 'security',
         kind: draft.kind,
         sessionId: state.session.id,
-        date: SA.dateOf(now),
+        date: draft.kind === 'access' ? accessDate(draft.accessTime, now) : SA.dateOf(now),
         time: SA.timeOf(now),
         timestamp: SA.timestampOf(now),
         post: draft.post,
@@ -947,16 +1189,26 @@
         officers: draft.officers.slice(),
         bko: (draft.bko || '').trim(),
         reporter: draft.reporter,
-        photos: state.photos.map(function (p) {
+        // Access control photos are filed in slot order: manifest, plate, goods.
+        photos: state.photos.slice().sort(function (a, b) {
+          return (a.slot == null ? 0 : a.slot) - (b.slot == null ? 0 : b.slot);
+        }).map(function (p) {
           return {
             blob: p.blob, thumb: p.thumb, width: p.width, height: p.height,
             latitude: p.latitude, longitude: p.longitude, source: p.source,
-            takenAt: p.takenAt, sealCode: p.sealCode, sealDigest: p.sealDigest, sealAlgo: p.sealAlgo
+            takenAt: p.takenAt, sealCode: p.sealCode, sealDigest: p.sealDigest, sealAlgo: p.sealAlgo,
+            slot: p.slot == null ? null : p.slot
           };
         })
       };
 
-      if (draft.kind === 'check') {
+      if (draft.kind === 'access') {
+        record.direction = draft.direction;
+        record.accessTime = draft.accessTime;
+        record.from = String(draft.from).trim();
+        record.to = String(draft.to).trim();
+        record.approvedBy = String(draft.approvedBy).trim();
+      } else if (draft.kind === 'check') {
         record.hour = draft.hour;
       } else if (draft.kind === 'incident') {
         record.incidentType = draft.incidentType;
@@ -979,6 +1231,7 @@
     }).then(function (saved) {
       button.disabled = false;
       button.innerHTML = label;
+      releasePhotoUrls(state.photos);
       state.photos = [];
       state.draft = null;
       toast('Tersimpan.');
@@ -1249,12 +1502,12 @@
       var chosen = state.includeExported ? mine : fresh;
       state.chosen = chosen;
 
-      var counts = { check: 0, incident: 0, shift: 0 };
+      var counts = { check: 0, incident: 0, shift: 0, access: 0 };
       chosen.forEach(function (r) { counts[r.kind] += 1; });
       $('export-summary').textContent = chosen.length === 0
         ? (doneCount ? 'Semua laporan sudah diexport.' : 'Belum ada laporan untuk diexport.')
         : chosen.length + ' laporan: ' + counts.check + ' pengecekan, ' +
-          counts.incident + ' kejadian, ' + counts.shift + ' shift.';
+          counts.incident + ' kejadian, ' + counts.access + ' access control, ' + counts.shift + ' shift.';
 
       var include = $('export-include');
       include.classList.toggle('hidden', doneCount === 0);
@@ -1399,12 +1652,23 @@
     });
   });
 
-  /* Only ever removes reports already in a spreadsheet. */
+  /* Removes only reports that are safe to lose from the phone: already in a
+     spreadsheet AND already sent to WhatsApp, and never the current shift's --
+     the shift report's sections A and B and the timeline are built from those. */
   $('export-clear').addEventListener('click', function () {
     SA.db.all().then(function (all) {
-      var done = all.filter(function (r) { return r.team === 'security' && r.exportedAt; });
-      if (!done.length) { toast('Belum ada laporan yang sudah diexport.'); return; }
-      if (!confirm('Hapus ' + done.length + ' laporan yang sudah diexport dari HP?')) return;
+      var current = state.session ? state.session.id : null;
+      var exported = all.filter(function (r) { return r.team === 'security' && r.exportedAt; });
+      var done = exported.filter(function (r) { return r.sentAt && r.sessionId !== current; });
+      var kept = exported.length - done.length;
+      if (!done.length) {
+        toast(exported.length
+          ? 'Laporan shift ini dan yang belum dikirim tetap disimpan.'
+          : 'Belum ada laporan yang sudah diexport.');
+        return;
+      }
+      if (!confirm('Hapus ' + done.length + ' laporan yang sudah diexport dan dikirim dari HP?' +
+          (kept ? ' (' + kept + ' laporan shift ini / belum dikirim tetap disimpan.)' : ''))) return;
       return SA.db.removeMany(done.map(function (r) { return r.id; })).then(function () {
         state.built = null;
         toast(done.length + ' laporan dihapus.');
@@ -1419,7 +1683,7 @@
   /* BUILD and CACHE_VERSION in sw.js are a PAIR -- bump both on every upload.
      The marker prints both; when they differ, the new version has downloaded
      but the app has not been restarted. */
-  var BUILD = 'v7';
+  var BUILD = 'v10';
   var CACHE_PREFIX = 'superapp-laporan-';
 
   function showVersion() {
@@ -1430,7 +1694,13 @@
     }
     if (!window.caches || !caches.keys) { put(running); return; }
     caches.keys().then(function (names) {
-      var mine = names.filter(function (n) { return n.indexOf(CACHE_PREFIX) === 0; }).sort();
+      /* By version NUMBER: as text, "v10" sorts before "v9", and the marker
+         would name the old cache exactly while a new one is arriving. */
+      var mine = names.filter(function (n) { return n.indexOf(CACHE_PREFIX) === 0; })
+        .sort(function (a, b) {
+          return (parseInt(a.slice(CACHE_PREFIX.length + 1), 10) || 0) -
+                 (parseInt(b.slice(CACHE_PREFIX.length + 1), 10) || 0);
+        });
       if (!mine.length) { put(running + ' · belum tersimpan offline'); return; }
       var cached = mine[mine.length - 1].replace(CACHE_PREFIX, '');
       put(running + ' · cache ' + cached + (cached === BUILD ? '' : ' · TUTUP APLIKASI & BUKA LAGI'));
@@ -1487,7 +1757,7 @@
 
     // The due line goes stale as the clock moves; refresh it while visible.
     setInterval(function () {
-      if (state.session && $('screen-main').classList.contains('active')) renderMain();
+      if (state.session && $('screen-main').classList.contains('active')) renderMain(true);
     }, 60000);
     document.addEventListener('visibilitychange', function () {
       if (!document.hidden && state.session && $('screen-main').classList.contains('active')) renderMain();

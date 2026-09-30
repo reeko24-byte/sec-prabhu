@@ -11,7 +11,9 @@
 
 (function (SA) {
   var DB_NAME = 'superapp-laporan';
-  var DB_VERSION = 1;
+  /* 2: adds the bySession index, so the main screen reads one shift's
+     reports instead of every report the phone has ever stored. */
+  var DB_VERSION = 2;
   var RECORDS = 'records';
   var PREFS = 'prefs';
 
@@ -23,9 +25,14 @@
       var request = indexedDB.open(DB_NAME, DB_VERSION);
       request.onupgradeneeded = function (event) {
         var db = event.target.result;
-        if (!db.objectStoreNames.contains(RECORDS)) {
-          var store = db.createObjectStore(RECORDS, { keyPath: 'id', autoIncrement: true });
+        var store = db.objectStoreNames.contains(RECORDS)
+          ? event.target.transaction.objectStore(RECORDS)
+          : db.createObjectStore(RECORDS, { keyPath: 'id', autoIncrement: true });
+        if (!store.indexNames.contains('byDate')) {
           store.createIndex('byDate', 'date', { unique: false });
+        }
+        if (!store.indexNames.contains('bySession')) {
+          store.createIndex('bySession', 'sessionId', { unique: false });
         }
         if (!db.objectStoreNames.contains(PREFS)) {
           db.createObjectStore(PREFS, { keyPath: 'key' });
@@ -92,6 +99,16 @@
     all: function () {
       return tx(RECORDS, 'readonly', function (store, set) {
         var request = store.getAll();
+        request.onsuccess = function () {
+          set(request.result.sort(function (a, b) { return a.id - b.id; }));
+        };
+      });
+    },
+
+    /** One shift's reports, oldest first. */
+    bySession: function (sessionId) {
+      return tx(RECORDS, 'readonly', function (store, set) {
+        var request = store.index('bySession').getAll(sessionId);
         request.onsuccess = function () {
           set(request.result.sort(function (a, b) { return a.id - b.id; }));
         };

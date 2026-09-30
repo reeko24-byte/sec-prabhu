@@ -35,6 +35,7 @@
     <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></symbol>
     <symbol id="i-bang" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 5v9M12 19h.01"/></symbol>
     <symbol id="i-dot" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" fill="currentColor"/></symbol>
+    <symbol id="i-truck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.62l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/></symbol>
     <symbol id="i-send" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></symbol>
   </defs>
 </svg>
@@ -137,11 +138,15 @@
         <svg width="24" height="24" aria-hidden="true"><use href="#i-alert"/></svg>
         <span><b>Laporan kejadian</b><small>Kirim segera</small></span>
       </button>
-      <button id="go-shift" class="action plain">
-        <svg width="24" height="24" aria-hidden="true"><use href="#i-clipboard"/></svg>
-        <span><b>Laporan shift</b><small>Saat serah terima</small></span>
+      <button id="go-access" class="action plain">
+        <svg width="24" height="24" aria-hidden="true"><use href="#i-truck"/></svg>
+        <span><b>Access control</b><small>Barang keluar / masuk</small></span>
       </button>
     </div>
+    <button id="go-shift" class="action plain wide">
+      <svg width="24" height="24" aria-hidden="true"><use href="#i-clipboard"/></svg>
+      <span><b>Laporan shift</b><small>Saat serah terima</small></span>
+    </button>
 
     <div id="gps" class="gps-pill waiting">
       <span class="dot"></span>
@@ -197,6 +202,31 @@
       </label>
     </div>
 
+    <!-- Access control: goods only, any post. Pukul is the ACTUAL time, typed
+         or scrolled; Dari defaults to the post; Menuju and ACC oleh are typed. -->
+    <div id="r-access" class="hidden">
+      <p class="eyebrow">Barang</p>
+      <div id="r-direction" class="chips" style="margin-bottom:16px"></div>
+      <label class="field">
+        <span>Pukul</span>
+        <input id="r-time" type="time">
+      </label>
+      <label class="field">
+        <span>Dari</span>
+        <input id="r-from" type="text" autocomplete="off">
+      </label>
+      <label class="field">
+        <span>Menuju</span>
+        <input id="r-to" type="text" autocomplete="off" placeholder="mis. Segmen 9…">
+      </label>
+      <label class="field">
+        <span>ACC oleh</span>
+        <input id="r-acc" type="text" autocomplete="off" placeholder="mis. Pak Haris…">
+      </label>
+      <p class="eyebrow">Foto — wajib ketiganya</p>
+      <div id="r-slots" class="slots"></div>
+    </div>
+
     <!-- Shift report -->
     <div id="r-shift" class="hidden">
       <div class="field">
@@ -225,6 +255,7 @@
       </label>
     </div>
 
+    <div id="r-photos-generic">
     <div class="photo-head">
       <span id="photos-label"></span>
       <em id="photos-hint"></em>
@@ -236,6 +267,7 @@
       <button id="pick-gallery" class="secondary"><svg width="20" height="20" aria-hidden="true"><use href="#i-image"/></svg>Galeri</button>
     </div>
     <p id="photo-blocker" class="hint"></p>
+    </div>
     <input id="camera-input" type="file" accept="image/*" capture="environment" hidden>
     <input id="gallery-input" type="file" accept="image/*" multiple hidden>
 

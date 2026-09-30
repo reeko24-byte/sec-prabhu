@@ -133,12 +133,20 @@ SA.SECURITY = {
 
   FINAL_SITUATION: 'Situasi akhir kondusif, aman terkendali.',
 
+  /* Access Control (goods only, any post). The three photos are REQUIRED and
+     each has a fixed subject, in this order (Billy, 2026-10-01). */
+  accessDirections: ['Barang keluar', 'Barang masuk'],
+  accessPhotos: ['Cargo Manifest', 'Plat Nomor Kendaraan', 'Barang'],
+  accessPhotosShort: ['Manifest', 'Plat', 'Barang'],   // for the narrow Excel columns
+  ACCESS_SITUATION: 'Situasi aman, nihil temuan.',
+
   /* Suggested photo counts. Shown as a hint and NEVER enforced -- a guard who
      wants more, or has none, still sends. */
   photoHint: {
     check:    { min: 1, max: 2 },
     incident: { min: 1, max: 4 },
-    shift:    { min: 2, max: 4 }
+    shift:    { min: 2, max: 4 },
+    access:   { min: 3, max: 3 }
   },
 
   /* A hard ceiling only so the share and the phone's memory stay sane. */
@@ -237,12 +245,20 @@ SA.shiftWindow = function (shiftDate, shiftId) {
   };
 };
 
-/** Every reporting hour of a shift, start and end included: [16..24]. */
-SA.shiftHours = function (shiftId) {
+/**
+ * The hourly checks of a shift: from one hour after it starts to one hour
+ * before it ends -- Sore gives [17..23], seven checks.
+ *
+ * Agreed with Billy after the officers' review (2026-10-01): the OUTGOING crew
+ * sends the shift report at the end of its shift, and that handover covers the
+ * next shift's first hour. So a shift has 8 reports: 7 checks + its own
+ * handover at the end hour. Nobody sends a check at the start hour.
+ */
+SA.checkHours = function (shiftId) {
   var shift = SA.shiftById(shiftId);
   var hours = [];
   if (!shift) return hours;
-  for (var h = shift.start; h <= shift.end; h++) hours.push(h);
+  for (var h = shift.start + 1; h < shift.end; h++) hours.push(h);
   return hours;
 };
 

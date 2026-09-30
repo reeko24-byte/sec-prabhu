@@ -19,7 +19,8 @@
   var KIND_TITLE = {
     check: 'LAPORAN PENGECEKAN',
     incident: 'LAPORAN KEJADIAN',
-    shift: 'LAPORAN SHIFT'
+    shift: 'LAPORAN SHIFT',
+    access: 'LAPORAN ACCESS CONTROL'
   };
 
   function crewLine(report) {
@@ -36,6 +37,7 @@
     label: function (record) {
       if (record.kind === 'check') return 'Pengecekan ' + SA.hourText(record.hour) + ' WIB';
       if (record.kind === 'incident') return 'Kejadian · ' + SA.secCaption.incidentName(record);
+      if (record.kind === 'access') return 'Access Control ' + (record.accessTime || '');
       return 'Laporan Shift ' + record.shift;
     },
 
@@ -50,6 +52,10 @@
         first = KIND_TITLE.check + ' · Pukul ' + SA.hourText(report.hour) + ' WIB';
       } else if (report.kind === 'incident') {
         first = KIND_TITLE.incident + ' · ' + SA.secCaption.incidentName(report);
+      } else if (report.kind === 'access') {
+        first = KIND_TITLE.access + ' · Pukul ' + (report.accessTime || '') + ' WIB';
+        return [first, place, crewLine(report),
+          (report.direction || '') + ': ' + (report.from || report.post) + ' → ' + (report.to || '')];
       } else {
         first = KIND_TITLE.shift + ' · ' + SA.shiftText(report.shift);
         place = report.post;
@@ -61,7 +67,8 @@
     /** What the seal is bound to, in a fixed order. Append only. */
     sealFacts: function (report, timestamp, fix) {
       var detail = report.kind === 'check' ? SA.hourText(report.hour)
-        : report.kind === 'incident' ? SA.secCaption.incidentName(report) : '';
+        : report.kind === 'incident' ? SA.secCaption.incidentName(report)
+        : report.kind === 'access' ? report.accessTime + ' ' + report.direction + ' ' + report.to : '';
       return [
         'SEC1', timestamp, report.kind, report.post, report.shift, report.shiftDate,
         detail, (report.officers || []).join('+'), report.bko || '',
@@ -80,7 +87,8 @@
       var period = !dates.length ? '-' : dates.length === 1 ? dates[0]
         : dates[0] + ' s/d ' + dates[dates.length - 1];
       var now = new Date();
-      var titles = { Pengecekan: 'PENGECEKAN PER JAM', Kejadian: 'LAPORAN KEJADIAN', Shift: 'LAPORAN SHIFT' };
+      var titles = { Pengecekan: 'PENGECEKAN PER JAM', Kejadian: 'LAPORAN KEJADIAN',
+        'Access Control': 'ACCESS CONTROL', Shift: 'LAPORAN SHIFT' };
 
       return build().map(function (sheet) {
         sheet.title = theme.title + ' — ' + titles[sheet.name];
@@ -128,6 +136,22 @@
           col('BKO TNI', 18, 'text', 'bko'),
           col('Pelapor', 20, 'text', 'reporter')
         ]), 2),
+
+        sheet('Access Control', records.filter(function (r) { return r.kind === 'access'; }), [
+          col('Tanggal', 12, 'center', 'date'),
+          col('Pukul', 9, 'center', 'accessTime'),
+          col('Pos', 22, 'center', 'post'),
+          col('Shift', 9, 'center', 'shift'),
+          col('Tanggal Shift', 13, 'center', 'shiftDate'),
+          col('Arah', 15, 'center', 'direction'),
+          col('Dari', 20, 'text', 'from'),
+          col('Menuju', 20, 'text', 'to'),
+          col('ACC oleh', 18, 'text', 'approvedBy'),
+          col('Petugas', 34, 'text', function (r) { return (r.officers || []).join(', '); }),
+          col('BKO TNI', 18, 'text', 'bko'),
+          col('Pelapor', 20, 'text', 'reporter'),
+          col('Waktu Simpan', 19, 'center', 'timestamp')
+        ], 2, S.accessPhotos, S.accessPhotosShort),
 
         sheet('Shift', records.filter(function (r) { return r.kind === 'shift'; }), [
           col('Tanggal Shift', 13, 'center', 'shiftDate'),
@@ -177,24 +201,26 @@
    * Builds one sheet: the fixed columns, then as many photo columns as the
    * busiest row needs (at least one), then Waktu / Kode / Lat / Long per photo.
    */
-  function sheet(name, records, fixed, freeze) {
-    var slots = records.reduce(function (most, r) {
+  function sheet(name, records, fixed, freeze, photoNames, shortNames) {
+    var slots = photoNames ? photoNames.length : records.reduce(function (most, r) {
       return Math.max(most, (r.photos || []).length);
     }, 1);
+    function photoName(i) { return photoNames ? photoNames[i] : String(i + 1); }
+    function shortName(i) { return shortNames ? shortNames[i] : photoName(i); }
 
     var columns = [{ header: 'No', width: 5, type: 'index' }].concat(fixed);
     var firstPhoto = columns.length;
     var i;
-    for (i = 0; i < slots; i++) columns.push({ header: 'Foto ' + (i + 1), type: 'photo' });
+    for (i = 0; i < slots; i++) columns.push({ header: 'Foto ' + photoName(i), type: 'photo' });
     for (i = 0; i < slots; i++) {
-      columns.push({ header: 'Waktu Foto ' + (i + 1), width: 19, type: 'center' });
-      columns.push({ header: 'Kode Foto ' + (i + 1), width: 17, type: 'center' });
-      columns.push({ header: 'Lat ' + (i + 1), width: 12, type: 'number' });
-      columns.push({ header: 'Long ' + (i + 1), width: 12, type: 'number' });
+      columns.push({ header: 'Waktu Foto ' + shortName(i), width: 19, type: 'center' });
+      columns.push({ header: 'Kode Foto ' + shortName(i), width: 17, type: 'center' });
+      columns.push({ header: 'Lat ' + shortName(i), width: 12, type: 'number' });
+      columns.push({ header: 'Long ' + shortName(i), width: 12, type: 'number' });
     }
 
-    var rows = records.map(function (record) {
-      var cells = [records.indexOf(record) + 1].concat(fixed.map(function (c) { return c.value(record); }));
+    var rows = records.map(function (record, rowIndex) {
+      var cells = [rowIndex + 1].concat(fixed.map(function (c) { return c.value(record); }));
       for (var s = 0; s < slots; s++) cells.push('');
       var pictures = [];
       for (var p = 0; p < slots; p++) {
@@ -206,7 +232,7 @@
         if (photo && photo.blob) {
           pictures.push({
             column: firstPhoto + p, blob: photo.blob,
-            description: SA.secRecords.label(record) + ' — foto ' + (p + 1)
+            description: SA.secRecords.label(record) + ' — foto ' + photoName(p)
           });
         }
       }

@@ -399,7 +399,7 @@ input:focus, select:focus, textarea:focus {
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(9, minmax(0, 1fr));
+  grid-template-columns: repeat(8, minmax(0, 1fr));   /* 7 checks + handover */
   gap: 4px;
 }
 .timeline button {
@@ -425,6 +425,10 @@ input:focus, select:focus, textarea:focus {
 .timeline .missed { background: var(--amber-soft); border-color: var(--amber-line); color: var(--amber-ink); }
 .timeline .now { border: 2px solid var(--sky); color: var(--ink); background: var(--surface); }
 .timeline .now.done { border-color: var(--leaf); background: var(--leaf-soft); color: var(--leaf-ink); }
+/* The last cell is the shift report, not a check: set apart by a gap and a
+   clipboard mark instead of a dot. */
+.timeline li.handover { margin-left: 4px; }
+.timeline li.handover button { border-style: solid; }
 
 .due { margin: 10px 4px 0; font-size: 13.5px; color: var(--ink-2); }
 .due:empty { display: none; }
@@ -455,6 +459,51 @@ input:focus, select:focus, textarea:focus {
 .action.danger { background: var(--red-soft); color: var(--red); }
 .action.plain { background: var(--surface); color: var(--ink); border: 1px solid var(--line); }
 .action.plain svg { color: var(--link); }
+
+/* Laporan shift sits under the pair, full width but the same weight. */
+.action.plain.wide { min-height: 60px; margin-bottom: 14px; }
+
+/* Access control: three named photo slots, all required. */
+.slots { display: grid; gap: 8px; margin-bottom: 8px; }
+.slot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.slot.done { border-color: var(--leaf); }
+.slot.stale { box-shadow: 0 0 0 2px var(--amber-line); }
+.slot .thumb {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--ink-3);
+  overflow: hidden;
+}
+.slot .thumb img { width: 100%; height: 100%; object-fit: cover; }
+.slot .s-text { flex: 1; min-width: 0; }
+.slot .s-text b { display: block; font-family: var(--display); font-size: 17px; font-weight: 600; }
+.slot .s-text small { display: block; font-size: 12.5px; color: var(--ink-2); }
+.slot.done .s-text small { color: var(--leaf-ink); }
+.slot .s-actions { display: flex; gap: 6px; }
+.slot .s-actions button {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--link);
+}
+.slot .s-actions button:disabled { color: var(--ink-3); opacity: .6; }
 
 /* GPS as a quiet status line: it matters when it is wrong, not when it is fine. */
 .gps-pill {
