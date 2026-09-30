@@ -1,0 +1,264 @@
+/* Super App Laporan -- the teams, the Security vocabulary, and the date/time
+ * helpers every module shares.
+ *
+ * Everything in SA.TEAMS and SA.SECURITY is DATA. It is written into the
+ * WhatsApp report and the spreadsheet exactly as spelled here, so a spelling
+ * changed here silently splits one post, or one officer, into two the next time
+ * somebody sorts the sheet.
+ *
+ * Source: `Database Personil.xlsx`, sheet SECURITY OFFICER, with Billy's
+ * corrections of 2026-10-01 applied ON PURPOSE -- the Excel is wrong in these
+ * places and must not be "fixed" back to it:
+ *
+ *   - KOTA BATAK KP 21 ... KP 28 are ONE post, KOTA BATAK KP 21.
+ *   - MANGGALA BOOSTER is spelled MENGGALA BOOSTER (the badge is right).
+ *   - Yessicika Relaise Tamba and Mega Suryaningrumnugroho are left out for now.
+ *   - Full names, no ID numbers.
+ */
+
+var SA = window.SA || {};
+
+/* The three teams of the super app. Only Security is built; the other two are
+   listed so the first screen already shows where they will go. */
+SA.TEAMS = [
+  { id: 'security',    label: 'Security Officer', ready: true,
+    icon: 'i-shield', note: 'Pos jaga dan fasilitas' },
+  { id: 'patrol',      label: 'Patrol',           ready: false,
+    icon: 'i-route',  note: 'Patroli kendaraan per zona' },
+  { id: 'walkthrough', label: 'Walkthrough',      ready: false,
+    icon: 'i-steps',  note: 'Jalan kaki sepanjang ROW' }
+];
+
+/* Badge artwork for the two teams not built yet, received 2026-10-01.
+   Assumed: Patrol N = ZONA N of the personnel file, Walkthrough N = TIM N.
+   `team` is the plain "TEAM Walkthrough" badge. Wire these in when the
+   modules are built (and add them to sw.js then). */
+SA.BADGES = {
+  patrol: ['assets/badges/patrol-1.png', 'assets/badges/patrol-2.png',
+    'assets/badges/patrol-3.png', 'assets/badges/patrol-4.png',
+    'assets/badges/patrol-5.png', 'assets/badges/patrol-6.png',
+    'assets/badges/patrol-7.png', 'assets/badges/patrol-8.png'],
+  walkthroughTeam: 'assets/badges/wt-team.png',
+  walkthrough: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13].map(function (n) {
+    return 'assets/badges/wt-' + n + '.png';
+  })
+};
+
+SA.SECURITY = {
+
+  /* The report's header. Fixed -- the officer never types it. */
+  TO: 'ARCO',
+  CC: 'PM, Data Analyst',
+
+  /* name   the Excel post name: what the caption and the spreadsheet print
+     badge  the artwork burned into the photo's top right corner. Its label
+            ("KB KP21", "Stasiun Batang") is shorter than the post name, and
+            that is agreed: the badge is a design, the caption uses the name. */
+  posts: [
+    { name: 'SORA',                     badge: 'assets/badges/sec-sora.png' },
+    { name: 'SPO',                      badge: 'assets/badges/sec-spo.png' },
+    { name: 'WAREHOUSE',                badge: 'assets/badges/sec-warehouse.png' },
+    { name: 'AREA MELUR',               badge: 'assets/badges/sec-area-melur.png' },
+    { name: 'ST BATANG',                badge: 'assets/badges/sec-st-batang.png' },
+    { name: 'DURI SHIPPING PUMP (DSP)', badge: 'assets/badges/sec-dsp.png' },
+    { name: 'KOTA BATAK JUNCTION',      badge: 'assets/badges/sec-kota-batak-junction.png' },
+    { name: 'KOTA BATAK KP 21',         badge: 'assets/badges/sec-kota-batak-kp21.png' },
+    { name: 'MENGGALA BOOSTER',         badge: 'assets/badges/sec-menggala-booster.png' },
+    { name: 'DUMAI METERING',           badge: 'assets/badges/sec-dumai-metering.png' }
+  ],
+
+  roster: {
+    'SORA': ['DADANG SYARIFATULLOH', 'RAFLI', 'BONA INRA HALOHO', 'SATRIA BUDI',
+      'RIDUWAN EFFENDI', 'PUTRA LIONO', 'FARDOL', 'M KHOIRUL'],
+    'SPO': ['RIO DENI DEMONDO', 'YOSAFAT', 'TAUFIK IRSYAD', 'ADIT SURYA',
+      'REZA FARHAN ALHAFIZ', 'ADIT NUGRAHA', 'M IQBAL', 'SAWIRMAN'],
+    'WAREHOUSE': ['YOGI PRAYUDA', 'HASRUL HARITONGAN', 'FAUZAN', 'RENDI',
+      'BAYU PRASMANA', 'IRAWAN', 'ROBY HIDAYAT', 'RIO PRASASDI'],
+    'AREA MELUR': ['M. DZAKKY RIVANDI', 'GERI HIDAYAT', 'FADLY SURYA SAPUTRA',
+      'MUHAMMAD RIKI', 'MAULANA WAHYUDI', 'YONDA RAFANA', 'RAFILINDO',
+      'VARHAN AL HAKIM'],
+    'ST BATANG': ['RISKI NANDA', 'JUNAIDI', 'IKHSAN', 'MAHDIR MUHAMMAD',
+      'DESKI YUDHA', 'M DAWLI', 'JULISRI', 'ZURIAN'],
+    'DURI SHIPPING PUMP (DSP)': ['SYAWAL LUBIS', 'FAISAL AGUS SOFIAN',
+      'RAHMAT ZARPANI', 'PUTRA SAWAL', 'JHON HENDRIK', 'M. DJATMIKO UTOMO',
+      'M IWIL MULYADI', 'MARKO HERMANDA'],
+    'KOTA BATAK JUNCTION': ['NOVAL ADITYA SYAHPUTRA', 'AULIA FADDILA',
+      'TIKKOS SIHOMBING', 'M FAZAR IRGIANDA', 'RAMANDA BUTAR BUTAR',
+      'ANDI SUSILO', 'DIMAS RAMADONI PRATAMA', 'RAMADHANI'],
+    'KOTA BATAK KP 21': ['MISNA CANIAGO', 'WAHYU ANUGRAH PUTRA',
+      'M RENDI SAPUTRA', 'IRFAN MAHENDRA', 'ARIFIN B', 'ALAM ILAHI',
+      'ANTONI FAISAL', 'RAHMATAN PERDANA MUDASIR'],
+    'MENGGALA BOOSTER': ['DODI HARIANTO', 'RIDHO HAFIZAN', 'TAUFIK HIDAYAT',
+      'RAFIJAL', 'M DARVANI ARILMAN', 'ADRI', 'FEBRI', 'BAYU JULIANSYAH'],
+    'DUMAI METERING': ['FIKRI', 'ROBY YARLI', 'M FARID', 'RAFAEL',
+      'WISNU KHAIRI', 'FARHAN SAHURA', 'RAHMANSYAH', 'M FARIZ']
+  },
+
+  /* start/end are hours of the day; Sore ends at 24, which prints as 00:00 and
+     belongs to the next calendar day. */
+  shifts: [
+    { id: 'PAGI',  start: 8,  end: 16 },
+    { id: 'SORE',  start: 16, end: 24 },
+    { id: 'MALAM', start: 0,  end: 8 }
+  ],
+
+  /* Section B of the shift report, in the order the template lists them. */
+  incidentTypes: ['Theft', 'Vandalisme', 'Penyetopan', 'Demo', 'Other'],
+  OTHER: 'Other',
+
+  /* The seven questions of an incident report (SIADIDEMENBABI). */
+  questions: [
+    { key: 'siapa',     label: 'Siapa' },
+    { key: 'apa',       label: 'Apa' },
+    { key: 'dimana',    label: 'Dimana' },
+    { key: 'denganApa', label: 'Dengan apa' },
+    { key: 'mengapa',   label: 'Mengapa' },
+    { key: 'bagaimana', label: 'Bagaimana' },
+    { key: 'bilamana',  label: 'Bilamana' }
+  ],
+
+  FINAL_SITUATION: 'Situasi akhir kondusif, aman terkendali.',
+
+  /* Suggested photo counts. Shown as a hint and NEVER enforced -- a guard who
+     wants more, or has none, still sends. */
+  photoHint: {
+    check:    { min: 1, max: 2 },
+    incident: { min: 1, max: 4 },
+    shift:    { min: 2, max: 4 }
+  },
+
+  /* A hard ceiling only so the share and the phone's memory stay sane. */
+  MAX_PHOTOS: 8
+};
+
+/* -- Lookups ----------------------------------------------------------- */
+
+SA.postByName = function (name) {
+  var found = null;
+  SA.SECURITY.posts.forEach(function (post) { if (post.name === name) found = post; });
+  return found;
+};
+
+SA.shiftById = function (id) {
+  var found = null;
+  SA.SECURITY.shifts.forEach(function (shift) { if (shift.id === id) found = shift; });
+  return found;
+};
+
+/* -- Time -------------------------------------------------------------- */
+
+function pad2(n) { return n < 10 ? '0' + n : String(n); }
+
+SA.pad2 = pad2;
+
+/** "2026-10-01" -- how a day is grouped and stored. */
+SA.dateOf = function (d) {
+  return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+};
+
+/** "08:14:22" */
+SA.timeOf = function (d) {
+  return pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds());
+};
+
+/** "2026-10-01 08:14:22" -- what is burned into the photograph. */
+SA.timestampOf = function (d) { return SA.dateOf(d) + ' ' + SA.timeOf(d); };
+
+/** "20261001_081422", for filenames. */
+SA.stampOf = function (d) {
+  return SA.dateOf(d).replace(/-/g, '') + '_' + SA.timeOf(d).replace(/:/g, '');
+};
+
+/** "2026-10-01" -> a Date at local midnight. */
+SA.parseDate = function (text) {
+  var parts = String(text).split('-');
+  return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+};
+
+var HARI = ['MINGGU', 'SENIN', 'SELASA', 'RABU', 'KAMIS', 'JUMAT', 'SABTU'];
+var BULAN = ['JANUARI', 'FEBRUARI', 'MARET', 'APRIL', 'MEI', 'JUNI', 'JULI',
+  'AGUSTUS', 'SEPTEMBER', 'OKTOBER', 'NOVEMBER', 'DESEMBER'];
+
+/** "KAMIS, 1 OKTOBER 2026" -- the report's Hari/Tgl line. */
+SA.longDate = function (d) {
+  return HARI[d.getDay()] + ', ' + d.getDate() + ' ' + BULAN[d.getMonth()] + ' ' +
+    d.getFullYear();
+};
+
+/** 2 -> "02:00", 24 -> "00:00". */
+SA.hourText = function (hour) { return pad2(hour % 24) + ':00'; };
+
+/** "MALAM, 00:00 WIB s/d 08:00 WIB" */
+SA.shiftText = function (shiftId) {
+  var shift = SA.shiftById(shiftId);
+  if (!shift) return '';
+  return shift.id + ', ' + SA.hourText(shift.start) + ' WIB s/d ' +
+    SA.hourText(shift.end) + ' WIB';
+};
+
+/**
+ * Which shift a moment falls in, and the calendar date that shift started on.
+ * 00:00-07:59 Malam, 08:00-15:59 Pagi, 16:00-23:59 Sore.
+ */
+SA.shiftFor = function (d) {
+  var hour = d.getHours();
+  var id = hour < 8 ? 'MALAM' : hour < 16 ? 'PAGI' : 'SORE';
+  return { shift: id, date: SA.dateOf(d) };
+};
+
+/** The Date a given hour of a shift falls on. Sore's 24 is next day's 00:00. */
+SA.shiftHourDate = function (shiftDate, hour) {
+  var d = SA.parseDate(shiftDate);
+  d.setHours(hour, 0, 0, 0);          // setHours(24) rolls to the next day
+  return d;
+};
+
+/** Start and end of a shift as Dates. */
+SA.shiftWindow = function (shiftDate, shiftId) {
+  var shift = SA.shiftById(shiftId);
+  if (!shift) return null;
+  return {
+    start: SA.shiftHourDate(shiftDate, shift.start),
+    end: SA.shiftHourDate(shiftDate, shift.end)
+  };
+};
+
+/** Every reporting hour of a shift, start and end included: [16..24]. */
+SA.shiftHours = function (shiftId) {
+  var shift = SA.shiftById(shiftId);
+  var hours = [];
+  if (!shift) return hours;
+  for (var h = shift.start; h <= shift.end; h++) hours.push(h);
+  return hours;
+};
+
+/** Numbers as words, for "TOTAL PERSONIL : 3 (TIGA)" and the like. */
+SA.numberWord = function (n) {
+  var words = ['NOL', 'SATU', 'DUA', 'TIGA', 'EMPAT', 'LIMA', 'ENAM', 'TUJUH',
+    'DELAPAN', 'SEMBILAN', 'SEPULUH'];
+  return words[n] || String(n);
+};
+
+/** Strips anything that would upset a filename or a WhatsApp attachment. */
+SA.fileSafe = function (name) {
+  return String(name).trim().replace(/[^A-Za-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'Laporan';
+};
+
+/** Pads each label to the longest in its group, so the colons line up. */
+SA.aligner = function (labels) {
+  var width = labels.reduce(function (w, label) { return Math.max(w, label.length); }, 0);
+  function padded(label) {
+    var out = label;
+    while (out.length < width) out += ' ';
+    return out;
+  }
+  var line = function (label, value) {
+    return padded(label) + ' : ' + (value == null || value === '' ? '-' : value);
+  };
+  /* A label with nothing after its colon, for a line whose value is the list
+     printed underneath it ("Shift lanjut     :"). */
+  line.head = function (label) { return padded(label) + ' :'; };
+  return line;
+};
+
+window.SA = SA;

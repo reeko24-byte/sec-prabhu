@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Laporan Tim</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#07405F" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#05121B" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Laporan Tim">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- One icon set, one stroke weight (Lucide-style, 2px, round caps). -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></symbol>
+    <symbol id="i-route" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/></symbol>
+    <symbol id="i-steps" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16v-2.4C4 11.5 3 10.5 3 8c0-2.7 1.5-6 4.5-6C9.4 2 11 3.8 11 6.5c0 2.5-1 3.6-1 5.6V16a2 2 0 1 1-4 0h-2z"/><path d="M20 20v-2.4c0-2.1 1-3.1 1-5.6 0-2.7-1.5-6-4.5-6C14.6 6 13 7.8 13 10.5c0 2.5 1 3.6 1 5.6V20a2 2 0 1 0 4 0h2z"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></symbol>
+    <symbol id="i-clipboard" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2M9 14l2 2 4-4"/></symbol>
+    <symbol id="i-camera" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"/><circle cx="12" cy="13" r="3"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></symbol>
+    <symbol id="i-bang" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 5v9M12 19h.01"/></symbol>
+    <symbol id="i-dot" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" fill="currentColor"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></symbol>
+  </defs>
+</svg>
+
+<!-- ── 1. Which team ─────────────────────────────────────────────────────
+     One app for three teams. Asked once; the phone remembers it.
+-->
+<section id="screen-team" class="screen">
+  <div class="pad">
+    <div class="brandmark">
+      <img src="icons/icon-192.png" alt="" width="56" height="56">
+      <div>
+        <h1>Laporan Tim</h1>
+        <p>PT Prabhu · trusted services</p>
+      </div>
+    </div>
+    <p class="brand-note">Foto, caption WhatsApp, dan Excel. Tetap bisa dipakai tanpa sinyal.</p>
+    <p class="eyebrow">Pilih tim Anda</p>
+    <div id="team-chips" class="team-list"></div>
+    <p id="app-version-team" class="version"></p>
+  </div>
+</section>
+
+<!-- ── 2. Security: start of shift ───────────────────────────────────────
+     Post, who is on duty, the BKO, and which shift. Everything on every report
+     of the shift comes from here, so it is asked once and then shown on the
+     main screen the whole shift.
+-->
+<section id="screen-setup" class="screen">
+  <header class="bar">
+    <button id="setup-back" class="link">Ganti tim</button>
+    <span class="who">Mulai shift</span>
+  </header>
+  <div class="pad">
+    <div class="section">
+      <p class="eyebrow">Pos</p>
+      <div id="s-post" class="chips grid"></div>
+    </div>
+
+    <div class="section">
+      <p id="s-officers-label" class="eyebrow">Petugas jaga</p>
+      <div id="s-officers" class="picklist"></div>
+      <p class="hint">Urutan centang menjadi urutan di laporan. Nama pertama dicatat sebagai pelapor.</p>
+      <label class="field">
+        <span>BKO TNI — kosongkan bila tidak ada</span>
+        <input id="s-bko" type="text" autocomplete="off" placeholder="mis. SERTU AHMAD…">
+      </label>
+    </div>
+
+    <div class="section">
+      <p class="eyebrow">Shift</p>
+      <div id="s-shift" class="chips"></div>
+      <label class="field" style="margin-top:12px">
+        <span>Tanggal shift</span>
+        <input id="s-date" type="date">
+      </label>
+      <p class="hint">Shift Malam dimulai 00:00 — tanggalnya adalah hari saat shift dimulai.</p>
+    </div>
+
+    <button id="s-start" class="primary" disabled>Mulai shift</button>
+    <p id="s-blocker" class="hint" style="text-align:center"></p>
+  </div>
+</section>
+
+<!-- ── 3. Security: the shift ────────────────────────────────────────────── -->
+<section id="screen-main" class="screen">
+  <header class="bar">
+    <span class="who">Security Officer</span>
+    <button id="main-team" class="link">Ganti tim</button>
+  </header>
+  <div class="pad">
+    <div class="post-card">
+      <div class="post-badge-wrap"><img id="main-badge" class="post-badge" alt="" width="320" height="64"></div>
+      <div class="post-meta">
+        <div id="main-session" class="assign-line"></div>
+        <button id="main-edit" class="link">Ubah</button>
+      </div>
+    </div>
+    <p id="main-over" class="warn hidden"></p>
+
+    <!-- One cell per reporting hour of the shift: sent, missed, now, or yet to
+         come. Tapping a cell opens the check for that hour. A web app cannot
+         ring the phone every hour while closed, so the guards set a Clock-app
+         alarm; this is what tells them which hour is still owed. -->
+    <div class="timeline-card">
+      <div class="tl-head">
+        <p class="eyebrow">Pengecekan per jam</p>
+        <span id="tl-count" class="tl-count"></span>
+      </div>
+      <ol id="timeline" class="timeline"></ol>
+      <div id="main-due" class="due"></div>
+    </div>
+
+    <button id="go-check" class="action main">
+      <svg width="28" height="28" aria-hidden="true"><use href="#i-clock"/></svg>
+      <span><b>Kirim pengecekan</b><small id="go-check-sub"></small></span>
+    </button>
+    <div class="action-pair">
+      <button id="go-incident" class="action danger">
+        <svg width="24" height="24" aria-hidden="true"><use href="#i-alert"/></svg>
+        <span><b>Laporan kejadian</b><small>Kirim segera</small></span>
+      </button>
+      <button id="go-shift" class="action plain">
+        <svg width="24" height="24" aria-hidden="true"><use href="#i-clipboard"/></svg>
+        <span><b>Laporan shift</b><small>Saat serah terima</small></span>
+      </button>
+    </div>
+
+    <div id="gps" class="gps-pill waiting">
+      <span class="dot"></span>
+      <span class="gps-text">
+        <span class="gps-line" id="gps-status"></span>
+        <span class="gps-line small" id="gps-detail"></span>
+      </span>
+    </div>
+
+    <div class="footer-row">
+      <span id="today-count"></span>
+      <button id="view-list" class="link">Riwayat</button>
+    </div>
+    <button id="go-export" class="secondary">Export ke Excel</button>
+    <p id="app-version" class="version"></p>
+  </div>
+</section>
+
+<!-- ── 4. Security: one report (hourly check, incident or shift) ──────────
+     One screen, three shapes. The sections for the other two kinds are hidden.
+-->
+<section id="screen-report" class="screen">
+  <header class="bar">
+    <button id="r-back" class="link">Batal</button>
+    <span id="r-title" class="who"></span>
+  </header>
+  <div class="pad report-pad">
+
+    <!-- Hourly check -->
+    <div id="r-check" class="hidden">
+      <label class="field">
+        <span>Pukul</span>
+        <select id="r-hour"></select>
+      </label>
+      <p class="hint">Jam yang dijadwalkan. Waktu sebenarnya tercetak di foto.</p>
+      <button id="r-to-incident" class="subtle-link">
+        <svg width="16" height="16" aria-hidden="true"><use href="#i-alert"/></svg>Ada kejadian? Buat laporan kejadian
+      </button>
+    </div>
+
+    <!-- Incident -->
+    <div id="r-incident" class="hidden">
+      <p class="eyebrow">Jenis kejadian</p>
+      <div id="r-type" class="chips wrap" style="margin-bottom:16px"></div>
+      <label id="r-other-field" class="field hidden">
+        <span>Jelaskan (Other)</span>
+        <input id="r-other" type="text" autocomplete="off">
+      </label>
+      <div id="r-questions"></div>
+      <label class="field">
+        <span>Tindakan</span>
+        <textarea id="r-tindakan" rows="3" placeholder="Tindakan yang sudah diambil…"></textarea>
+      </label>
+    </div>
+
+    <!-- Shift report -->
+    <div id="r-shift" class="hidden">
+      <div class="field">
+        <span>A. Pengecekan — dari laporan per jam</span>
+        <div id="r-checks" class="summary"></div>
+      </div>
+      <div class="field">
+        <span>B. Kejadian — dari laporan kejadian</span>
+        <div id="r-incidents" class="summary"></div>
+      </div>
+      <label class="field">
+        <span>Jam serah terima</span>
+        <input id="r-handover" type="time">
+      </label>
+      <div class="field">
+        <span id="r-next-label">Shift lanjut</span>
+        <div id="r-next" class="picklist"></div>
+      </div>
+      <label class="field">
+        <span>BKO shift lanjut — kosongkan bila tidak ada</span>
+        <input id="r-next-bko" type="text" autocomplete="off">
+      </label>
+      <label class="field">
+        <span>Situasi akhir</span>
+        <textarea id="r-final" rows="2"></textarea>
+      </label>
+    </div>
+
+    <div class="photo-head">
+      <span id="photos-label"></span>
+      <em id="photos-hint"></em>
+    </div>
+    <div id="photo-strip" class="strip"></div>
+    <p id="photo-warn" class="warn hidden"></p>
+    <div class="two-up">
+      <button id="take-photo" class="secondary"><svg width="20" height="20" aria-hidden="true"><use href="#i-camera"/></svg>Kamera</button>
+      <button id="pick-gallery" class="secondary"><svg width="20" height="20" aria-hidden="true"><use href="#i-image"/></svg>Galeri</button>
+    </div>
+    <p id="photo-blocker" class="hint"></p>
+    <input id="camera-input" type="file" accept="image/*" capture="environment" hidden>
+    <input id="gallery-input" type="file" accept="image/*" multiple hidden>
+
+    <details class="preview">
+      <summary>Pratinjau laporan</summary>
+      <pre id="r-preview" class="caption"></pre>
+    </details>
+
+    <div class="save-bar">
+      <button id="r-save" class="primary" disabled><svg width="20" height="20" aria-hidden="true"><use href="#i-send"/></svg>Simpan &amp; kirim</button>
+      <p id="r-blocker" class="hint"></p>
+    </div>
+  </div>
+</section>
+
+<!-- ── 5. Send one report to WhatsApp ─────────────────────────────────── -->
+<section id="screen-send" class="screen">
+  <header class="bar">
+    <button id="send-back" class="link">Selesai</button>
+    <span class="who">Kirim ke WhatsApp</span>
+  </header>
+  <div class="pad">
+    <div id="send-photos" class="strip"></div>
+    <p id="send-tip" class="tip"></p>
+    <button id="send-share" class="primary"><svg width="20" height="20" aria-hidden="true"><use href="#i-send"/></svg>Kirim ke WhatsApp</button>
+    <button id="send-copy" class="secondary">Salin caption</button>
+    <p id="send-note" class="hint"></p>
+    <div id="send-steps" class="steps"></div>
+    <!-- After the shift report: the next shift starts with the names that were
+         just handed over, so the incoming guards do not re-pick them. -->
+    <button id="send-new-shift" class="secondary hidden">Mulai shift berikutnya</button>
+    <p id="send-status" class="status" role="status"></p>
+    <p id="send-env" class="hint hidden"></p>
+    <pre id="send-caption" class="caption"></pre>
+  </div>
+</section>
+
+<!-- ── 6. Saved reports ───────────────────────────────────────────────── -->
+<section id="screen-list" class="screen">
+  <header class="bar">
+    <button id="list-back" class="link">Kembali</button>
+    <span class="who" id="list-title"></span>
+  </header>
+  <div class="pad">
+    <div id="list-body" class="list"></div>
+  </div>
+</section>
+
+<!-- ── 7. Excel export ────────────────────────────────────────────────── -->
+<section id="screen-export" class="screen">
+  <header class="bar">
+    <button id="export-back" class="link">Kembali</button>
+    <span class="who">Export Excel</span>
+  </header>
+  <div class="pad">
+    <p id="export-summary" class="lead"></p>
+    <p id="export-size" class="hint"></p>
+    <p id="export-warn" class="warn hidden"></p>
+    <button id="export-include" class="link hidden"></button>
+    <button id="export-build" class="primary">Buat file Excel</button>
+    <div id="export-ready" class="hidden">
+      <p id="export-filename" class="filename"></p>
+      <button id="export-share" class="primary">Kirim file ke WhatsApp</button>
+      <button id="export-download" class="secondary">Simpan ke Files</button>
+      <p id="export-route" class="hint"></p>
+      <button id="export-clear" class="danger-link">Hapus data yang sudah diexport</button>
+    </div>
+    <p id="export-status" class="status" role="status"></p>
+    <p id="export-env" class="hint hidden"></p>
+  </div>
+</section>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="js/options.js"></script>
+<script src="js/exif.js"></script>
+<script src="js/seal.js"></script>
+<script src="js/db.js"></script>
+<script src="js/geo.js"></script>
+<script src="js/photo.js"></script>
+<script src="js/xlsx.js"></script>
+<script src="js/sec-caption.js"></script>
+<script src="js/sec-records.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

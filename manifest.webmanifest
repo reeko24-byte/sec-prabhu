@@ -1,0 +1,17 @@
+{
+  "name": "Laporan Tim — Security, Patrol, Walkthrough",
+  "short_name": "Laporan Tim",
+  "description": "Laporan lapangan. Bekerja offline; kirim foto + caption ke WhatsApp dan export ke Excel.",
+  "lang": "id",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#EFF3F6",
+  "theme_color": "#07405F",
+  "icons": [
+    { "src": "icons/icon-180.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}
