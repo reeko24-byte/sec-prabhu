@@ -162,7 +162,7 @@
       });
 
       lines.push('');
-      lines.push('B. KEJADIAN (siapa, apa, dimana, dengan apa, mengapa, bagaimana, bilamana) :');
+      lines.push('B. KEJADIAN (apa, siapa, kapan, dimana, mengapa, bagaimana) :');
       var incidentLine = SA.aligner(S.incidentTypes);
       var summary = record.incidentSummary || {};
       S.incidentTypes.forEach(function (type) {

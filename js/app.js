@@ -24,7 +24,8 @@
 
   var state = {
     team: '',
-    session: null,       // { id, post, shift, shiftDate, officers, bko }
+    sessions: {},        // per team: Security's shift, Walkthrough's day
+    wtSetup: { teamNo: 0, officers: [], routeId: '', others: false, allRoutes: false },
     setup: { post: '', officers: [], bko: '', shift: '', date: '', others: false },
     gps: { state: 'waiting' },
     draft: null,         // the report being written
@@ -39,12 +40,25 @@
     includeExported: false
   };
 
+  /* Every team's current session lives in state.sessions[team]. These two
+     names are shorthands for the code written for one team:
+       state.session    Security's shift  { id, post, shift, shiftDate, officers, bko }
+       state.wtSession  Walkthrough's day { id, teamNo, zone, routeId, date, officers } */
+  Object.defineProperty(state, 'session', {
+    get: function () { return state.sessions.security || null; },
+    set: function (value) { state.sessions.security = value; }
+  });
+  Object.defineProperty(state, 'wtSession', {
+    get: function () { return state.sessions.walkthrough || null; },
+    set: function (value) { state.sessions.walkthrough = value; }
+  });
+
   var addressCache = {};
 
   function $(id) { return document.getElementById(id); }
 
   var XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-  var SCREENS = ['team', 'setup', 'main', 'report', 'send', 'list', 'export'];
+  var SCREENS = ['team', 'setup', 'main', 'wt-setup', 'wt-main', 'report', 'send', 'list', 'export'];
 
   function show(name) {
     SCREENS.forEach(function (screen) {
@@ -103,13 +117,28 @@
         state.team = team.id;
         SA.db.setPref('team', team.id);
         buildTeamChips();
-        if (state.session) { renderMain(); show('main'); } else { openSetup(); }
+        goMain();
       });
       container.appendChild(chip);
     });
   }
 
   $('main-team').addEventListener('click', function () { buildTeamChips(); show('team'); });
+  $('wt-main-team').addEventListener('click', function () { buildTeamChips(); show('team'); });
+  $('wt-setup-back').addEventListener('click', function () { buildTeamChips(); show('team'); });
+
+  /** The current team's home: its main screen, or its start screen if there
+      is no shift/day yet. Every "back to the start" goes through here. */
+  function goMain() {
+    var team = currentTeam();
+    var session = state.sessions[team];
+    if (session && moduleOf(team).fresh(session)) moduleOf(team).home();
+    else moduleOf(team).setup();
+  }
+
+  function currentTeam() { return MODULES[state.team] ? state.team : 'security'; }
+
+  function currentSession() { return state.sessions[currentTeam()] || null; }
   $('setup-back').addEventListener('click', function () { buildTeamChips(); show('team'); });
 
   /* ── Name picker (used for the officers on duty and for Shift lanjut) ── */
@@ -119,8 +148,19 @@
    * The order ticked is the order printed, so a tick appends and an untick
    * removes without reshuffling the others.
    */
-  function renderPicker(container, post, selected, expanded, onExpand, onChange) {
+  /* `directory` = { noun, groups: [{ name, members }] }; Security's posts by
+     default. The noun is what the list is grouped by: "pos" or "tim". */
+  function renderPicker(container, post, selected, expanded, onExpand, onChange, directory) {
     container.innerHTML = '';
+    var noun = directory ? directory.noun : 'pos';
+    var dir = directory ? directory.groups : S.posts.map(function (p) {
+      return { name: p.name, members: S.roster[p.name] || [] };
+    });
+    function membersOf(name) {
+      var found = null;
+      dir.forEach(function (g) { if (g.name === name) found = g; });
+      return found ? found.members : [];
+    }
 
     function heading(text) {
       var head = document.createElement('div');
@@ -155,33 +195,33 @@
     }
 
     if (!post) {
-      heading('Pilih pos dulu');
+      heading('Pilih ' + noun + ' dulu');
       return;
     }
 
     heading(post);
-    (S.roster[post] || []).forEach(row);
+    membersOf(post).forEach(row);
 
     // Names already ticked from another post stay visible even when collapsed.
     var fromElsewhere = selected.filter(function (name) {
-      return (S.roster[post] || []).indexOf(name) === -1;
+      return membersOf(post).indexOf(name) === -1;
     });
 
     if (expanded) {
-      S.posts.forEach(function (other) {
+      dir.forEach(function (other) {
         if (other.name === post) return;
         heading(other.name);
-        (S.roster[other.name] || []).forEach(row);
+        other.members.forEach(row);
       });
     } else if (fromElsewhere.length) {
-      heading('Dari pos lain');
+      heading('Dari ' + noun + ' lain');
       fromElsewhere.forEach(row);
     }
 
     var toggle = document.createElement('button');
     toggle.type = 'button';
     toggle.className = 'pick-more';
-    toggle.textContent = expanded ? 'Sembunyikan pos lain' : 'Tampilkan pos lain';
+    toggle.textContent = (expanded ? 'Sembunyikan ' : 'Tampilkan ') + noun + ' lain';
     toggle.addEventListener('click', onExpand);
     container.appendChild(toggle);
   }
@@ -327,9 +367,11 @@
   /* Only this shift's reports, through the bySession index -- this runs every
      minute on the main screen and on every report opened or saved. */
   function loadSessionRecords() {
-    if (!state.session) { state.sessionRecords = []; return Promise.resolve([]); }
-    return SA.db.bySession(state.session.id).then(function (records) {
-      state.sessionRecords = records.filter(function (r) { return r.team === 'security'; });
+    var session = currentSession();
+    if (!session) { state.sessionRecords = []; return Promise.resolve([]); }
+    var team = currentTeam();
+    return SA.db.bySession(session.id).then(function (records) {
+      state.sessionRecords = records.filter(function (r) { return (r.team || 'security') === team; });
       return state.sessionRecords;
     });
   }
@@ -464,18 +506,22 @@
     return found;
   }
 
-  function renderCount(records) {
-    var mine = records.filter(function (r) { return r.team === 'security'; });
+  /** The footer counters and the export button of a team's main screen. */
+  function renderCount(records, team, countId, exportId) {
+    team = team || 'security';
+    countId = countId || 'today-count';
+    exportId = exportId || 'go-export';
+    var mine = records.filter(function (r) { return (r.team || 'security') === team; });
     var today = SA.dateOf(new Date());
     var todayCount = mine.filter(function (r) { return r.date === today; }).length;
     var unsent = mine.filter(function (r) { return !r.sentAt; }).length;
     var unexported = mine.filter(function (r) { return !r.exportedAt; }).length;
 
-    $('today-count').textContent =
+    $(countId).textContent =
       (todayCount ? todayCount + ' laporan hari ini' : 'Belum ada laporan hari ini') +
       (unsent ? ' · ' + unsent + ' belum dikirim' : '');
-    $('go-export').disabled = mine.length === 0;
-    $('go-export').textContent = unexported ? 'Export ke Excel (' + unexported + ')' : 'Export ke Excel';
+    $(exportId).disabled = mine.length === 0;
+    $(exportId).textContent = unexported ? 'Export ke Excel (' + unexported + ')' : 'Export ke Excel';
   }
 
   $('main-edit').addEventListener('click', function () { openSetup(); });
@@ -492,7 +538,327 @@
   /* ── 4. One report ──────────────────────────────────────────────────── */
 
   var TITLES = { check: 'Pengecekan', incident: 'Laporan Kejadian', shift: 'Laporan Shift',
-    access: 'Access Control' };
+    access: 'Access Control', wtkp: 'Laporan KP', lds: 'Laporan LDS' };
+
+  /* ── Walkthrough: start of day ──────────────────────────────────────── */
+
+  var W = SA.WT;
+
+  function wtDirectory() {
+    return W.groups.map(function (g) { return { name: g.label, members: g.members }; });
+  }
+
+  /** Opens the WT start screen: yesterday's team and people are offered again,
+      because a crew is usually the same; the route is picked fresh each day. */
+  function openWtSetup() {
+    var s = state.wtSession;
+    state.wtSetup = s
+      ? { teamNo: s.teamNo, officers: s.officers.slice(), routeId: s.routeId, others: false, allRoutes: false }
+      : { teamNo: 0, officers: [], routeId: '', others: false, allRoutes: false };
+    renderWtSetup();
+    show('wt-setup');
+  }
+
+  function buildWtTeamChips() {
+    var box = $('w-team');
+    box.innerHTML = '';
+    for (var n = 1; n <= 13; n++) {
+      (function (teamNo) {
+        var chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'chip';
+        chip.textContent = String(teamNo);
+        chip.setAttribute('aria-label', 'Tim ' + teamNo);
+        chip.addEventListener('click', function () {
+          var setup = state.wtSetup;
+          var before = SA.wtGroupOfTeam(setup.teamNo);
+          var group = SA.wtGroupOfTeam(teamNo);
+          setup.teamNo = teamNo;
+          // A different group: different routes (pick again, or the only one),
+          // and names picked for the other group are almost certainly wrong.
+          if (!before || before.id !== group.id) {
+            setup.routeId = group.routes.length === 1 ? group.routes[0] : '';
+            setup.officers = setup.officers.filter(function (name) {
+              return group.members.indexOf(name) !== -1;
+            });
+          }
+          renderWtSetup();
+        });
+        box.appendChild(chip);
+      }(n));
+    }
+  }
+
+  function renderWtSetup() {
+    var setup = state.wtSetup;
+    var group = SA.wtGroupOfTeam(setup.teamNo);
+
+    Array.prototype.forEach.call($('w-team').children, function (chip, index) {
+      chip.setAttribute('aria-pressed', String(index + 1 === setup.teamNo));
+    });
+    $('w-group').textContent = group ? group.label + ' · ' + group.zone : 'Pilih nomor tim dulu.';
+
+    $('w-officers-label').textContent = 'Petugas (' + setup.officers.length + ' dipilih)';
+    renderPicker($('w-officers'), group ? group.label : '', setup.officers, setup.others,
+      function () { setup.others = !setup.others; renderWtSetup(); },
+      renderWtSetup, { noun: 'tim', groups: wtDirectory() });
+
+    // A saved day that is not today: the crew confirms today's team and route.
+    var previous = state.wtSession;
+    var newDay = !!(previous && previous.date !== SA.dateOf(new Date()));
+    $('w-newday').classList.toggle('hidden', !newDay);
+
+    // The group's routes first; any route if the crew is lent elsewhere today.
+    var box = $('w-route');
+    box.innerHTML = '';
+    var ids = !group ? [] : setup.allRoutes ? W.routeOrder : group.routes;
+    ids.forEach(function (id) {
+      var chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'chip';
+      chip.textContent = W.routes[id].label;
+      chip.setAttribute('aria-pressed', String(id === setup.routeId));
+      chip.addEventListener('click', function () { setup.routeId = id; renderWtSetup(); });
+      box.appendChild(chip);
+    });
+    $('w-route-all').classList.toggle('hidden', !group);
+    $('w-route-all').textContent = setup.allRoutes ? 'Hanya rute tim ini' : 'Tampilkan semua rute';
+    $('w-date').textContent = SA.longDate(new Date());
+
+    var ready = !!(setup.teamNo && setup.officers.length && setup.routeId);
+    $('w-start').disabled = !ready;
+    $('w-blocker').textContent = ready ? ''
+      : !setup.teamNo ? 'Pilih nomor tim dulu.'
+      : !setup.officers.length ? 'Centang petugas yang jalan hari ini.'
+      : 'Pilih rute hari ini.';
+  }
+
+  $('w-route-all').addEventListener('click', function () {
+    state.wtSetup.allRoutes = !state.wtSetup.allRoutes;
+    renderWtSetup();
+  });
+
+  $('w-start').addEventListener('click', function () {
+    if (this.disabled) return;
+    var setup = state.wtSetup;
+    var today = SA.dateOf(new Date());
+    var old = state.wtSession;
+    // Same team, same day: a correction (people or route), not a new day.
+    var same = old && old.teamNo === setup.teamNo && old.date === today;
+    state.wtSession = {
+      id: same ? old.id : 'w' + Date.now().toString(36),
+      teamNo: setup.teamNo,
+      zone: SA.wtGroupOfTeam(setup.teamNo).zone,
+      routeId: setup.routeId,
+      date: today,
+      officers: setup.officers.slice()
+    };
+    SA.db.setPref('wtSession', state.wtSession);
+    SA.photo.preload(SA.wtBadge(setup.teamNo));
+    renderWtMain();
+    show('wt-main');
+  });
+
+  /* ── Walkthrough: the day ───────────────────────────────────────────── */
+
+  function renderWtMain() {
+    var s = state.wtSession;
+    if (!s) return;
+    var badge = SA.wtBadge(s.teamNo);
+    if ($('wt-badge').getAttribute('src') !== badge) $('wt-badge').src = badge;
+    $('wt-badge').alt = 'Team Walkthrough ' + s.teamNo;
+
+    var line = $('wt-session');
+    line.textContent = 'TIM ' + s.teamNo + ' · ' + s.zone;
+    var when = document.createElement('small');
+    when.className = 'when';
+    when.textContent = (W.routes[s.routeId] || {}).label + ' · ' + SA.longDate(SA.parseDate(s.date));
+    var who = document.createElement('small');
+    who.textContent = s.officers.join(', ');
+    line.appendChild(when);
+    line.appendChild(who);
+
+    var stale = s.date !== SA.dateOf(new Date());
+    $('wt-over').textContent = stale
+      ? 'Ini data tim tanggal ' + SA.longDate(SA.parseDate(s.date)) + '. Tekan Ubah untuk memulai hari ini.'
+      : '';
+    $('wt-over').classList.toggle('hidden', !stale);
+
+    loadSessionRecords().then(function (records) {
+      var kps = records.filter(function (r) { return r.kind === 'wtkp'; });
+      var lds = records.filter(function (r) { return r.kind === 'lds'; });
+      var last = kps[kps.length - 1];
+      $('go-wtkp-sub').textContent = last
+        ? kps.length + ' KP hari ini · terakhir KP ' + SA.kpPrint(last.kp)
+        : 'Belum ada KP hari ini';
+      $('go-lds-sub').textContent = lds.length ? lds.length + ' laporan LDS hari ini' : 'Saat ada tiket dari SPO';
+      return SA.db.all();
+    }).then(function (all) {
+      renderCount(all, 'walkthrough', 'wt-count', 'wt-go-export');
+    });
+  }
+
+  $('wt-edit').addEventListener('click', openWtSetup);
+  $('go-wtkp').addEventListener('click', function () { openReport('wtkp'); });
+  $('go-lds').addEventListener('click', function () { openReport('lds'); });
+
+  /* ── Walkthrough: the two forms ─────────────────────────────────────── */
+
+  function wtDraft(kind, s, now) {
+    var route = W.routes[s.routeId] || { segments: [''] };
+    return {
+      kind: kind,
+      team: 'walkthrough',
+      date: SA.dateOf(now),
+      teamNo: s.teamNo,
+      zone: s.zone,
+      routeId: s.routeId,
+      officers: s.officers.slice(),
+      reporter: s.officers[0] || '',
+      segment: route.segments[0],
+      kp: '',
+      condition: W.conditions[0].label,
+      other: '',
+      ldsTime: hhmm(now),
+      ldsSegment: route.segments[0],
+      ldsKp: '',
+      landmark: '',
+      radius: W.LDS_RADIUS,
+      result: 'none',
+      finding: ''
+    };
+  }
+
+  /** Today's route's segments first, then every other segment. */
+  function fillSegmentSelect(select, routeId, value) {
+    select.innerHTML = '';
+    var mine = (W.routes[routeId] || { segments: [] }).segments;
+    function group(label, ids) {
+      if (!ids.length) return;
+      var og = document.createElement('optgroup');
+      og.label = label;
+      ids.forEach(function (id) {
+        var option = document.createElement('option');
+        option.value = id;
+        option.textContent = SA.wtSegmentText(id);
+        og.appendChild(option);
+      });
+      select.appendChild(og);
+    }
+    group('Rute hari ini', mine);
+    group('Segment lain', W.segments.map(function (s) { return s.id; })
+      .filter(function (id) { return mine.indexOf(id) === -1; }));
+    select.value = value;
+  }
+
+  function renderChoice(box, options, current, onPick) {
+    box.innerHTML = '';
+    options.forEach(function (o) {
+      var chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'chip';
+      chip.textContent = o.text;
+      chip.setAttribute('aria-pressed', String(o.value === current));
+      chip.addEventListener('click', function () {
+        onPick(o.value);
+        Array.prototype.forEach.call(box.children, function (c, i) {
+          c.setAttribute('aria-pressed', String(options[i].value === o.value));
+        });
+      });
+      box.appendChild(chip);
+    });
+  }
+
+  function renderWtKpFields() {
+    var d = state.draft;
+    fillSegmentSelect($('r-wt-seg'), d.routeId, d.segment);
+    $('r-wt-kp').value = d.kp;
+    $('r-wt-other').value = '';
+    renderChoice($('r-wt-cond'), W.conditions.map(function (c) {
+      return { value: c.label, text: c.label === W.CONDITION_OTHER ? 'Lainnya — tulis sendiri' : c.label };
+    }), d.condition, function (value) {
+      state.draft.condition = value;
+      renderWtNote();
+      updateReport();
+    });
+    renderWtNote();
+  }
+
+  /** The sentence that will actually be sent, under the choice that makes it. */
+  function renderWtNote() {
+    var d = state.draft;
+    var other = d.condition === W.CONDITION_OTHER;
+    $('r-wt-other-field').classList.toggle('hidden', !other);
+    var c = W.conditions.filter(function (x) { return x.label === d.condition; })[0];
+    $('r-wt-note').textContent = other ? '' : (c ? c.note : '');
+  }
+
+  function renderLdsFields() {
+    var d = state.draft;
+    $('r-lds-time').value = d.ldsTime;
+    fillSegmentSelect($('r-lds-seg'), d.routeId, d.ldsSegment);
+    $('r-lds-kp').value = '';
+    $('r-lds-landmark').value = '';
+    $('r-lds-radius').value = d.radius;
+    $('r-lds-finding').value = '';
+    renderChoice($('r-lds-result'), [
+      { value: 'none', text: 'Tidak ditemukan kebocoran' },
+      { value: 'found', text: 'Ditemukan indikasi' }
+    ], d.result, function (value) {
+      state.draft.result = value;
+      $('r-lds-finding-field').classList.toggle('hidden', value !== 'found');
+      updateReport();
+    });
+    $('r-lds-finding-field').classList.add('hidden');
+  }
+
+  /* The KP mask: digits only, the "+" appears by itself, caret kept at the end
+     (otherwise typing 0,7,6,0,0 gives 07+006 instead of 07+600). */
+  function wireKp(id, key) {
+    $(id).addEventListener('input', function () {
+      if (!state.draft) return;
+      var formatted = SA.formatKp(this.value);
+      this.value = formatted;
+      this.setSelectionRange(formatted.length, formatted.length);
+      state.draft[key] = formatted;
+      updateReport();
+    });
+  }
+  wireKp('r-wt-kp', 'kp');
+  wireKp('r-lds-kp', 'ldsKp');
+
+  function wireText(id, key, after) {
+    $(id).addEventListener('input', function () {
+      if (!state.draft) return;
+      state.draft[key] = this.value;
+      if (after) after(this.value);
+      updateReport();
+    });
+  }
+  wireText('r-wt-other', 'other');
+  wireText('r-lds-landmark', 'landmark');
+  wireText('r-lds-finding', 'finding');
+  // The radius: digits only, and never silently replaced by the default.
+  $('r-lds-radius').addEventListener('input', function () {
+    if (!state.draft) return;
+    this.value = this.value.replace(/\D/g, '').slice(0, 5);
+    state.draft.radius = this.value;
+    updateReport();
+  });
+  wireText('r-lds-time', 'ldsTime', function (value) {
+    state.draft.date = accessDate(value, new Date());
+  });
+  $('r-wt-seg').addEventListener('change', function () {
+    if (!state.draft) return;
+    state.draft.segment = this.value;
+    updateReport();
+  });
+  $('r-lds-seg').addEventListener('change', function () {
+    if (!state.draft) return;
+    state.draft.ldsSegment = this.value;
+    updateReport();
+  });
+
 
   /** The hour a check most likely belongs to: the hour we are in, if it is in
       the shift; otherwise the first one nobody has reported yet. */
@@ -511,37 +877,46 @@
     return open.length ? open[0] : hours[hours.length - 1];
   }
 
+  /** A new Security report, filled from the shift. */
+  function secDraft(kind, session, now, hour) {
+    return {
+      kind: kind,
+      team: 'security',
+      // The captions read `date`; a draft has one too, so the preview is right.
+      date: SA.dateOf(now),
+      post: session.post,
+      shift: session.shift,
+      shiftDate: session.shiftDate,
+      officers: session.officers.slice(),
+      bko: session.bko,
+      reporter: session.officers[0] || '',
+      hour: kind === 'check' ? (hour != null ? hour : defaultHour(session, now)) : null,
+      incidentType: '',
+      otherText: '',
+      answers: { bilamana: 'Pukul ' + hhmm(now) + ' WIB' },
+      tindakan: '',
+      handover: SA.hourText(SA.shiftById(session.shift).end),
+      nextOfficers: [],
+      nextBko: '',
+      finalSituation: S.FINAL_SITUATION,
+      direction: S.accessDirections[0],
+      accessTime: hhmm(now),
+      from: session.post,
+      to: '',
+      approvedBy: ''
+    };
+  }
+
   function openReport(kind, hour) {
-    var session = state.session;
-    if (!session) { openSetup(); return; }
+    var session = currentSession();
+    var module = moduleOf(currentTeam());
+    /* No session, or a Walkthrough day that is not today: back to the start
+       screen, so today's reports are never filed under yesterday's crew. */
+    if (!session || !module.fresh(session)) { goMain(); return; }
     var now = new Date();
 
     loadSessionRecords().then(function () {
-      state.draft = {
-        kind: kind,
-        // The captions read `date`; a draft has one too, so the preview is right.
-        date: SA.dateOf(now),
-        post: session.post,
-        shift: session.shift,
-        shiftDate: session.shiftDate,
-        officers: session.officers.slice(),
-        bko: session.bko,
-        reporter: session.officers[0] || '',
-        hour: kind === 'check' ? (hour != null ? hour : defaultHour(session, now)) : null,
-        incidentType: '',
-        otherText: '',
-        answers: { bilamana: 'Pukul ' + hhmm(now) + ' WIB' },
-        tindakan: '',
-        handover: SA.hourText(SA.shiftById(session.shift).end),
-        nextOfficers: [],
-        nextBko: '',
-        finalSituation: S.FINAL_SITUATION,
-        direction: S.accessDirections[0],
-        accessTime: hhmm(now),
-        from: session.post,
-        to: '',
-        approvedBy: ''
-      };
+      state.draft = module.draft(kind, session, now, hour);
       state.nextOthers = false;
       releasePhotoUrls(state.photos);
       state.photos = [];
@@ -551,6 +926,8 @@
       $('r-incident').classList.toggle('hidden', kind !== 'incident');
       $('r-shift').classList.toggle('hidden', kind !== 'shift');
       $('r-access').classList.toggle('hidden', kind !== 'access');
+      $('r-wtkp').classList.toggle('hidden', kind !== 'wtkp');
+      $('r-lds').classList.toggle('hidden', kind !== 'lds');
       // Access control has its own three named photo slots.
       $('r-photos-generic').classList.toggle('hidden', kind === 'access');
 
@@ -558,6 +935,8 @@
       if (kind === 'access') renderAccessFields();
       if (kind === 'incident') renderIncidentFields();
       if (kind === 'shift') renderShiftFields();
+      if (kind === 'wtkp') renderWtKpFields();
+      if (kind === 'lds') renderLdsFields();
 
       renderPhotoStrip();
       updateReport();
@@ -568,8 +947,7 @@
   $('r-back').addEventListener('click', function () {
     if ((state.photos.length || state.processing) &&
         !confirm('Laporan belum disimpan. Keluar dan buang fotonya?')) return;
-    renderMain();
-    show('main');
+    goMain();
   });
 
   $('r-to-incident').addEventListener('click', function () {
@@ -601,24 +979,12 @@
   /* Incident */
 
   function renderIncidentFields() {
-    var chips = $('r-type');
-    chips.innerHTML = '';
-    S.incidentTypes.forEach(function (type) {
-      var chip = document.createElement('button');
-      chip.type = 'button';
-      chip.className = 'chip';
-      chip.textContent = type;
-      chip.setAttribute('aria-pressed', 'false');
-      chip.addEventListener('click', function () {
+    renderChoice($('r-type'), S.incidentTypes.map(function (t) { return { value: t, text: t }; }),
+      state.draft.incidentType, function (type) {
         state.draft.incidentType = type;
-        Array.prototype.forEach.call(chips.children, function (c) {
-          c.setAttribute('aria-pressed', String(c.textContent === type));
-        });
         $('r-other-field').classList.toggle('hidden', type !== S.OTHER);
         updateReport();
       });
-      chips.appendChild(chip);
-    });
     $('r-other-field').classList.add('hidden');
     $('r-other').value = '';
 
@@ -629,9 +995,10 @@
       label.className = 'field';
       var span = document.createElement('span');
       span.textContent = q.label;
-      var input = document.createElement('input');
-      input.type = 'text';
+      var input = document.createElement(q.long ? 'textarea' : 'input');
+      if (q.long) input.rows = 3; else input.type = 'text';
       input.autocomplete = 'off';
+      input.placeholder = q.hint || '';
       input.value = state.draft.answers[q.key] || '';
       input.addEventListener('input', function () {
         state.draft.answers[q.key] = this.value;
@@ -741,23 +1108,11 @@
 
   function renderAccessFields() {
     var draft = state.draft;
-    var chips = $('r-direction');
-    chips.innerHTML = '';
-    S.accessDirections.forEach(function (direction) {
-      var chip = document.createElement('button');
-      chip.type = 'button';
-      chip.className = 'chip';
-      chip.textContent = direction;
-      chip.setAttribute('aria-pressed', String(direction === draft.direction));
-      chip.addEventListener('click', function () {
+    renderChoice($('r-direction'), S.accessDirections.map(function (d) { return { value: d, text: d }; }),
+      draft.direction, function (direction) {
         state.draft.direction = direction;
-        Array.prototype.forEach.call(chips.children, function (c) {
-          c.setAttribute('aria-pressed', String(c.textContent === direction));
-        });
         updateReport();
       });
-      chips.appendChild(chip);
-    });
     $('r-time').value = draft.accessTime;
     $('r-from').value = draft.from;
     $('r-to').value = '';
@@ -877,6 +1232,17 @@
       if (!draft.incidentType) missing.push('jenis kejadian');
       else if (draft.incidentType === S.OTHER && !draft.otherText.trim()) missing.push('penjelasan Other');
     }
+    // Walkthrough: the KP and the condition are burned into the photo.
+    if (draft.kind === 'wtkp') {
+      if (!SA.isKpComplete(draft.kp)) missing.push('KP');
+      if (draft.condition === SA.WT.CONDITION_OTHER && !String(draft.other).trim()) missing.push('kondisi lain');
+    }
+    // LDS: the time, segment and KP of the detection point are on the photo.
+    if (draft.kind === 'lds') {
+      if (!draft.ldsTime) missing.push('Jam');
+      if (!draft.ldsSegment) missing.push('Segment');
+      if (!SA.isKpComplete(draft.ldsKp)) missing.push('KP');
+    }
     // Pukul, Dari and Menuju are burned into the access control photos.
     if (draft.kind === 'access') {
       if (!draft.accessTime) missing.push('Pukul');
@@ -892,6 +1258,14 @@
     var missing = missingForPhoto();
     if (state.processing) missing.push('foto masih diproses');
     if (draft.kind === 'shift' && !draft.handover) missing.push('Jam serah terima');
+    if (draft.kind === 'lds' && !/^\d+$/.test(String(draft.radius))) missing.push('radius penyisiran');
+    if (draft.kind === 'lds' && draft.result === 'found' && !String(draft.finding).trim()) {
+      missing.push('keterangan temuan');
+    }
+    var rule = photoRule(draft.kind);
+    if (draft.kind !== 'access' && rule.required && state.photos.length < rule.required) {
+      missing.push('foto (' + (rule.required - state.photos.length) + ' lagi)');
+    }
     if (draft.kind === 'access') {
       if (!String(draft.approvedBy).trim()) missing.push('ACC oleh');
       S.accessPhotos.forEach(function (name, slot) {
@@ -901,27 +1275,123 @@
     return missing;
   }
 
-  function captionOf(record) {
-    return record.kind === 'check' ? SA.secCaption.check(record)
-      : record.kind === 'incident' ? SA.secCaption.incident(record)
-      : record.kind === 'access' ? SA.secCaption.access(record)
-      : SA.secCaption.shift(record);
+  function captionOf(record) { return moduleOf(record.team).caption(record); }
+
+  /**
+   * How many photos each report takes.
+   *   min-max   the suggestion shown on the form
+   *   required  saving waits for at least this many (0 = never required)
+   *   cap       the most the form accepts
+   * Security's check, incident and shift are suggestions only; Access Control
+   * (3 named slots), a WT KP (exactly 3) and LDS (at least 4) are required.
+   */
+  function photoRule(kind) {
+    if (kind === 'access') return { min: 3, max: 3, required: 3, cap: 3 };
+    if (kind === 'wtkp') return { min: 3, max: 3, required: 3, cap: 3 };
+    if (kind === 'lds') return { min: 5, max: 6, required: 4, cap: S.MAX_PHOTOS };
+    var hint = S.photoHint[kind];
+    return { min: hint.min, max: hint.max, required: 0, cap: S.MAX_PHOTOS };
   }
+
+  /* Per team: how a report is captioned, named, stamped, sealed and exported. */
+  var MODULES = {
+    security: {
+      caption: function (r) {
+        return r.kind === 'check' ? SA.secCaption.check(r)
+          : r.kind === 'incident' ? SA.secCaption.incident(r)
+          : r.kind === 'access' ? SA.secCaption.access(r)
+          : SA.secCaption.shift(r);
+      },
+      label: function (r) { return SA.secRecords.label(r); },
+      stamp: function (d) { return SA.secRecords.stampLines(d); },
+      seal: function (d, t, f) { return SA.secRecords.sealFacts(d, t, f); },
+      sealPrefix: 'SEC',
+      badge: function (d) { return badgeOf(d.post); },
+      fallback: function (d) { return 'SECURITY OFFICER\n' + d.post; },
+      sheets: function (rs) { return SA.secRecords.sheets(rs); },
+      fileLabel: function (r) { return 'SEC ' + r.post + ' ' + SA.secRecords.label(r); },
+      exportName: function (rs) {
+        return 'SECURITY_' + SA.fileSafe(state.session ? state.session.post : rs[0].post);
+      },
+      where: function (r) { return r.post; },
+      prefKey: 'session',
+      valid: function (s) { return !!(s && s.post); },
+      sessionBadge: function (s) { return badgeOf(s.post); },
+      // A shift past its end only warns (the handover may still be owed).
+      fresh: function () { return true; },
+      home: function () { renderMain(); show('main'); },
+      setup: function () { openSetup(); },
+      draft: secDraft,
+      recordBase: function (draft, now, session) {
+        return {
+          team: 'security', kind: draft.kind, sessionId: session.id,
+          date: draft.kind === 'access' ? accessDate(draft.accessTime, now) : SA.dateOf(now),
+          time: SA.timeOf(now), timestamp: SA.timestampOf(now),
+          post: draft.post, shift: draft.shift, shiftDate: draft.shiftDate,
+          officers: draft.officers.slice(), bko: (draft.bko || '').trim(), reporter: draft.reporter
+        };
+      },
+      summary: function (c, n) {
+        return n + ' laporan: ' + (c.check || 0) + ' pengecekan, ' + (c.incident || 0) + ' kejadian, ' +
+          (c.access || 0) + ' access control, ' + (c.shift || 0) + ' shift.';
+      }
+    },
+    walkthrough: {
+      caption: function (r) { return SA.wtRecords.caption(r); },
+      label: function (r) { return SA.wtRecords.label(r); },
+      stamp: function (d) { return SA.wtRecords.stampLines(d); },
+      seal: function (d, t, f) { return SA.wtRecords.sealFacts(d, t, f); },
+      sealPrefix: 'WT',
+      badge: function (d) { return SA.wtBadge(d.teamNo); },
+      fallback: function (d) { return 'TEAM WALKTHROUGH\nTIM ' + d.teamNo; },
+      sheets: function (rs) { return SA.wtRecords.sheets(rs); },
+      fileLabel: function (r) { return 'WT T' + r.teamNo + ' ' + SA.wtRecords.label(r); },
+      exportName: function (rs) {
+        return 'WT_TIM' + (state.wtSession ? state.wtSession.teamNo : rs[0].teamNo);
+      },
+      where: function (r) { return 'Tim WT ' + r.teamNo; },
+      prefKey: 'wtSession',
+      valid: function (s) { return !!(s && s.teamNo); },
+      sessionBadge: function (s) { return SA.wtBadge(s.teamNo); },
+      // A WT day is one calendar day: another day means a new start screen.
+      fresh: function (s) { return s.date === SA.dateOf(new Date()); },
+      home: function () { renderWtMain(); show('wt-main'); },
+      setup: function () { openWtSetup(); },
+      draft: function (kind, session, now) { return wtDraft(kind, session, now); },
+      recordBase: function (draft, now, session) {
+        return {
+          team: 'walkthrough', kind: draft.kind, sessionId: session.id,
+          // An LDS is dated by its Jam, like Access Control by its Pukul.
+          date: draft.kind === 'lds' ? accessDate(draft.ldsTime, now) : SA.dateOf(now),
+          time: SA.timeOf(now), timestamp: SA.timestampOf(now),
+          teamNo: draft.teamNo, zone: draft.zone, routeId: draft.routeId,
+          officers: draft.officers.slice(), reporter: draft.reporter
+        };
+      },
+      summary: function (c, n) {
+        return n + ' laporan: ' + (c.wtkp || 0) + ' KP, ' + (c.lds || 0) + ' LDS.';
+      }
+    }
+  };
+
+  function moduleOf(team) { return MODULES[team] || MODULES.security; }
 
   function updateReport() {
     var draft = state.draft;
     if (!draft) return;
-    var hint = S.photoHint[draft.kind];
+    var rule = photoRule(draft.kind);
     var taken = state.photos.length;
-    var full = taken >= S.MAX_PHOTOS;
+    var full = taken >= rule.cap;
     var missing = missingForPhoto();
 
     $('photos-label').textContent = 'Foto · ' + taken;
-    $('photos-hint').textContent = 'disarankan ' + hint.min + '–' + hint.max;
+    $('photos-hint').textContent = !rule.required ? 'disarankan ' + rule.min + '–' + rule.max
+      : rule.required === rule.max ? 'wajib ' + rule.required
+      : 'wajib min. ' + rule.required + ' · disarankan ' + rule.min + '–' + rule.max;
     $('take-photo').disabled = full || missing.length > 0;
     $('pick-gallery').disabled = full || missing.length > 0;
     $('photo-blocker').textContent = full
-      ? 'Sudah ' + S.MAX_PHOTOS + ' foto — batas maksimum.'
+      ? 'Sudah ' + rule.cap + ' foto — batas maksimum.'
       : missing.length ? 'Isi dulu: ' + missing.join(', ') + '.' : '';
 
     /* The photo count is a suggestion, never a gate: a guard who has none, or
@@ -930,7 +1400,7 @@
     var saveMissing = missingForSave();
     $('r-save').disabled = saveMissing.length > 0;
     $('r-blocker').textContent = saveMissing.length ? 'Isi dulu: ' + saveMissing.join(', ') + '.'
-      : draft.kind !== 'access' && taken < hint.min ? 'Belum ada foto — tetap bisa dikirim.'
+      : !rule.required && taken < rule.min ? 'Belum ada foto — tetap bisa dikirim.'
       : '';
 
     $('r-preview').textContent = captionOf(draft);
@@ -941,24 +1411,28 @@
 
   function renderGps() {
     var gps = state.gps;
-    $('gps').className = 'gps-pill ' + (gps.state === 'ok' ? 'ok' : gps.state === 'denied' ? 'denied' : 'waiting');
-    if (gps.state === 'ok') {
-      $('gps-status').textContent = 'GPS terkunci · ±' + Math.round(gps.accuracy) + ' m';
-      $('gps-detail').textContent = gps.latitude.toFixed(6) + ', ' + gps.longitude.toFixed(6);
-    } else {
-      $('gps-status').textContent = gps.state === 'denied' ? 'Akses lokasi ditolak'
-        : gps.state === 'unsupported' ? 'Perangkat ini tidak punya GPS'
-        : 'Menunggu sinyal GPS…';
-      $('gps-detail').textContent = gps.state === 'denied'
-        ? 'Aktifkan lewat Pengaturan. Foto tetap bisa diambil, tanpa koordinat.'
-        : 'Foto tetap bisa diambil.';
-    }
+    // The same panel sits on both main screens: Security's and Walkthrough's.
+    ['', 'wt-'].forEach(function (prefix) {
+      $(prefix + 'gps').className = 'gps-pill ' +
+        (gps.state === 'ok' ? 'ok' : gps.state === 'denied' ? 'denied' : 'waiting');
+      if (gps.state === 'ok') {
+        $(prefix + 'gps-status').textContent = 'GPS terkunci · ±' + Math.round(gps.accuracy) + ' m';
+        $(prefix + 'gps-detail').textContent = gps.latitude.toFixed(6) + ', ' + gps.longitude.toFixed(6);
+      } else {
+        $(prefix + 'gps-status').textContent = gps.state === 'denied' ? 'Akses lokasi ditolak'
+          : gps.state === 'unsupported' ? 'Perangkat ini tidak punya GPS'
+          : 'Menunggu sinyal GPS…';
+        $(prefix + 'gps-detail').textContent = gps.state === 'denied'
+          ? 'Aktifkan lewat Pengaturan. Foto tetap bisa diambil, tanpa koordinat.'
+          : 'Foto tetap bisa diambil.';
+      }
+    });
   }
 
   /* ── Photographs ────────────────────────────────────────────────────── */
 
   function overlaySignature() {
-    return SA.secRecords.stampLines(state.draft).join('|');
+    return moduleOf(state.draft.team).stamp(state.draft).join('|');
   }
 
   $('take-photo').addEventListener('click', function () {
@@ -996,7 +1470,9 @@
   /* One at a time: several full-size decodes at once is how a mid-range phone
      ends up reloading the tab. */
   function addPhotos(files, source) {
-    if (state.draft && state.draft.kind === 'access') {
+    // A picker that returns after its report was saved or left: nothing to add to.
+    if (!state.draft) return;
+    if (state.draft.kind === 'access') {
       if (pendingSlot == null) return;
       var slot = pendingSlot;
       pendingSlot = null;
@@ -1011,7 +1487,7 @@
       });
       return;
     }
-    var room = S.MAX_PHOTOS - state.photos.length;
+    var room = photoRule(state.draft.kind).cap - state.photos.length;
     if (room <= 0) return;
     var queue = files.slice(0, room);
     toast('Memproses foto…');
@@ -1051,13 +1527,14 @@
 
       return (fix ? addressFor(fix.latitude, fix.longitude) : Promise.resolve(null)).then(function (address) {
         if (address) state.lastAddress = address;
-        var facts = SA.secRecords.sealFacts(draft, timestamp, fix);
+        var module = moduleOf(draft.team);
+        var facts = module.seal(draft, timestamp, fix);
         // Which of the three access-control photos this is: stamped and sealed.
         var subject = slot != null ? S.accessPhotos[slot] : '';
         if (subject) facts.push(subject);
 
         return SA.seal.compute(file, facts).then(function (seal) {
-          var lines = SA.secRecords.stampLines(draft).concat([
+          var lines = module.stamp(draft).concat([
             subject ? 'Foto: ' + subject : '',
             timestamp,
             fix ? 'Lat: ' + fix.latitude.toFixed(6) + ', Long: ' + fix.longitude.toFixed(6) : '',
@@ -1067,9 +1544,9 @@
             lines: lines,
             timestamp: timestamp,
             seal: seal,
-            sealPrefix: 'SEC',
-            badge: badgeOf(draft.post),
-            fallback: 'SECURITY OFFICER\n' + draft.post
+            sealPrefix: module.sealPrefix,
+            badge: module.badge(draft),
+            fallback: module.fallback(draft)
           }).then(function (processed) {
             /* The guard may have left this report while the photo was being
                stamped. Its stamp and seal belong to that report, so it must not
@@ -1080,7 +1557,7 @@
               releasePhotoUrls(state.photos.filter(function (p) { return p.slot === slot; }));
               state.photos = state.photos.filter(function (p) { return p.slot !== slot; });
               processed.slot = slot;
-            } else if (state.photos.length >= S.MAX_PHOTOS) {
+            } else if (state.photos.length >= photoRule(draft.kind).cap) {
               return;
             }
             processed.signature = signature;
@@ -1176,21 +1653,9 @@
         draft.incidentSummary = incidentSummary();
       }
 
-      var record = {
-        team: 'security',
-        kind: draft.kind,
-        sessionId: state.session.id,
-        date: draft.kind === 'access' ? accessDate(draft.accessTime, now) : SA.dateOf(now),
-        time: SA.timeOf(now),
-        timestamp: SA.timestampOf(now),
-        post: draft.post,
-        shift: draft.shift,
-        shiftDate: draft.shiftDate,
-        officers: draft.officers.slice(),
-        bko: (draft.bko || '').trim(),
-        reporter: draft.reporter,
-        // Access control photos are filed in slot order: manifest, plate, goods.
-        photos: state.photos.slice().sort(function (a, b) {
+      var record = moduleOf(draft.team).recordBase(draft, now, state.sessions[draft.team]);
+      // Access control photos are filed in slot order: manifest, plate, goods.
+      record.photos = state.photos.slice().sort(function (a, b) {
           return (a.slot == null ? 0 : a.slot) - (b.slot == null ? 0 : b.slot);
         }).map(function (p) {
           return {
@@ -1199,10 +1664,22 @@
             takenAt: p.takenAt, sealCode: p.sealCode, sealDigest: p.sealDigest, sealAlgo: p.sealAlgo,
             slot: p.slot == null ? null : p.slot
           };
-        })
-      };
+        });
 
-      if (draft.kind === 'access') {
+      if (draft.kind === 'wtkp') {
+        record.segment = draft.segment;
+        record.kp = draft.kp;
+        record.condition = draft.condition;
+        record.other = draft.condition === SA.WT.CONDITION_OTHER ? String(draft.other).trim() : '';
+      } else if (draft.kind === 'lds') {
+        record.ldsTime = draft.ldsTime;
+        record.ldsSegment = draft.ldsSegment;
+        record.ldsKp = draft.ldsKp;
+        record.landmark = String(draft.landmark).trim();
+        record.radius = String(draft.radius).trim();
+        record.result = draft.result;
+        record.finding = draft.result === 'found' ? String(draft.finding).trim() : '';
+      } else if (draft.kind === 'access') {
         record.direction = draft.direction;
         record.accessTime = draft.accessTime;
         record.from = String(draft.from).trim();
@@ -1252,7 +1729,7 @@
      navigator.share() left to run -- anything slower costs the gesture. */
   function openSend(record) {
     var caption = captionOf(record);
-    var base = SA.fileSafe('SEC ' + record.post + ' ' + SA.secRecords.label(record));
+    var base = SA.fileSafe(moduleOf(record.team).fileLabel(record));
     var files = (record.photos || []).map(function (photo, index) {
       return new File([photo.blob], base + '_' + (index + 1) + '.jpg', { type: 'image/jpeg' });
     });
@@ -1321,11 +1798,16 @@
       'Baru pilih grupnya. Kalau lewat baris atas, caption akan terulang di setiap foto.';
 
     $('send-new-shift').classList.toggle('hidden', sending.record.kind !== 'shift');
+    $('send-next').classList.toggle('hidden', sending.record.kind !== 'wtkp');
+    /* LDS names people with @-tags. Tags only notify when picked from
+       WhatsApp's own list, so the guard adds them there before sending. */
+    $('send-tags').classList.toggle('hidden', sending.record.kind !== 'lds');
     $('send-status').textContent = '';
     $('send-env').classList.add('hidden');
   }
 
-  $('send-back').addEventListener('click', function () { renderMain(); show('main'); });
+  $('send-back').addEventListener('click', function () { goMain(); });
+  $('send-next').addEventListener('click', function () { openReport('wtkp'); });
 
   $('send-share').addEventListener('click', function () {
     var sending = state.sending;
@@ -1404,14 +1886,16 @@
   /* ── List ───────────────────────────────────────────────────────────── */
 
   $('view-list').addEventListener('click', function () { renderList(); show('list'); });
-  $('list-back').addEventListener('click', function () { renderMain(); show('main'); });
+  $('wt-view-list').addEventListener('click', function () { renderList(); show('list'); });
+  $('list-back').addEventListener('click', function () { goMain(); });
 
   var listUrls = [];
   function renderList() {
     listUrls.forEach(URL.revokeObjectURL);
     listUrls = [];
     SA.db.all().then(function (all) {
-      var records = all.filter(function (r) { return r.team === 'security'; });
+      var team = currentTeam();
+      var records = all.filter(function (r) { return (r.team || 'security') === team; });
       var body = $('list-body');
       body.innerHTML = '';
       $('list-title').textContent = records.length + ' laporan tersimpan';
@@ -1438,11 +1922,12 @@
         var info = document.createElement('div');
         info.className = 'card-body';
         var title = document.createElement('b');
-        title.textContent = SA.secRecords.label(record);
+        title.textContent = moduleOf(record.team).label(record);
         info.appendChild(title);
         var meta = document.createElement('div');
         meta.className = 'meta';
-        meta.textContent = record.post + ' · ' + record.date + ' ' + (record.time || '').slice(0, 5) +
+        meta.textContent = moduleOf(record.team).where(record) + ' · ' + record.date + ' ' +
+          (record.time || '').slice(0, 5) +
           ' · ' + (record.photos || []).length + ' foto';
         info.appendChild(meta);
         var badges = document.createElement('div');
@@ -1463,7 +1948,7 @@
         remove.className = 'danger-link';
         remove.textContent = 'Hapus';
         remove.addEventListener('click', function () {
-          if (!confirm('Hapus ' + SA.secRecords.label(record) + '?')) return;
+          if (!confirm('Hapus ' + moduleOf(record.team).label(record) + '?')) return;
           SA.db.remove(record.id).then(function () { renderList(); toast('Dihapus.'); });
         });
         actions.appendChild(remove);
@@ -1482,7 +1967,10 @@
 
   /* ── Excel export ───────────────────────────────────────────────────── */
 
-  $('go-export').addEventListener('click', function () {
+  $('go-export').addEventListener('click', openExport);
+  $('wt-go-export').addEventListener('click', openExport);
+
+  function openExport() {
     state.built = null;
     state.includeExported = false;
     $('export-ready').classList.add('hidden');
@@ -1491,23 +1979,23 @@
     $('export-env').classList.add('hidden');
     show('export');
     renderExport();
-  });
-  $('export-back').addEventListener('click', function () { renderMain(); show('main'); });
+  }
+  $('export-back').addEventListener('click', function () { goMain(); });
 
   function renderExport() {
     return SA.db.all().then(function (all) {
-      var mine = all.filter(function (r) { return r.team === 'security'; });
+      var team = currentTeam();
+      var mine = all.filter(function (r) { return (r.team || 'security') === team; });
       var fresh = mine.filter(function (r) { return !r.exportedAt; });
       var doneCount = mine.length - fresh.length;
       var chosen = state.includeExported ? mine : fresh;
       state.chosen = chosen;
 
-      var counts = { check: 0, incident: 0, shift: 0, access: 0 };
-      chosen.forEach(function (r) { counts[r.kind] += 1; });
+      var counts = {};
+      chosen.forEach(function (r) { counts[r.kind] = (counts[r.kind] || 0) + 1; });
       $('export-summary').textContent = chosen.length === 0
         ? (doneCount ? 'Semua laporan sudah diexport.' : 'Belum ada laporan untuk diexport.')
-        : chosen.length + ' laporan: ' + counts.check + ' pengecekan, ' +
-          counts.incident + ' kejadian, ' + counts.access + ' access control, ' + counts.shift + ' shift.';
+        : moduleOf(team).summary(counts, chosen.length);
 
       var include = $('export-include');
       include.classList.toggle('hidden', doneCount === 0);
@@ -1569,12 +2057,13 @@
     status.textContent = 'Menyusun file…';
 
     loadLogo().then(function (logo) {
-      return SA.xlsx.build(SA.secRecords.sheets(records), function (done, total) {
+      var team = currentTeam();
+      return SA.xlsx.build(moduleOf(team).sheets(records), function (done, total) {
         status.textContent = 'Menulis foto ' + done + ' dari ' + total + '…';
-      }, { primary: SA.EXCEL_THEMES.security.primary, logo: logo });
+      }, { primary: SA.EXCEL_THEMES[team].primary, logo: logo });
     }).then(function (blob) {
-      var post = state.session ? state.session.post : records[0].post;
-      var filename = 'SECURITY_' + SA.fileSafe(post) + '_' + SA.stampOf(new Date()) + '.xlsx';
+      var filename = moduleOf(currentTeam()).exportName(records) + '_' +
+        SA.stampOf(new Date()) + '.xlsx';
       var file = new File([blob], filename, { type: XLSX_MIME });
       state.built = {
         blob: blob, file: file, filename: filename, count: records.length,
@@ -1657,8 +2146,10 @@
      the shift report's sections A and B and the timeline are built from those. */
   $('export-clear').addEventListener('click', function () {
     SA.db.all().then(function (all) {
-      var current = state.session ? state.session.id : null;
-      var exported = all.filter(function (r) { return r.team === 'security' && r.exportedAt; });
+      var team = currentTeam();
+      var session = currentSession();
+      var current = session ? session.id : null;
+      var exported = all.filter(function (r) { return (r.team || 'security') === team && r.exportedAt; });
       var done = exported.filter(function (r) { return r.sentAt && r.sessionId !== current; });
       var kept = exported.length - done.length;
       if (!done.length) {
@@ -1672,8 +2163,7 @@
       return SA.db.removeMany(done.map(function (r) { return r.id; })).then(function () {
         state.built = null;
         toast(done.length + ' laporan dihapus.');
-        renderMain();
-        show('main');
+        goMain();
       });
     });
   });
@@ -1683,7 +2173,7 @@
   /* BUILD and CACHE_VERSION in sw.js are a PAIR -- bump both on every upload.
      The marker prints both; when they differ, the new version has downloaded
      but the app has not been restarted. */
-  var BUILD = 'v10';
+  var BUILD = 'v13';
   var CACHE_PREFIX = 'superapp-laporan-';
 
   function showVersion() {
@@ -1691,6 +2181,7 @@
     function put(text) {
       $('app-version').textContent = text;
       $('app-version-team').textContent = text;
+      $('wt-version').textContent = text;
     }
     if (!window.caches || !caches.keys) { put(running); return; }
     caches.keys().then(function (names) {
@@ -1735,15 +2226,18 @@
 
     SA.db.getPref('team', '').then(function (team) {
       state.team = team || '';
-      return SA.db.getPref('session', null);
-    }).then(function (session) {
-      if (session && session.post) {
-        state.session = session;
-        SA.photo.preload(badgeOf(session.post));
-      }
+      return Promise.all(Object.keys(MODULES).map(function (team) {
+        var module = MODULES[team];
+        return SA.db.getPref(module.prefKey, null).then(function (session) {
+          if (!module.valid(session)) return;
+          state.sessions[team] = session;
+          SA.photo.preload(module.sessionBadge(session));
+        });
+      }));
+    }).then(function () {
       buildTeamChips();
-      if (state.team === 'security' && state.session) { renderMain(); show('main'); }
-      else if (state.team === 'security') openSetup();
+      buildWtTeamChips();
+      if (MODULES[state.team]) goMain();
       else show('team');
     }).catch(function (error) {
       show('team');

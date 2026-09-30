@@ -25,7 +25,7 @@ SA.TEAMS = [
     icon: 'i-shield', note: 'Pos jaga dan fasilitas' },
   { id: 'patrol',      label: 'Patrol',           ready: false,
     icon: 'i-route',  note: 'Patroli kendaraan per zona' },
-  { id: 'walkthrough', label: 'Walkthrough',      ready: false,
+  { id: 'walkthrough', label: 'Walkthrough',      ready: true,
     icon: 'i-steps',  note: 'Jalan kaki sepanjang ROW' }
 ];
 
@@ -120,15 +120,16 @@ SA.SECURITY = {
   incidentTypes: ['Theft', 'Vandalisme', 'Penyetopan', 'Demo', 'Other'],
   OTHER: 'Other',
 
-  /* The seven questions of an incident report (SIADIDEMENBABI). */
+  /* The incident report's questions, 5W1H (Billy, 2026-10-01; was the seven
+   * of SIADIDEMENBABI until v12). Kapan keeps the key 'bilamana' so incidents
+   * saved before v13 still show their time in the Excel. `long` = a text box. */
   questions: [
-    { key: 'siapa',     label: 'Siapa' },
-    { key: 'apa',       label: 'Apa' },
-    { key: 'dimana',    label: 'Dimana' },
-    { key: 'denganApa', label: 'Dengan apa' },
-    { key: 'mengapa',   label: 'Mengapa' },
-    { key: 'bagaimana', label: 'Bagaimana' },
-    { key: 'bilamana',  label: 'Bilamana' }
+    { key: 'apa',       label: 'Apa',       hint: 'Apa yang terjadi' },
+    { key: 'siapa',     label: 'Siapa',     hint: 'Pelaku, korban, saksi' },
+    { key: 'bilamana',  label: 'Kapan',     hint: 'Pukul … WIB' },
+    { key: 'dimana',    label: 'Dimana',    hint: 'Lokasi kejadian' },
+    { key: 'mengapa',   label: 'Mengapa',   hint: 'Penyebab / motif' },
+    { key: 'bagaimana', label: 'Bagaimana', hint: 'Kronologi kejadian', long: true }
   ],
 
   FINAL_SITUATION: 'Situasi akhir kondusif, aman terkendali.',

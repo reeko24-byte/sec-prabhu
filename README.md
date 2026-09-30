@@ -4,8 +4,15 @@ One PWA for three teams: **Security Officer**, **Patrol**, **Walkthrough**.
 Works on Android (Chrome) and iPhone (Safari), offline, no backend. Each report
 goes to WhatsApp as photos + caption in one tap; the Excel is a separate export.
 
-**Status (v10, 2026-10-01):** Security Officer is built — four report types.
-Patrol and Walkthrough show on the first screen as "segera" — not built yet.
+**Status (v13, 2026-10-01)**
+
+| Team | State | Reports |
+|---|---|---|
+| Security Officer | **built** | Pengecekan (hourly), Laporan Kejadian, Access Control, Laporan Shift |
+| Walkthrough | **built** | Laporan KP, Laporan LDS |
+| Patrol | "segera" — questions on hold | (LDS is ready to share) |
+
+The old `wt-surveillance` app is to be **retired**; WT crews switch to this app.
 
 Built by copying the proven parts of `wt-surveillance` (photo pipeline, seal,
 Exif reader, .xlsx writer, share handling, version marker). The other apps in
@@ -18,18 +25,51 @@ Exif reader, .xlsx writer, share handling, version marker). The other apps in
 This folder is **not** a git repo. Upload the whole folder to GitHub Pages by
 hand. On **every** upload, bump both of these together — they are a pair:
 
-- `CACHE_VERSION` in `sw.js` (now `superapp-laporan-v10`)
-- `BUILD` in `js/app.js` (now `v10`)
+- `CACHE_VERSION` in `sw.js` (now `superapp-laporan-v13`)
+- `BUILD` in `js/app.js` (now `v13`)
 
 If files change and `sw.js` does not, phones that already have the app keep the
-old files forever. The line at the foot of the main screen prints
-`kode v10 · cache v10`; if the two differ, the new version downloaded but the app
-has not been restarted. A changed home-screen icon usually only appears after
-the app is removed and added to the Home Screen again.
+old files forever. The line at the foot of each main screen prints
+`kode v13 · cache v13`; if the two differ, the new version downloaded but the app
+has not been restarted. A changed home-screen icon usually only appears after the
+app is removed and added to the Home Screen again.
+
+Stored reports survive updates: the phone's database is upgraded in place
+(version 2 added the `bySession` index in v10; no report is lost).
 
 ---
 
-## Security Officer — how a shift works
+## How the app is organised
+
+- **One phone, one team at a time.** The first screen picks the team; the phone
+  remembers it. "Ganti tim" on a main screen switches.
+- **Each team has a session:** Security's is the **shift** (post, crew, BKO,
+  shift, date); Walkthrough's is the **day** (team number, crew, route, date).
+  All of them live in `state.sessions[team]` and are saved as preferences.
+- **`MODULES` in `js/app.js`** is the one table that says, per team: how a report
+  is captioned, named, stamped and sealed; its Excel sheets and file name; where
+  its session is saved; when a session is still current (a WT day is one
+  calendar day; a Security shift only warns when it is over); how to open its
+  home and start screens; and how to build a new draft and a saved record.
+- Each team has an options file (people, places, wording data) and a records
+  file (captions, stamp lines, seal facts, sheets): `options.js` +
+  `sec-caption.js` + `sec-records.js` for Security, `wt-options.js` +
+  `wt-records.js` for Walkthrough.
+- **Photo rules** (suggested / required / maximum per report) are in
+  `photoRule()` in `js/app.js`.
+
+**Adding Patrol:** a `patrol` entry in `SA.TEAMS` (ready: true) and in
+`MODULES`; a `patrol-options.js` (people from sheet PATROL, zones, vehicles…) and
+`patrol-records.js` (caption, stamp, seal, sheets); a start screen and a main
+screen in `index.html`; its report kinds in `photoRule()` and the form sections.
+The LDS report is already shared: `SA.lds.caption(record, 'Tim Patrol 3')`.
+Badges `assets/badges/patrol-1…8.png` are in place (Patrol N = ZONA N, to confirm).
+
+---
+
+## Security Officer
+
+### How a shift works
 
 1. **Mulai shift** (once per shift): post, officers on duty (tick order = print
    order; the first name is the reporter), BKO TNI (optional), shift, shift date.
@@ -74,10 +114,11 @@ chose this instead, because section A would otherwise shrink to one hour.)
 
 One cell per check hour, then the handover cell (clipboard mark):
 green ✓ sent · amber ! missed · blue ring = the hour we are in · dashed = not
-yet. Each state has a mark as well as a colour. Tapping a check cell opens that
-hour's check; tapping the handover cell opens the shift report. Between the
-shift's start and its first check, the screen says the handover was already
-reported by the previous shift.
+yet. Each state has a mark as well as a colour. Tapping an unsent cell opens that
+hour's check or the shift report; tapping a **sent** cell opens the report that
+was sent (to read or re-send it), and *Laporan shift* asks before a second
+handover. Between the shift's start and its first check, the screen says the
+handover was already reported by the previous shift.
 
 ### Agreed wording (Billy, 2026-10-01)
 
@@ -95,8 +136,12 @@ Recorded here so it is not "tidied" later. Code: `js/sec-caption.js`.
   kondisi \<POS\> saat ini terpantau dalam keadaan aman dan terkendali.* —
   "bersama BKO TNI" only when a BKO is on duty. Closing: *Demikian Komandan,
   laporan dari Petugas Pos \<POS\>.* then *Salam hormat,* and the names.
-- **Laporan Kejadian:** the seven SIADIDEMENBABI questions (siapa, apa, dimana,
-  dengan apa, mengapa, bagaimana, bilamana), Tindakan, and a Pelapor list.
+- **Laporan Kejadian (5W1H since v13):** Apa, Siapa, Kapan, Dimana, Mengapa,
+  Bagaimana, then Tindakan and a Pelapor list. Kapan is pre-filled with
+  *Pukul HH:MM WIB* (the time the report is opened, editable); Bagaimana is a
+  larger box for the chronology; every box has a hint. Until v12 it was the
+  seven SIADIDEMENBABI questions: *Dengan apa* is gone, and *Bilamana* became
+  Kapan (same stored key, so older incidents still export their time).
 - **Laporan Shift:**
   - **Section A lists every check hour of the shift**, each with ✓ when a check
     was sent or `— tidak ada laporan` when none was (Billy confirmed he wants
@@ -109,12 +154,11 @@ Recorded here so it is not "tidied" later. Code: `js/sec-caption.js`.
        …
        - Pukul 23:00 WIB ✓
     ```
-  - Section B heading uses *siapa, apa, dimana, dengan apa, mengapa, bagaimana,
-    bilamana*; each type reads `None`, or points to the incident report(s)
-    sent during the shift.
-  - Section C: Jam serah terima (the shift's end), Shift lanjut (the incoming
-    names + BKO), Situasi akhir. KM Akhir was removed on request.
-- **Access Control:** see below.
+  - Section B heading uses *apa, siapa, kapan, dimana, mengapa, bagaimana*
+    (5W1H, like the incident report); each type reads `None`, or points to the
+    incident report(s) sent during the shift.
+  - Section C: Jam serah terima (the shift's end; required), Shift lanjut (the
+    incoming names + BKO), Situasi akhir. KM Akhir was removed on request.
 
 ### Access Control (v8, from the officers' review 2026-10-01)
 
@@ -126,7 +170,8 @@ Segmen 9. Barang tertera di Cargo Manifest dan telah di-ACC oleh Pak Haris.*
 then *Situasi aman, nihil temuan.* ("nihil taruna" in the sample was read as
 autocorrect). Three photo slots, **all required**, each stamped with its subject
 ("Foto: Plat Nomor Kendaraan") and filed in that order. The camera unlocks once
-Menuju is filled, because the route is printed on the photo. Names follow the
+Menuju is filled, because the route is printed on the photo. The date follows
+Pukul: 23:50 saved at 00:10 is dated the day the goods left. Names follow the
 app's list (YOSAFAT, not the sample's "YOSAFAT KRESNO").
 
 ### Personnel (from `Database Personil.xlsx`, corrected on purpose)
@@ -135,40 +180,114 @@ app's list (YOSAFAT, not the sample's "YOSAFAT KRESNO").
 KOTA BATAK KP 21–28 are one post **KOTA BATAK KP 21**; **MENGGALA** Booster (not
 Manggala); Yessicika Relaise Tamba and Mega Suryaningrumnugroho left out for now.
 
+---
+
+## Walkthrough (v11–v12, Billy 2026-10-01)
+
+Source: `Database Personil.xlsx`, sheet **WT** — 34 people in 8 groups (13
+teams), each group with its zone and routes. Data: `js/wt-options.js`.
+
+1. **Mulai hari**: pick the **team number (1–13)**; the group's people are
+   listed first (anyone can be picked — crews lend people; switching to another
+   group clears names from the old one); pick **today's route** from the group's
+   routes (decided daily; "Tampilkan semua rute" for a crew sent elsewhere). The
+   team's badge `wt-N.png` goes on every photo.
+2. **A WT day is one calendar day.** When the saved day is not today — the next
+   morning, or the app left open past midnight — the app opens the start screen
+   again, pre-filled with the last team, crew and route and a "Hari baru" note,
+   so today's reports are never filed under yesterday's crew.
+3. **Laporan KP** — the approved WT report, unchanged from the old WT app:
+   `LAPORAN TEAM WT`, ✅ per name, Location / Segment / KP / Size Pipe / Note.
+   The segment list puts today's route first. KP is typed as `XX+XXX` (printed
+   `XX + XXX`); KP numbers for part-segment routes (Booster KBJ, SBV, Tie In
+   Benar) are deferred. **3 photos required.** After sending, *Laporan KP
+   berikutnya* starts the next KP.
+4. **Laporan LDS** — answering a leak-detection ticket from SPO:
+   ```
+   Izin lapor Pak @SPO ORA, Tim WT 1
+
+   LAPORAN TIM WT 1
+   1️⃣ …
+   Hari/Tgl : …   Jam : 23:40 WIB   Loc : SOUTH AREA
+   Segment  : 1 KP 02 + 130 (GS 1 Minas)
+
+   Melaporkan:
+   - Team menanggapi adanya laporan notifikasi LDS di Segment 1 KP 02 + 130.
+   - Team melakukan penyisiran radius 500 m dari titik deteksi …
+   - Team tidak menemukan adanya crude atau kebocoran pada pipa PTG.
+   - Area ROW PTG saat ini terpantau aman …
+
+   Cc :
+
+   Terima kasih
+   ```
+   - **Jam** is the actual time (dated like Access Control).
+   - **Radius** is pre-filled 500, digits only, and **required** — the report
+     never invents a radius.
+   - **Ditemukan indikasi** replaces the last two lines with the typed finding
+     (required).
+   - **At least 4 photos required** (5–6 suggested). Ticket number: on hold.
+   - **@-tags:** WhatsApp only makes a real tag (one that notifies) when it is
+     picked from its own list, and each phone shows the tagged name as saved in
+     ITS contacts. So the report prints "@SPO ORA" as plain text and leaves Cc
+     empty; the send screen tells the guard to add the real tags in WhatsApp.
+   - LDS is written once (`SA.lds` in `js/wt-records.js`) for Patrol to reuse.
+
+**Names** follow the WT sheet in full (e.g. DEWANGGA SALSABILLA, IBNU AL
+MUJAHIDIN); some differ from the old WT app's list on purpose.
+
+**Heads-up for the master Excel tool** (`wt_tracker.py` in `D:\Users\reeko\wt-tools`):
+it reads the OLD WT app's spreadsheets. The new files put the headers on row 8
+and have different columns, so that tool needs updating before it can merge
+them.
+
+---
+
+## Shared by every team
+
 ### The photo
 
-- **Badge top right, solid**, all posts at the same height (10% of the frame's
-  shorter side). Files in `assets/badges/`; replace one to change a post's badge.
-- Bottom band: report type, post + shift, officers + BKO, (access control: the
-  route and which photo it is), time, coordinates, address. Bottom right:
-  `SEC-VERIFY` code (same seal as WT — detects a photo edited after the app
-  wrote it; it is not a signature).
+- **Badge top right, solid**, every badge at the same height (10% of the frame's
+  shorter side): the post's badge for Security, `wt-N.png` for Walkthrough. Files
+  in `assets/badges/`; replace one to change it.
+- Bottom band: report type, place, crew, (report-specific lines: the route and
+  photo subject for Access Control, KP and condition for WT, KP and result for
+  LDS), time, coordinates, address.
+- Bottom right: the verification code — `SEC-VERIFY` (Security) or `WT-VERIFY`
+  (Walkthrough). It detects a photo edited after the app wrote it; it is not a
+  signature. The same code is in the Excel's *Kode Foto* column.
 - Gallery pictures are stamped with their own Exif time/place, never the phone's.
 
 ### The Excel
 
-One file, **four sheets**: Pengecekan, Kejadian, Access Control, Shift. Since v7
-each sheet is laid out like Prabhu's own *Daily Report Dashboard Patroli*
-workbook: Prabhu logo, a title band and column headers in the **team colour**, a
-Prabhu green (`#6FB92C`) subtitle band, an info row (Periode / Pos / Jumlah /
-Diexport) on light green, a `No` column, zebra rows, Arial 10, no gridlines,
-landscape page, and a note on how to read the photo codes.
+One file per export, per team:
 
-Team colours (`SA.EXCEL_THEMES` in `js/options.js`): Security navy `#0A5C8C`,
-Patrol blue `#0090C8` (the dashboard's own), Walkthrough dark green `#548235`.
+| Team | File name | Sheets | Colour |
+|---|---|---|---|
+| Security | `SECURITY_<POS>_<date>_<time>.xlsx` | Pengecekan, Kejadian, Access Control, Shift | navy `#0A5C8C` |
+| Walkthrough | `WT_TIM<N>_<date>_<time>.xlsx` | Laporan KP, LDS | dark green `#548235` |
+| Patrol (later) | — | — | blue `#0090C8` (the dashboard's own) |
+
+Every sheet is laid out like Prabhu's own *Daily Report Dashboard Patroli*
+workbook: Prabhu logo, a title band and column headers in the **team colour**, a
+Prabhu green (`#6FB92C`) subtitle band, an info row (Periode / Pos or Tim /
+Jumlah / Diexport) on light green, a `No` column, zebra rows, Arial 10, no
+gridlines, landscape page, and a note on how to read the photo codes. Colours:
+`SA.EXCEL_THEMES` in `js/options.js`.
 
 **The column headers are on row 8**, so a script reading these files must skip
 seven rows (pandas: `header=7`).
 
 Photos at 5.00 × 3.75 cm; Waktu / Kode / Lat / Long per photo. Access Control has
-three named photo columns (Cargo Manifest, Plat Nomor Kendaraan, Barang); the
-other sheets get as many photo columns as their busiest row needs. Android saves
-the file (Chrome will not share .xlsx); send it from WhatsApp › Lampirkan ›
-Dokumen.
+three named photo columns (Cargo Manifest, Plat Nomor Kendaraan, Barang); other
+sheets get as many photo columns as their busiest row needs (at least 3 for WT
+KP, 4 for LDS). Android saves the file (Chrome will not share .xlsx); send it
+from WhatsApp › Lampirkan › Dokumen.
 
----
+**Hapus data yang sudah diexport** removes only reports that were exported AND
+sent to WhatsApp, and never the current shift's or day's.
 
-## Look and feel
+### Look and feel
 
 - **Prabhu green is the main colour** (Billy's choice): the logo's leaf green
   `#4AC231` fills main buttons and selections, with DARK text on it — white on
@@ -182,14 +301,15 @@ Dokumen.
   `design/icon-master.svg` is the source; the old picture is
   `design/icon-old-boot.webp`.
 - **Type is Barlow / Barlow Condensed** (SIL OFL — `assets/fonts/OFL.txt`),
-  latin subset, bundled so it works offline (≈135 KB, in the service-worker
-  cache). Condensed for the header, labels, button titles and hour numbers. The
-  photo stamp still uses the system font.
-- **Dark theme follows the phone's setting** — for the Malam shift. Checked for
+  latin subset, bundled so it works offline (≈135 KB). Condensed for the header,
+  labels, button titles and hour numbers. The photo stamp uses the system font.
+- **Dark theme follows the phone's setting** — for night shifts. Checked for
   contrast in both.
 - Report form: Save is pinned to the bottom and says *Menyimpan…* while it
-  works; the caption preview is folded (the send screen shows it in full).
-- Name picker shows the print order inside the tick circle (1, 2, 3).
+  works (and waits while a photo is still processing); the caption preview is
+  folded (the send screen shows it in full).
+- Name picker shows the print order inside the tick circle (1, 2, 3); it says
+  "pos" on Security's screens and "tim" on Walkthrough's.
 
 Design references used: the `frontend-design`, `ui-ux-pro-max` (installed as a
 user skill on this PC) and `web-design-guidelines` skills.
@@ -202,15 +322,18 @@ user skill on this PC) and `web-design-guidelines` skills.
 |---|---|
 | `index.html` | every screen, plus the SVG icon set |
 | `styles.css` | colour tokens, light/dark themes, all components |
-| `js/options.js` | teams, posts, roster, shifts, **checkHours()**, Excel themes, badges |
-| `js/sec-caption.js` | the four WhatsApp captions (the agreed wording) |
-| `js/sec-records.js` | photo stamp lines, seal facts, and the four Excel sheets |
-| `js/app.js` | screens, timeline, forms, photos, save, share, export |
-| `js/photo.js` · `seal.js` · `exif.js` · `geo.js` | photo pipeline (from WT) |
+| `js/app.js` | screens and the report engine; **`MODULES`** (per-team behaviour), `photoRule()` |
+| `js/options.js` | teams, Security posts / roster / shifts, **`checkHours()`**, Excel themes, badge list, date helpers |
+| `js/sec-caption.js` | Security: the four WhatsApp captions (the agreed wording) |
+| `js/sec-records.js` | Security: photo stamp lines, seal facts, the four Excel sheets |
+| `js/wt-options.js` | Walkthrough: groups, people, routes, segments, KP helpers |
+| `js/wt-records.js` | Walkthrough: KP caption, **LDS caption (shared)**, stamps, seals, sheets |
+| `js/sheets.js` | the Excel sheet builder shared by every team |
 | `js/xlsx.js` | the .xlsx writer — dashboard layout, logo, team colour |
-| `js/db.js` | IndexedDB: reports + preferences |
-| `sw.js` | offline cache — **bump `CACHE_VERSION` every upload** |
-| `assets/badges/` | post badges (Security) and team badges (Patrol, WT — not used yet) |
+| `js/photo.js` · `seal.js` · `exif.js` · `geo.js` | photo pipeline (from WT) |
+| `js/db.js` | IndexedDB: reports + preferences (version 2, `bySession` index) |
+| `sw.js` | offline cache — **bump `CACHE_VERSION` every upload**; badges cached best-effort |
+| `assets/badges/` | Security post badges, WT team badges (used); Patrol zone badges (not yet) |
 | `assets/brand/prabhu-logo.png` | the logo on every Excel sheet |
 | `assets/fonts/` | Barlow + licence |
 | `icons/`, `favicon.ico` | app icons |
@@ -218,53 +341,74 @@ user skill on this PC) and `web-design-guidelines` skills.
 
 ---
 
-## Code review (v10, 2026-10-01)
+## Testing
 
-A high-effort code review found ten issues; all were fixed and each was checked
-in the browser:
+**Verified** by driving the app in a browser at phone size, light and dark:
 
-1. **Clearing exported data** now removes only reports that were exported AND
-   sent to WhatsApp, and never the current shift's (the shift report and the
-   timeline are built from them).
-2. A photo still being stamped when the guard leaves a report is **dropped**,
-   not added to the next report; **Save waits** while a photo is processing.
-3. The report **preview** showed "undefined, NaN" as the date for Kejadian and
-   Access Control — the form now carries a date like a saved report.
-4. The **version marker** compares versions as numbers (as text, v10 < v9).
-5. Tapping a **sent (✓) timeline cell** opens the report that was sent;
-   *Laporan shift* asks before making a second handover.
-6. **Access Control's date follows its Pukul**: 23:50 saved at 00:10 is dated
-   the day the goods left.
-7. **Jam serah terima is required**; the caption falls back to "-".
-8. The once-a-minute refresh reads only the current shift's reports, through
-   a new `bySession` database index (database version 2; existing reports are
-   kept on upgrade).
-9. Access Control photo slots redraw once per keystroke and reuse thumbnails.
-10. Excel row numbers come from the row position.
-
-## Verified / not verified
-
-Verified by driving the app in a browser at phone size, light and dark:
-setup; hourly check with a photo (badge and stamp checked at full size);
-incident without photos; access control (every required field and photo blocks
-saving until done; slot stamps; caption); shift report (A and B filled from the
-other reports); the 8-cell timeline and handover cell; next-shift prefill.
-Generated workbooks were opened in **real Excel 16 on this PC** (no repair
-prompt) and rendered to check the layout.
+- Security: setup; hourly check with a photo (badge and stamp at full size);
+  incident without photos; access control (required fields and photos block
+  saving; slot stamps; caption); shift report (A and B filled from the other
+  reports); the 8-cell timeline and handover cell; next-shift prefill.
+- Walkthrough: start screen (team, names, routes); new-day rule (next morning
+  and past midnight); KP report (mask, 3 required photos, caption, stamp with
+  `wt-9` badge); LDS (radius and finding required, 4 photos, caption, tag
+  reminder); each team's history shows only its own reports.
+- Every generated workbook type was opened in **real Excel 16 on this PC** (no
+  repair prompt) and rendered to check the layout.
+- The service worker's install was checked in a Node simulation with one badge
+  failing on purpose (the install still completes).
 
 **Not verified — needs a real phone:** camera, GPS prompt, Add to Home Screen,
-the new icon on the home screen, offline start, and the WhatsApp share. The test
-browser blocks the service worker and has no share sheet.
+the home-screen icon, offline start, the database upgrade on a phone with saved
+reports, and the WhatsApp share. The test browser blocks the service worker and
+has no share sheet.
+
+**Testing locally:** serve the folder (`python -m http.server 8765`) and open it
+in a browser. After editing a file, the browser may keep serving the old copy
+from its HTTP cache — reload with the cache bypassed before trusting a result.
 
 ---
 
-## Open — Patrol (held by Billy on 2026-10-01, to be asked again)
+## Code reviews
 
-Agreed so far: tidied caption "LAPORAN MONITORING PATROLI SECURITY PT PRABHU";
-no badge numbers; TNI rolled into the list as the last numbered line and counted
-in TOTAL PERSONIL. Badges received (`patrol-1…8.png`).
+### First review (v10)
 
-Still to ask:
+1. **Clearing exported data** removes only reports exported AND sent, never the
+   current shift's.
+2. A photo still being stamped when the guard leaves a report is **dropped**,
+   not added to the next report; **Save waits** while a photo is processing.
+3. The report **preview** showed "undefined, NaN" as the date — fixed.
+4. The **version marker** compares versions as numbers (as text, v10 < v9).
+5. A **sent timeline cell** opens the sent report; no accidental second handover.
+6. **Access Control's date follows its Pukul.**
+7. **Jam serah terima is required.**
+8. The once-a-minute refresh reads only the current shift (`bySession` index).
+9. Access Control slots redraw once per keystroke and reuse thumbnails.
+10. Excel row numbers come from the row position.
+
+### Second review (v12)
+
+1. **A WT day is one calendar day** (see Walkthrough, point 2).
+2. **LDS radius**: digits only, required; never an invented 500 m.
+3. Changing the WT **team number to another group** drops the old group's names.
+4. A photo picker returning when **no report is open** is ignored.
+5. The name picker says **"tim"** on the WT screen.
+6. **Badges are cached best-effort**: one slow badge no longer fails the whole
+   offline install.
+7. **One sessions map** and a fuller `MODULES` table — Patrol is one entry, not
+   new branches.
+8. The chip rows share `renderChoice`.
+9. Both main screens use one counter (`renderCount`).
+
+---
+
+## Open items
+
+**Patrol** (held by Billy on 2026-10-01, to be asked again). Agreed so far:
+tidied caption "LAPORAN MONITORING PATROLI SECURITY PT PRABHU"; no badge
+numbers; TNI rolled into the list as the last numbered line and counted in TOTAL
+PERSONIL; Patrol also sends LDS (shared report). Still to ask:
+
 1. Area — typed, or a list per zone?
 2. Guard Tour "Nihil" with a check listed under it — separate things, or does the
    check replace "Nihil"?
@@ -275,11 +419,14 @@ Still to ask:
 7. Photos — how many, and should each carry its check ("Vent Cocks KP 47+900")?
 8. Confirm the badges: Patrol N = ZONA N?
 
-## Open — Walkthrough
+**Walkthrough**
 
-TIM 1–13 (Sheet3 of the personnel file) is the new setup, replacing the WT app's
-three crews. Badges received (`wt-1…13.png`, `wt-team.png`) — confirm WT N =
-TIM N. Keep `wt-surveillance` live until the crews switch.
+- KP numbers of Booster KBJ, SBV1/2A/2B and Tie In Benar (to fill route ranges).
+- LDS ticket number (on hold).
+- Retire `wt-surveillance` once the crews have switched; update `wt_tracker.py`
+  for the new Excel layout.
+
+**Everyone:** a real-phone test (see Testing).
 
 ---
 
@@ -296,4 +443,7 @@ TIM N. Keep `wt-surveillance` live until the crews switch.
 | v7 | Excel in the Daily Report Dashboard style, one colour per team |
 | v8 | Access Control report |
 | v9 | 8 reports a shift: checks start+1…end−1, handover by the outgoing crew |
-| v10 | Fixes from a high-effort code review (see below) |
+| v10 | Fixes from the first code review |
+| v11 | Walkthrough: KP report and LDS report; report engine made team-aware |
+| v12 | Fixes from the second code review |
+| v13 | Laporan Kejadian in 5W1H (Apa, Siapa, Kapan, Dimana, Mengapa, Bagaimana) |

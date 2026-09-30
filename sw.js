@@ -3,9 +3,11 @@
  * Cache-first for the shell: none of it changes during a shift, and a field
  * connection is slow enough that a network check is felt on every launch.
  *
- * The badges are part of the shell, not extras. They are burned into every
- * photograph, so a shift that started offline without them would produce a day
- * of pictures with the wrong mark.
+ * The badges (24 of them, ~2.4 MB) are cached BEST-EFFORT, not as part of the
+ * all-or-nothing shell: on weak signal one slow badge would otherwise fail the
+ * whole install and leave the phone on the old version. A badge missed here is
+ * still cached the first time the app shows it (the post/team badge is
+ * preloaded when a shift or day starts); without it, a photo gets the text mark.
  */
 
 /* BUMP THIS ON EVERY UPLOAD, together with BUILD in js/app.js — they are a
@@ -13,7 +15,7 @@
    BYTES of this file, and only the new worker re-caches everything else.
    Upload twenty changed files with this line untouched and every phone that
    already has the app keeps the old ones, silently. */
-var CACHE_VERSION = 'superapp-laporan-v10';
+var CACHE_VERSION = 'superapp-laporan-v13';
 
 var SHELL = [
   './',
@@ -27,6 +29,9 @@ var SHELL = [
   './js/geo.js',
   './js/photo.js',
   './js/xlsx.js',
+  './js/wt-options.js',
+  './js/sheets.js',
+  './js/wt-records.js',
   './js/sec-caption.js',
   './js/sec-records.js',
   './js/app.js',
@@ -38,6 +43,16 @@ var SHELL = [
   './assets/fonts/barlow-700.woff2',
   './assets/fonts/barlow-condensed-600.woff2',
   './assets/fonts/barlow-condensed-700.woff2',
+  './icons/icon-180.png',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
+  './icons/maskable-192.png',
+  './icons/maskable-512.png',
+  './icons/icon-32.png',
+  './icons/icon.svg'
+];
+
+var BADGES = [
   './assets/badges/sec-sora.png',
   './assets/badges/sec-spo.png',
   './assets/badges/sec-warehouse.png',
@@ -48,20 +63,32 @@ var SHELL = [
   './assets/badges/sec-kota-batak-kp21.png',
   './assets/badges/sec-menggala-booster.png',
   './assets/badges/sec-dumai-metering.png',
-  './icons/icon-180.png',
-  './icons/icon-192.png',
-  './icons/icon-512.png',
-  './icons/maskable-192.png',
-  './icons/maskable-512.png',
-  './icons/icon-32.png',
-  './icons/icon.svg'
+  './assets/badges/wt-team.png',
+  './assets/badges/wt-1.png',
+  './assets/badges/wt-2.png',
+  './assets/badges/wt-3.png',
+  './assets/badges/wt-4.png',
+  './assets/badges/wt-5.png',
+  './assets/badges/wt-6.png',
+  './assets/badges/wt-7.png',
+  './assets/badges/wt-8.png',
+  './assets/badges/wt-9.png',
+  './assets/badges/wt-10.png',
+  './assets/badges/wt-11.png',
+  './assets/badges/wt-12.png',
+  './assets/badges/wt-13.png'
 ];
 
 self.addEventListener('install', function (event) {
   event.waitUntil(
-    caches.open(CACHE_VERSION)
-      .then(function (cache) { return cache.addAll(SHELL); })
-      .then(function () { return self.skipWaiting(); })
+    caches.open(CACHE_VERSION).then(function (cache) {
+      return cache.addAll(SHELL).then(function () {
+        // Each badge on its own; a failure costs that badge only.
+        return Promise.all(BADGES.map(function (url) {
+          return cache.add(url).catch(function () { return null; });
+        }));
+      });
+    }).then(function () { return self.skipWaiting(); })
   );
 });
 

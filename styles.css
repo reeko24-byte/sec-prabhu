@@ -505,6 +505,28 @@ input:focus, select:focus, textarea:focus {
 }
 .slot .s-actions button:disabled { color: var(--ink-3); opacity: .6; }
 
+/* Walkthrough: thirteen team numbers in a tight grid, routes one per line. */
+.chips.teams13 { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.chips.teams13 .chip { padding: 8px 0; font-family: var(--display); font-size: 18px; font-weight: 700; }
+.chips.routes .chip { flex: 1 1 100%; text-align: left; }
+.action.danger.wide-danger { margin-bottom: 14px; min-height: 64px; }
+.kp-input { text-align: center; letter-spacing: 3px; font-size: 22px !important; font-weight: 600;
+  font-variant-numeric: tabular-nums; }
+
+/* The Note sentence that will actually be sent, under the choice. */
+.note-preview {
+  font-size: 14px;
+  line-height: 1.45;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--leaf);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  margin: 0 0 16px;
+}
+.note-preview:empty { display: none; }
+#send-tags { margin: 14px 0 0; }
+
 /* GPS as a quiet status line: it matters when it is wrong, not when it is fine. */
 .gps-pill {
   display: flex;

@@ -165,6 +165,84 @@
   </div>
 </section>
 
+<!-- ── WT 1. Walkthrough: start of day ─────────────────────────────────────
+     Team number, who walks, and today's route. The route is decided daily
+     within the team's group (Billy, 2026-10-01).
+-->
+<section id="screen-wt-setup" class="screen">
+  <header class="bar">
+    <button id="wt-setup-back" class="link">Ganti tim</button>
+    <span class="who">Mulai hari · Walkthrough</span>
+  </header>
+  <div class="pad">
+    <p id="w-newday" class="warn hidden">Hari baru: periksa nomor tim, petugas dan rute hari ini, lalu tekan Mulai.</p>
+
+    <div class="section">
+      <p class="eyebrow">Nomor tim</p>
+      <div id="w-team" class="chips teams13"></div>
+      <p id="w-group" class="hint"></p>
+    </div>
+
+    <div class="section">
+      <p id="w-officers-label" class="eyebrow">Petugas</p>
+      <div id="w-officers" class="picklist"></div>
+      <p class="hint">Urutan centang menjadi urutan di laporan. Nama pertama dicatat sebagai pelapor.</p>
+    </div>
+
+    <div class="section">
+      <p class="eyebrow">Rute hari ini</p>
+      <div id="w-route" class="chips wrap routes"></div>
+      <button id="w-route-all" class="link hidden" type="button"></button>
+      <p class="hint">Tanggal: <span id="w-date"></span></p>
+    </div>
+
+    <button id="w-start" class="primary" disabled>Mulai</button>
+    <p id="w-blocker" class="hint" style="text-align:center"></p>
+  </div>
+</section>
+
+<!-- ── WT 2. Walkthrough: the day ───────────────────────────────────────── -->
+<section id="screen-wt-main" class="screen">
+  <header class="bar">
+    <span class="who">Walkthrough</span>
+    <button id="wt-main-team" class="link">Ganti tim</button>
+  </header>
+  <div class="pad">
+    <div class="post-card">
+      <div class="post-badge-wrap"><img id="wt-badge" class="post-badge" alt="" width="320" height="64"></div>
+      <div class="post-meta">
+        <div id="wt-session" class="assign-line"></div>
+        <button id="wt-edit" class="link">Ubah</button>
+      </div>
+    </div>
+    <p id="wt-over" class="warn hidden"></p>
+
+    <button id="go-wtkp" class="action main">
+      <svg width="28" height="28" aria-hidden="true"><use href="#i-steps"/></svg>
+      <span><b>Laporan KP</b><small id="go-wtkp-sub"></small></span>
+    </button>
+    <button id="go-lds" class="action danger wide-danger">
+      <svg width="24" height="24" aria-hidden="true"><use href="#i-alert"/></svg>
+      <span><b>Laporan LDS</b><small id="go-lds-sub"></small></span>
+    </button>
+
+    <div id="wt-gps" class="gps-pill waiting">
+      <span class="dot"></span>
+      <span class="gps-text">
+        <span class="gps-line" id="wt-gps-status"></span>
+        <span class="gps-line small" id="wt-gps-detail"></span>
+      </span>
+    </div>
+
+    <div class="footer-row">
+      <span id="wt-count"></span>
+      <button id="wt-view-list" class="link">Riwayat</button>
+    </div>
+    <button id="wt-go-export" class="secondary">Export ke Excel</button>
+    <p id="wt-version" class="version"></p>
+  </div>
+</section>
+
 <!-- ── 4. Security: one report (hourly check, incident or shift) ──────────
      One screen, three shapes. The sections for the other two kinds are hidden.
 -->
@@ -225,6 +303,58 @@
       </label>
       <p class="eyebrow">Foto — wajib ketiganya</p>
       <div id="r-slots" class="slots"></div>
+    </div>
+
+    <!-- Walkthrough: one KP. The approved "LAPORAN TEAM WT" report. -->
+    <div id="r-wtkp" class="hidden">
+      <label class="field">
+        <span>Segment</span>
+        <select id="r-wt-seg"></select>
+      </label>
+      <label class="field">
+        <span>KP</span>
+        <input id="r-wt-kp" class="kp-input" type="text" inputmode="numeric" pattern="[0-9+]*"
+               placeholder="00+000" maxlength="6" autocomplete="off">
+      </label>
+      <p class="hint">Ketik angkanya saja — tanda + muncul sendiri.</p>
+      <p class="eyebrow">Note</p>
+      <div id="r-wt-cond" class="chips wrap" style="margin-bottom:10px"></div>
+      <label id="r-wt-other-field" class="field hidden">
+        <span>Kondisi lain</span>
+        <textarea id="r-wt-other" rows="3" placeholder="mis. Ditemukan galian pihak ketiga di atas ROW…"></textarea>
+      </label>
+      <p id="r-wt-note" class="note-preview"></p>
+    </div>
+
+    <!-- LDS: answering a leak-detection ticket from SPO. -->
+    <div id="r-lds" class="hidden">
+      <label class="field">
+        <span>Jam</span>
+        <input id="r-lds-time" type="time">
+      </label>
+      <label class="field">
+        <span>Segment</span>
+        <select id="r-lds-seg"></select>
+      </label>
+      <label class="field">
+        <span>KP titik deteksi</span>
+        <input id="r-lds-kp" class="kp-input" type="text" inputmode="numeric" pattern="[0-9+]*"
+               placeholder="00+000" maxlength="6" autocomplete="off">
+      </label>
+      <label class="field">
+        <span>Patokan lokasi (opsional)</span>
+        <input id="r-lds-landmark" type="text" autocomplete="off" placeholder="mis. GS 1 Minas…">
+      </label>
+      <label class="field">
+        <span>Radius penyisiran (m)</span>
+        <input id="r-lds-radius" type="text" inputmode="numeric" autocomplete="off">
+      </label>
+      <p class="eyebrow">Hasil</p>
+      <div id="r-lds-result" class="chips wrap" style="margin-bottom:10px"></div>
+      <label id="r-lds-finding-field" class="field hidden">
+        <span>Keterangan temuan</span>
+        <textarea id="r-lds-finding" rows="3" placeholder="Apa yang ditemukan, di mana…"></textarea>
+      </label>
     </div>
 
     <!-- Shift report -->
@@ -292,6 +422,11 @@
   <div class="pad">
     <div id="send-photos" class="strip"></div>
     <p id="send-tip" class="tip"></p>
+    <!-- LDS only. A tag notifies someone only when it is picked from WhatsApp's
+         own list, so the report leaves the tags to the guard. -->
+    <p id="send-tags" class="warn hidden">Sebelum kirim, di kolom caption WhatsApp: hapus teks
+      <b>@SPO ORA</b> lalu ketik <b>@</b> dan pilih SPO ORA; di bawah <b>Cc :</b> ketik <b>@</b>
+      dan pilih orang yang perlu ditandai.</p>
     <button id="send-share" class="primary"><svg width="20" height="20" aria-hidden="true"><use href="#i-send"/></svg>Kirim ke WhatsApp</button>
     <button id="send-copy" class="secondary">Salin caption</button>
     <p id="send-note" class="hint"></p>
@@ -299,6 +434,7 @@
     <!-- After the shift report: the next shift starts with the names that were
          just handed over, so the incoming guards do not re-pick them. -->
     <button id="send-new-shift" class="secondary hidden">Mulai shift berikutnya</button>
+    <button id="send-next" class="secondary hidden">Laporan KP berikutnya</button>
     <p id="send-status" class="status" role="status"></p>
     <p id="send-env" class="hint hidden"></p>
     <pre id="send-caption" class="caption"></pre>
@@ -349,8 +485,11 @@
 <script src="js/geo.js"></script>
 <script src="js/photo.js"></script>
 <script src="js/xlsx.js"></script>
+<script src="js/wt-options.js"></script>
+<script src="js/sheets.js"></script>
 <script src="js/sec-caption.js"></script>
 <script src="js/sec-records.js"></script>
+<script src="js/wt-records.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

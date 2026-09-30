@@ -6,7 +6,7 @@
  *   sessionId, post, shift, shiftDate, officers [..], bko, reporter
  *   date, time, timestamp            when it was saved
  *   check:    hour                   the scheduled hour, 0..24
- *   incident: incidentType, otherText, answers {siapa..bilamana}, tindakan
+ *   incident: incidentType, otherText, answers {apa..bagaimana, 5W1H; Kapan is 'bilamana'}, tindakan
  *   shift:    checkLines [{hour, done}], incidentSummary {type: text},
  *             handover, nextOfficers [..], nextBko, finalSituation
  *   photos [{ blob, thumb, takenAt, sealCode, sealDigest, sealAlgo, lat, long }]
@@ -82,10 +82,8 @@
      */
     sheets: function (records) {
       var theme = SA.EXCEL_THEMES.security;
-      var posts = unique(records.map(function (r) { return r.post; }));
-      var dates = unique(records.map(function (r) { return r.shiftDate; })).sort();
-      var period = !dates.length ? '-' : dates.length === 1 ? dates[0]
-        : dates[0] + ' s/d ' + dates[dates.length - 1];
+      var posts = SA.sheets.unique(records.map(function (r) { return r.post; }));
+      var period = SA.sheets.period(records.map(function (r) { return r.shiftDate; }));
       var now = new Date();
       var titles = { Pengecekan: 'PENGECEKAN PER JAM', Kejadian: 'LAPORAN KEJADIAN',
         'Access Control': 'ACCESS CONTROL', Shift: 'LAPORAN SHIFT' };
@@ -99,8 +97,7 @@
           ['Jumlah', sheet.rows.length + ' laporan'],
           ['Diexport', SA.dateOf(now) + ' ' + SA.timeOf(now).slice(0, 5)]
         ];
-        sheet.note = 'Kode Foto adalah kode verifikasi yang tercetak di pojok kanan bawah foto. ' +
-          'Bila waktu yang tercetak di foto berbeda dengan Waktu Foto di sini, foto itu diubah setelah diambil.';
+        sheet.note = SA.sheets.PHOTO_NOTE;
         return sheet;
       });
 
@@ -177,12 +174,6 @@
     }
   };
 
-  function unique(list) {
-    var out = [];
-    list.forEach(function (v) { if (v && out.indexOf(v) === -1) out.push(v); });
-    return out;
-  }
-
   function hours(record, done) {
     return (record.checkLines || [])
       .filter(function (c) { return !!c.done === done; })
@@ -190,55 +181,12 @@
       .join(', ');
   }
 
-  function col(header, width, type, value) {
-    return {
-      header: header, width: width, type: type,
-      value: typeof value === 'function' ? value : function (r) { return r[value] == null ? '' : r[value]; }
-    };
-  }
+  var col = SA.sheets.col;
 
-  /**
-   * Builds one sheet: the fixed columns, then as many photo columns as the
-   * busiest row needs (at least one), then Waktu / Kode / Lat / Long per photo.
-   */
   function sheet(name, records, fixed, freeze, photoNames, shortNames) {
-    var slots = photoNames ? photoNames.length : records.reduce(function (most, r) {
-      return Math.max(most, (r.photos || []).length);
-    }, 1);
-    function photoName(i) { return photoNames ? photoNames[i] : String(i + 1); }
-    function shortName(i) { return shortNames ? shortNames[i] : photoName(i); }
-
-    var columns = [{ header: 'No', width: 5, type: 'index' }].concat(fixed);
-    var firstPhoto = columns.length;
-    var i;
-    for (i = 0; i < slots; i++) columns.push({ header: 'Foto ' + photoName(i), type: 'photo' });
-    for (i = 0; i < slots; i++) {
-      columns.push({ header: 'Waktu Foto ' + shortName(i), width: 19, type: 'center' });
-      columns.push({ header: 'Kode Foto ' + shortName(i), width: 17, type: 'center' });
-      columns.push({ header: 'Lat ' + shortName(i), width: 12, type: 'number' });
-      columns.push({ header: 'Long ' + shortName(i), width: 12, type: 'number' });
-    }
-
-    var rows = records.map(function (record, rowIndex) {
-      var cells = [rowIndex + 1].concat(fixed.map(function (c) { return c.value(record); }));
-      for (var s = 0; s < slots; s++) cells.push('');
-      var pictures = [];
-      for (var p = 0; p < slots; p++) {
-        var photo = (record.photos || [])[p];
-        cells.push(photo ? photo.takenAt || '' : '');
-        cells.push(photo ? photo.sealCode || '' : '');
-        cells.push(photo ? photo.latitude : null);
-        cells.push(photo ? photo.longitude : null);
-        if (photo && photo.blob) {
-          pictures.push({
-            column: firstPhoto + p, blob: photo.blob,
-            description: SA.secRecords.label(record) + ' — foto ' + photoName(p)
-          });
-        }
-      }
-      return { cells: cells, pictures: pictures };
+    return SA.sheets.build(name, records, fixed, {
+      label: SA.secRecords.label, freeze: freeze,
+      photoNames: photoNames, shortNames: shortNames
     });
-
-    return { name: name, columns: columns, rows: rows, freeze: freeze + 1 };
   }
 }(window.SA));
