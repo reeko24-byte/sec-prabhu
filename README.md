@@ -11,6 +11,7 @@ goes to WhatsApp as photos + caption in one tap; the Excel is a separate export.
 | Security Officer | **built** | Pengecekan (hourly), Laporan Kejadian, Access Control, Body Check, Laporan Shift |
 | Walkthrough | **built** | Laporan KP, Laporan LDS |
 | Patrol | **built** (placeholder areas and facilities) | Guard tour, Laporan Kejadian, LDS, Akhir Shift |
+| Office | **built** — `D:\Users\reeko\laporan-tools\rekap_harian.py` | Rekap harian per zona (South / North) from the exports |
 
 The old `wt-surveillance` app is to be **retired**; WT crews switch to this app.
 
@@ -393,8 +394,9 @@ them.
 Pertagas's *Laporan Harian Shift Pengamanan Jalur* (from the Palembang zone,
 `Downloads\Laporan Harian Shift Pengamanan Jalur Rev_0.xlsx`) is a
 **reference** for a daily summary per zone, made on the office laptop from the
-phones' Excel exports (tool: still to build). What the phones now collect for
-it:
+phones' Excel exports by **`rekap_harian.py`** in `D:\Users\reeko\laporan-tools`
+(built 2026-10-02; its own README explains it, and a simulated day of all three
+teams is in `laporan-tools\contoh\2026-10-02`). What the phones collect for it:
 
 - **Zones.** South Area: SORA, AREA MELUR, KOTA BATAK JUNCTION, KOTA BATAK KP
   21, DSP. North Area: SPO, WAREHOUSE, ST BATANG, MANGGALA BOOSTER, DUMAI
@@ -515,6 +517,7 @@ user skill on this PC) and `web-design-guidelines` skills.
 
 | Path | What it is |
 |---|---|
+| `D:\Users\reeko\laporan-tools\rekap_harian.py` | **outside this folder** — the office's daily summary per zone, from the exports (own README; never upload it with the app) |
 | `index.html` | every screen, plus the SVG icon set |
 | `styles.css` | colour tokens, light/dark themes, all components |
 | `js/app.js` | screens and the report engine; **`MODULES`** (per-team behaviour), `photoRule()` |
@@ -558,6 +561,9 @@ user skill on this PC) and `web-design-guidelines` skills.
   Riwayat with Tutup temuan; v21: Patrol 5 lists ZONA 8's people, its badge on
   the main screen and on a stamped photo with "SECURITY PATROL - PATROL 5".
   All three teams' v20 workbooks opened in real Excel 16.
+- The office tool (2026-10-02) on a simulated day of every team: 98 exports
+  made with this app's own code, 422 reports; both zone summaries opened in
+  real Excel 16 (see `laporan-tools\README.md`).
 - Two guards, two phones (v17): marking an hour from the timeline's check form
   (cell outlined, count and "Belum dikirim" updated), undoing it there; marking
   and unmarking an hour and an incident type in the shift report; the caption's
@@ -671,9 +677,11 @@ one car).
 - Retire `wt-surveillance` once the crews have switched; update `wt_tracker.py`
   for the new Excel layout.
 
-**Office:** with two phones per post, two Excel files per post per shift
-arrive; the analyst's merge should expect that (the Shift report comes from
-whichever phone sent the handover).
+**Office:** `rekap_harian.py` (in `D:\Users\reeko\laporan-tools`) makes the
+daily summary per zone. It already expects two files per post per shift (the
+checks are the union of both phones; duplicates are counted once). Try it on a
+real day's exports once the teams are using the app, and adjust the summary's
+layout with the ARCO.
 
 **Everyone:** a real-phone test (see Testing), including two phones on one
 shift.
