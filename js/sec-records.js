@@ -1,12 +1,13 @@
 /* Security Officer: what goes on the photograph, what the seal binds, and the
- * three sheets of the spreadsheet.
+ * sheets of the spreadsheet.
  *
  * A Security record looks like:
- *   team 'security', kind 'check' | 'incident' | 'shift'
+ *   team 'security', kind 'check' | 'incident' | 'access' | 'body' | 'shift'
  *   sessionId, post, shift, shiftDate, officers [..], bko, reporter
  *   date, time, timestamp            when it was saved
  *   check:    hour                   the scheduled hour, 0..24
  *   incident: incidentType, otherText, answers {apa..bagaimana, 5W1H; Kapan is 'bilamana'}, tindakan
+ *   body:     bodyTime, bodyResult ('none'|'found'), bodyFinding
  *   shift:    checkLines [{hour, done}], incidentSummary {type: text},
  *             handover, nextOfficers [..], nextBko, finalSituation
  *   photos [{ blob, thumb, takenAt, sealCode, sealDigest, sealAlgo, lat, long }]
@@ -20,8 +21,11 @@
     check: 'LAPORAN PENGECEKAN',
     incident: 'LAPORAN KEJADIAN',
     shift: 'LAPORAN SHIFT',
-    access: 'LAPORAN ACCESS CONTROL'
+    access: 'LAPORAN ACCESS CONTROL',
+    body: 'LAPORAN BODY CHECK'
   };
+
+  function bodyResult(record) { return record.bodyResult === 'found' ? 'Ada temuan' : 'Nihil temuan'; }
 
   function crewLine(report) {
     var names = (report.officers || []).join(', ');
@@ -38,6 +42,7 @@
       if (record.kind === 'check') return 'Pengecekan ' + SA.hourText(record.hour) + ' WIB';
       if (record.kind === 'incident') return 'Kejadian · ' + SA.secCaption.incidentName(record);
       if (record.kind === 'access') return 'Access Control ' + (record.accessTime || '');
+      if (record.kind === 'body') return 'Body Check ' + (record.bodyTime || '');
       return 'Laporan Shift ' + record.shift;
     },
 
@@ -56,6 +61,9 @@
         first = KIND_TITLE.access + ' · Pukul ' + (report.accessTime || '') + ' WIB';
         return [first, place, crewLine(report),
           (report.direction || '') + ': ' + (report.from || report.post) + ' → ' + (report.to || '')];
+      } else if (report.kind === 'body') {
+        first = KIND_TITLE.body + ' · Pukul ' + (report.bodyTime || '') + ' WIB';
+        return [first, place, crewLine(report), 'Metal detector · ' + bodyResult(report)];
       } else {
         first = KIND_TITLE.shift + ' · ' + SA.shiftText(report.shift);
         place = report.post;
@@ -68,7 +76,8 @@
     sealFacts: function (report, timestamp, fix) {
       var detail = report.kind === 'check' ? SA.hourText(report.hour)
         : report.kind === 'incident' ? SA.secCaption.incidentName(report)
-        : report.kind === 'access' ? report.accessTime + ' ' + report.direction + ' ' + report.to : '';
+        : report.kind === 'access' ? report.accessTime + ' ' + report.direction + ' ' + report.to
+        : report.kind === 'body' ? report.bodyTime + ' ' + report.bodyResult : '';
       return [
         'SEC1', timestamp, report.kind, report.post, report.shift, report.shiftDate,
         detail, (report.officers || []).join('+'), report.bko || '',
@@ -77,7 +86,7 @@
     },
 
     /**
-     * The workbook: one sheet per kind, always all three, in report order, each
+     * The workbook: one sheet per kind, always all of them, in report order, each
      * headed the way Prabhu's own daily report is (see xlsx.js).
      */
     sheets: function (records) {
@@ -86,7 +95,15 @@
       var period = SA.sheets.period(records.map(function (r) { return r.shiftDate; }));
       var now = new Date();
       var titles = { Pengecekan: 'PENGECEKAN PER JAM', Kejadian: 'LAPORAN KEJADIAN',
-        'Access Control': 'ACCESS CONTROL', Shift: 'LAPORAN SHIFT' };
+        'Access Control': 'ACCESS CONTROL', 'Body Check': 'BODY CHECK', Shift: 'LAPORAN SHIFT' };
+
+      var incidents = records.filter(function (r) { return r.kind === 'incident'; });
+      /* Until v12 an incident had a seventh question, "Dengan apa". 5W1H dropped
+         it; incidents saved before still carry the answer, so the column comes
+         back whenever one of them is exported. */
+      var legacy = incidents.some(function (r) { return ((r.answers || {}).denganApa || '').trim(); })
+        ? [col('Dengan apa (lama)', 20, 'text', function (r) { return (r.answers || {}).denganApa || ''; })]
+        : [];
 
       return build().map(function (sheet) {
         sheet.title = theme.title + ' — ' + titles[sheet.name];
@@ -117,7 +134,7 @@
           col('Waktu Simpan', 19, 'center', 'timestamp')
         ], 2),
 
-        sheet('Kejadian', records.filter(function (r) { return r.kind === 'incident'; }), [
+        sheet('Kejadian', incidents, [
           col('Tanggal', 12, 'center', 'date'),
           col('Waktu', 10, 'center', 'time'),
           col('Pos', 22, 'center', 'post'),
@@ -127,7 +144,7 @@
           col('Keterangan Other', 22, 'text', 'otherText')
         ].concat(S.questions.map(function (q) {
           return col(q.label, 24, 'text', function (r) { return (r.answers || {})[q.key] || ''; });
-        })).concat([
+        })).concat(legacy).concat([
           col('Tindakan', 30, 'text', 'tindakan'),
           col('Petugas', 34, 'text', function (r) { return (r.officers || []).join(', '); }),
           col('BKO TNI', 18, 'text', 'bko'),
@@ -149,6 +166,20 @@
           col('Pelapor', 20, 'text', 'reporter'),
           col('Waktu Simpan', 19, 'center', 'timestamp')
         ], 2, S.accessPhotos, S.accessPhotosShort),
+
+        sheet('Body Check', records.filter(function (r) { return r.kind === 'body'; }), [
+          col('Tanggal', 12, 'center', 'date'),
+          col('Pukul', 9, 'center', 'bodyTime'),
+          col('Pos', 22, 'center', 'post'),
+          col('Shift', 9, 'center', 'shift'),
+          col('Tanggal Shift', 13, 'center', 'shiftDate'),
+          col('Hasil', 14, 'center', bodyResult),
+          col('Temuan', 36, 'text', 'bodyFinding'),
+          col('Petugas', 34, 'text', function (r) { return (r.officers || []).join(', '); }),
+          col('BKO TNI', 18, 'text', 'bko'),
+          col('Pelapor', 20, 'text', 'reporter'),
+          col('Waktu Simpan', 19, 'center', 'timestamp')
+        ], 2),
 
         sheet('Shift', records.filter(function (r) { return r.kind === 'shift'; }), [
           col('Tanggal Shift', 13, 'center', 'shiftDate'),

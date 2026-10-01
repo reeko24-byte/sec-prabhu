@@ -36,6 +36,7 @@
     <symbol id="i-bang" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 5v9M12 19h.01"/></symbol>
     <symbol id="i-dot" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" fill="currentColor"/></symbol>
     <symbol id="i-truck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.62l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/></symbol>
+    <symbol id="i-detector" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="8" height="11" rx="4"/><rect x="7.5" y="13" width="3" height="9" rx="1.5"/><path d="M16 5.5a4.5 4.5 0 0 1 0 5"/><path d="M19 3.5a8 8 0 0 1 0 9"/></symbol>
     <symbol id="i-send" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></symbol>
   </defs>
 </svg>
@@ -143,10 +144,16 @@
         <span><b>Access control</b><small>Barang keluar / masuk</small></span>
       </button>
     </div>
-    <button id="go-shift" class="action plain wide">
-      <svg width="24" height="24" aria-hidden="true"><use href="#i-clipboard"/></svg>
-      <span><b>Laporan shift</b><small>Saat serah terima</small></span>
-    </button>
+    <div class="action-pair">
+      <button id="go-body" class="action plain">
+        <svg width="24" height="24" aria-hidden="true"><use href="#i-detector"/></svg>
+        <span><b>Body check</b><small>Metal detector</small></span>
+      </button>
+      <button id="go-shift" class="action plain">
+        <svg width="24" height="24" aria-hidden="true"><use href="#i-clipboard"/></svg>
+        <span><b>Laporan shift</b><small>Saat serah terima</small></span>
+      </button>
+    </div>
 
     <div id="gps" class="gps-pill waiting">
       <span class="dot"></span>
@@ -303,6 +310,22 @@
       </label>
       <p class="eyebrow">Foto — wajib ketiganya</p>
       <div id="r-slots" class="slots"></div>
+    </div>
+
+    <!-- Body check with a metal detector at shift change, any post. Pukul is
+         the ACTUAL time; it starts at the nearer shift change. -->
+    <div id="r-body" class="hidden">
+      <label class="field">
+        <span>Pukul</span>
+        <input id="r-body-time" type="time">
+      </label>
+      <p class="hint">Terisi jam pergantian shift — ubah bila body check dilakukan di jam lain.</p>
+      <p class="eyebrow">Hasil</p>
+      <div id="r-body-result" class="chips wrap" style="margin-bottom:10px"></div>
+      <label id="r-body-finding-field" class="field hidden">
+        <span>Keterangan temuan</span>
+        <textarea id="r-body-finding" rows="3" placeholder="Apa yang ditemukan, pada siapa, tindakan…"></textarea>
+      </label>
     </div>
 
     <!-- Walkthrough: one KP. The approved "LAPORAN TEAM WT" report. -->

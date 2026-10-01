@@ -461,7 +461,6 @@ input:focus, select:focus, textarea:focus {
 .action.plain svg { color: var(--link); }
 
 /* Laporan shift sits under the pair, full width but the same weight. */
-.action.plain.wide { min-height: 60px; margin-bottom: 14px; }
 
 /* Access control: three named photo slots, all required. */
 .slots { display: grid; gap: 8px; margin-bottom: 8px; }

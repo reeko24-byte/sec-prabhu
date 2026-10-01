@@ -1,9 +1,9 @@
-/* The Security Officer's three WhatsApp reports.
+/* The Security Officer's WhatsApp reports.
  *
  * These are the deliverable. Their wording was agreed line by line with Billy
  * on 2026-10-01 and is recorded in the README; change it there first.
  *
- * Rules shared by all three:
+ * Rules shared by all of them:
  *
  *   - Names are the full names from the personnel list, no ID numbers.
  *   - The BKO is always the LAST numbered line of an officer list, and reads
@@ -38,6 +38,19 @@
   function officerBlock(record) {
     return ['NAMA PETUGAS SECURITY :']
       .concat(numbered(record.officers, 'BKO TNI', record.bko));
+  }
+
+  /**
+   * "Bagaimana : first line" with each further line typed in the box set under
+   * the value, not flush left where it would read as a line of its own.
+   */
+  function block(line, label, text) {
+    var rows = String(text || '').split(/\r?\n/)
+      .map(function (row) { return row.trim(); })
+      .filter(function (row, i) { return row || i === 0; });
+    // The width of "Bagaimana : " (an empty value would print '-', so measure 'x').
+    var indent = new Array(line(label, 'x').length).join(' ');
+    return [line(label, rows[0])].concat(rows.slice(1).map(function (row) { return indent + row; }));
   }
 
   function hasBko(record) { return !!(record.bko && String(record.bko).trim()); }
@@ -102,7 +115,35 @@
           ''
         ])
         .concat(officerBlock(record))
-        .concat(['', sentence, S.ACCESS_SITUATION, '', 'Salam,'])
+        .concat(['', sentence, S.CLEAR_SITUATION, '', 'Salam,'])
+        .concat(record.officers || [])
+        .join('\n');
+    },
+
+    /**
+     * Body check with a metal detector on the staff coming in and going out at
+     * shift change. "Pukul" is the actual time, typed. One sentence, then the
+     * situation line -- or, when something was found, what was found.
+     */
+    body: function (record) {
+      var line = SA.aligner(['Hari/Tgl', 'Shift']);
+      var post = record.post;
+      var sentence =
+        'Pukul ' + (record.bodyTime || '-') + ' WIB, saat pergantian shift, petugas melakukan ' +
+        'body check menggunakan metal detector terhadap karyawan yang masuk dan keluar ' + post + '.';
+      var outcome = record.bodyResult === 'found'
+        // One full stop at the end, whether or not the guard typed one.
+        ? 'Temuan: ' + (String(record.bodyFinding || '').trim().replace(/[.\s]+$/, '') || '-') + '.'
+        : S.CLEAR_SITUATION;
+
+      return header('LAPORAN BODY CHECK ' + post)
+        .concat([
+          line('Hari/Tgl', SA.longDate(SA.parseDate(record.date))),
+          line('Shift', SA.shiftText(record.shift)),
+          ''
+        ])
+        .concat(officerBlock(record))
+        .concat(['', sentence, outcome, '', 'Salam,'])
         .concat(record.officers || [])
         .join('\n');
     },
@@ -122,11 +163,11 @@
       ]);
 
       S.questions.forEach(function (q) {
-        lines.push(line(q.label, (answers[q.key] || '').trim()));
+        lines = lines.concat(block(line, q.label, answers[q.key]));
       });
 
       lines.push('');
-      lines.push(line('Tindakan', (record.tindakan || '').trim()));
+      lines = lines.concat(block(line, 'Tindakan', record.tindakan));
       lines.push('');
       lines.push('Pelapor :');
       lines = lines.concat(numbered(record.officers, 'BKO TNI', record.bko));

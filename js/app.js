@@ -534,11 +534,12 @@
     openReport('shift');
   });
   $('go-access').addEventListener('click', function () { openReport('access'); });
+  $('go-body').addEventListener('click', function () { openReport('body'); });
 
   /* ── 4. One report ──────────────────────────────────────────────────── */
 
   var TITLES = { check: 'Pengecekan', incident: 'Laporan Kejadian', shift: 'Laporan Shift',
-    access: 'Access Control', wtkp: 'Laporan KP', lds: 'Laporan LDS' };
+    access: 'Access Control', body: 'Body Check', wtkp: 'Laporan KP', lds: 'Laporan LDS' };
 
   /* ── Walkthrough: start of day ──────────────────────────────────────── */
 
@@ -846,7 +847,7 @@
     updateReport();
   });
   wireText('r-lds-time', 'ldsTime', function (value) {
-    state.draft.date = accessDate(value, new Date());
+    state.draft.date = typedTimeDate(value, new Date());
   });
   $('r-wt-seg').addEventListener('change', function () {
     if (!state.draft) return;
@@ -903,9 +904,25 @@
       accessTime: hhmm(now),
       from: session.post,
       to: '',
-      approvedBy: ''
+      approvedBy: '',
+      // Body check: done at shift change, so Pukul starts at the nearer one.
+      bodyTime: SA.hourText(nearestChange(session, now)),
+      bodyResult: 'none',
+      bodyFinding: ''
     };
   }
+
+  /** The shift change nearest to now: this shift's start hour or its end hour.
+      The outgoing crew (near the end) and the incoming crew (near the start)
+      both get the right default. */
+  function nearestChange(session, now) {
+    var shift = SA.shiftById(session.shift);
+    var start = SA.shiftHourDate(session.shiftDate, shift.start).getTime();
+    var end = SA.shiftHourDate(session.shiftDate, shift.end).getTime();
+    return Math.abs(now.getTime() - start) <= Math.abs(end - now.getTime()) ? shift.start : shift.end;
+  }
+
+
 
   function openReport(kind, hour) {
     var session = currentSession();
@@ -926,6 +943,7 @@
       $('r-incident').classList.toggle('hidden', kind !== 'incident');
       $('r-shift').classList.toggle('hidden', kind !== 'shift');
       $('r-access').classList.toggle('hidden', kind !== 'access');
+      $('r-body').classList.toggle('hidden', kind !== 'body');
       $('r-wtkp').classList.toggle('hidden', kind !== 'wtkp');
       $('r-lds').classList.toggle('hidden', kind !== 'lds');
       // Access control has its own three named photo slots.
@@ -933,6 +951,7 @@
 
       if (kind === 'check') renderHourSelect();
       if (kind === 'access') renderAccessFields();
+      if (kind === 'body') renderBodyFields();
       if (kind === 'incident') renderIncidentFields();
       if (kind === 'shift') renderShiftFields();
       if (kind === 'wtkp') renderWtKpFields();
@@ -1124,26 +1143,58 @@
       $(pair[0]).addEventListener('input', function () {
         if (!state.draft) return;
         state.draft[pair[1]] = this.value;
-        if (pair[1] === 'accessTime') state.draft.date = accessDate(this.value, new Date());
+        if (pair[1] === 'accessTime') state.draft.date = typedTimeDate(this.value, new Date());
         updateReport();          // redraws the slots once, via renderStaleWarning
       });
     });
 
+  /* Body check */
+
+  function renderBodyFields() {
+    var d = state.draft;
+    d.date = typedTimeDate(d.bodyTime, new Date());
+    $('r-body-time').value = d.bodyTime;
+    $('r-body-finding').value = '';
+    renderChoice($('r-body-result'), [
+      { value: 'none', text: 'Nihil temuan' },
+      { value: 'found', text: 'Ada temuan' }
+    ], d.bodyResult, function (value) {
+      state.draft.bodyResult = value;
+      $('r-body-finding-field').classList.toggle('hidden', value !== 'found');
+      updateReport();
+    });
+    $('r-body-finding-field').classList.add('hidden');
+  }
+
+  wireText('r-body-time', 'bodyTime', function (value) {
+    state.draft.date = typedTimeDate(value, new Date());
+  });
+  wireText('r-body-finding', 'bodyFinding');
+
   /**
-   * The day an access control happened, from its Pukul. A time later than now
-   * belongs to yesterday: goods out at 23:50, report saved at 00:10, is dated
-   * the day the goods left -- not the day the guard finished the photos. Five
-   * minutes of slack so a clock a little ahead of the phone's is still today.
+   * The day a typed time (Access Control's Pukul, Body Check's Pukul, LDS's
+   * Jam) belongs to: the one that puts it between 20 hours before now and 4
+   * hours after. One rule for all three:
+   *   goods out 23:50, saved 00:10          -> yesterday (20 min ago)
+   *   Body Check default 08:00, at 07:40    -> today (20 min ahead)
+   *   Sore's Body Check 00:00, at 23:50     -> tomorrow (10 min ahead)
+   *   goods out 08:30, written at 08:20     -> today
+   * Anchored to now, not to the shift, so a shift nobody closed on the phone
+   * cannot drag the date back. 4 hours ahead covers the furthest default (the
+   * nearer shift change is never more than 4 hours away).
    */
-  function accessDate(hhmmText, now) {
+  var AHEAD_MS = 4 * 60 * 60 * 1000;
+  function typedTimeDate(hhmmText, now) {
     var parts = String(hhmmText || '').split(':');
-    var day = new Date(now.getTime());
-    if (parts.length === 2) {
+    if (parts.length !== 2) return SA.dateOf(now);
+    for (var offset = 1; offset >= -1; offset--) {
       var at = new Date(now.getTime());
+      at.setDate(at.getDate() + offset);
       at.setHours(Number(parts[0]), Number(parts[1]), 0, 0);
-      if (at.getTime() > now.getTime() + 5 * 60 * 1000) day.setDate(day.getDate() - 1);
+      var ahead = at.getTime() - now.getTime();
+      if (ahead <= AHEAD_MS && ahead > AHEAD_MS - 24 * 60 * 60 * 1000) return SA.dateOf(at);
     }
-    return SA.dateOf(day);
+    return SA.dateOf(now);
   }
 
   /** Which slot the next camera or gallery pick fills. */
@@ -1249,6 +1300,8 @@
       if (!String(draft.from).trim()) missing.push('Dari');
       if (!String(draft.to).trim()) missing.push('Menuju');
     }
+    // The body check's Pukul is on the photo.
+    if (draft.kind === 'body' && !draft.bodyTime) missing.push('Pukul');
     return missing;
   }
 
@@ -1259,7 +1312,8 @@
     if (state.processing) missing.push('foto masih diproses');
     if (draft.kind === 'shift' && !draft.handover) missing.push('Jam serah terima');
     if (draft.kind === 'lds' && !/^\d+$/.test(String(draft.radius))) missing.push('radius penyisiran');
-    if (draft.kind === 'lds' && draft.result === 'found' && !String(draft.finding).trim()) {
+    if ((draft.kind === 'lds' && draft.result === 'found' && !String(draft.finding).trim()) ||
+        (draft.kind === 'body' && draft.bodyResult === 'found' && !String(draft.bodyFinding).trim())) {
       missing.push('keterangan temuan');
     }
     var rule = photoRule(draft.kind);
@@ -1300,6 +1354,7 @@
         return r.kind === 'check' ? SA.secCaption.check(r)
           : r.kind === 'incident' ? SA.secCaption.incident(r)
           : r.kind === 'access' ? SA.secCaption.access(r)
+          : r.kind === 'body' ? SA.secCaption.body(r)
           : SA.secCaption.shift(r);
       },
       label: function (r) { return SA.secRecords.label(r); },
@@ -1325,7 +1380,9 @@
       recordBase: function (draft, now, session) {
         return {
           team: 'security', kind: draft.kind, sessionId: session.id,
-          date: draft.kind === 'access' ? accessDate(draft.accessTime, now) : SA.dateOf(now),
+          date: draft.kind === 'access' ? typedTimeDate(draft.accessTime, now)
+            : draft.kind === 'body' ? typedTimeDate(draft.bodyTime, now)
+            : SA.dateOf(now),
           time: SA.timeOf(now), timestamp: SA.timestampOf(now),
           post: draft.post, shift: draft.shift, shiftDate: draft.shiftDate,
           officers: draft.officers.slice(), bko: (draft.bko || '').trim(), reporter: draft.reporter
@@ -1333,7 +1390,8 @@
       },
       summary: function (c, n) {
         return n + ' laporan: ' + (c.check || 0) + ' pengecekan, ' + (c.incident || 0) + ' kejadian, ' +
-          (c.access || 0) + ' access control, ' + (c.shift || 0) + ' shift.';
+          (c.access || 0) + ' access control, ' + (c.body || 0) + ' body check, ' +
+          (c.shift || 0) + ' shift.';
       }
     },
     walkthrough: {
@@ -1362,7 +1420,7 @@
         return {
           team: 'walkthrough', kind: draft.kind, sessionId: session.id,
           // An LDS is dated by its Jam, like Access Control by its Pukul.
-          date: draft.kind === 'lds' ? accessDate(draft.ldsTime, now) : SA.dateOf(now),
+          date: draft.kind === 'lds' ? typedTimeDate(draft.ldsTime, now) : SA.dateOf(now),
           time: SA.timeOf(now), timestamp: SA.timestampOf(now),
           teamNo: draft.teamNo, zone: draft.zone, routeId: draft.routeId,
           officers: draft.officers.slice(), reporter: draft.reporter
@@ -1400,7 +1458,9 @@
     var saveMissing = missingForSave();
     $('r-save').disabled = saveMissing.length > 0;
     $('r-blocker').textContent = saveMissing.length ? 'Isi dulu: ' + saveMissing.join(', ') + '.'
-      : !rule.required && taken < rule.min ? 'Belum ada foto — tetap bisa dikirim.'
+      : !rule.required && !taken ? 'Belum ada foto — tetap bisa dikirim.'
+      : !rule.required && taken < rule.min
+        ? taken + ' foto, disarankan ' + rule.min + '–' + rule.max + ' — tetap bisa dikirim.'
       : '';
 
     $('r-preview').textContent = captionOf(draft);
@@ -1685,6 +1745,10 @@
         record.from = String(draft.from).trim();
         record.to = String(draft.to).trim();
         record.approvedBy = String(draft.approvedBy).trim();
+      } else if (draft.kind === 'body') {
+        record.bodyTime = draft.bodyTime;
+        record.bodyResult = draft.bodyResult;
+        record.bodyFinding = draft.bodyResult === 'found' ? String(draft.bodyFinding).trim() : '';
       } else if (draft.kind === 'check') {
         record.hour = draft.hour;
       } else if (draft.kind === 'incident') {
@@ -2173,7 +2237,7 @@
   /* BUILD and CACHE_VERSION in sw.js are a PAIR -- bump both on every upload.
      The marker prints both; when they differ, the new version has downloaded
      but the app has not been restarted. */
-  var BUILD = 'v14';
+  var BUILD = 'v16';
   var CACHE_PREFIX = 'superapp-laporan-';
 
   function showVersion() {

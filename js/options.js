@@ -139,7 +139,13 @@ SA.SECURITY = {
   accessDirections: ['Barang keluar', 'Barang masuk'],
   accessPhotos: ['Cargo Manifest', 'Plat Nomor Kendaraan', 'Barang'],
   accessPhotosShort: ['Manifest', 'Plat', 'Barang'],   // for the narrow Excel columns
-  ACCESS_SITUATION: 'Situasi aman, nihil temuan.',
+  /* The closing line of Access Control and of Body Check. */
+  CLEAR_SITUATION: 'Situasi aman, nihil temuan.',
+
+  /* Body check with a metal detector, at shift change (Billy, 2026-10-01):
+     every post; sent by whichever crew does it, filed under the shift open on
+     the phone (accepted); Pukul is the actual time, typed like Access Control.
+     A find replaces the CLEAR_SITUATION line. */
 
   /* Suggested photo counts. Shown as a hint and NEVER enforced -- a guard who
      wants more, or has none, still sends. */
@@ -147,7 +153,8 @@ SA.SECURITY = {
     check:    { min: 1, max: 2 },
     incident: { min: 1, max: 4 },
     shift:    { min: 2, max: 4 },
-    access:   { min: 3, max: 3 }
+    access:   { min: 3, max: 3 },
+    body:     { min: 4, max: 6 }
   },
 
   /* A hard ceiling only so the share and the phone's memory stay sane. */

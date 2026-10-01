@@ -4,11 +4,11 @@ One PWA for three teams: **Security Officer**, **Patrol**, **Walkthrough**.
 Works on Android (Chrome) and iPhone (Safari), offline, no backend. Each report
 goes to WhatsApp as photos + caption in one tap; the Excel is a separate export.
 
-**Status (v14, 2026-10-01)**
+**Status (v16, 2026-10-01)**
 
 | Team | State | Reports |
 |---|---|---|
-| Security Officer | **built** | Pengecekan (hourly), Laporan Kejadian, Access Control, Laporan Shift |
+| Security Officer | **built** | Pengecekan (hourly), Laporan Kejadian, Access Control, Body Check, Laporan Shift |
 | Walkthrough | **built** | Laporan KP, Laporan LDS |
 | Patrol | "segera" — questions on hold | (LDS is ready to share) |
 
@@ -25,12 +25,12 @@ Exif reader, .xlsx writer, share handling, version marker). The other apps in
 This folder is **not** a git repo. Upload the whole folder to GitHub Pages by
 hand. On **every** upload, bump both of these together — they are a pair:
 
-- `CACHE_VERSION` in `sw.js` (now `superapp-laporan-v14`)
-- `BUILD` in `js/app.js` (now `v14`)
+- `CACHE_VERSION` in `sw.js` (now `superapp-laporan-v16`)
+- `BUILD` in `js/app.js` (now `v16`)
 
 If files change and `sw.js` does not, phones that already have the app keep the
 old files forever. The line at the foot of each main screen prints
-`kode v14 · cache v14`; if the two differ, the new version downloaded but the app
+`kode v16 · cache v16`; if the two differ, the new version downloaded but the app
 has not been restarted. A changed home-screen icon usually only appears after the
 app is removed and added to the Home Screen again.
 
@@ -75,13 +75,14 @@ Badges `assets/badges/patrol-1…8.png` are in place (Patrol N = ZONA N, to conf
    order; the first name is the reporter), BKO TNI (optional), shift, shift date.
 2. The main screen shows the post's badge, the shift, and the **shift
    timeline**: 8 cells — the 7 check hours, then the handover.
-3. Four reports:
+3. Five reports:
 
 | Report | When | Photos |
 |---|---|---|
 | **Pengecekan** | every hour from start+1 to end−1 (7 a shift); "Pukul" is the scheduled hour | 1–2 suggested, not required |
 | **Laporan Kejadian** | immediately; one report per incident | 1–4 suggested, not required |
 | **Access Control** | whenever goods go in or out, any post; "Pukul" is the actual time | **3 required**: Cargo Manifest, plat nomor, barang |
+| **Body Check** | at shift change, any post, either crew; "Pukul" starts at the shift change | 4–6 suggested, not required |
 | **Laporan Shift** | by the OUTGOING crew at the end hour; A and B fill themselves | 2–4 suggested, not required |
 
 4. After the shift report, **Mulai shift berikutnya** opens the next shift with
@@ -139,9 +140,13 @@ Recorded here so it is not "tidied" later. Code: `js/sec-caption.js`.
 - **Laporan Kejadian (5W1H since v13):** Apa, Siapa, Kapan, Dimana, Mengapa,
   Bagaimana, then Tindakan and a Pelapor list. Kapan is pre-filled with
   *Pukul HH:MM WIB* (the time the report is opened, editable); Bagaimana is a
-  larger box for the chronology; every box has a hint. Until v12 it was the
-  seven SIADIDEMENBABI questions: *Dengan apa* is gone, and *Bilamana* became
-  Kapan (same stored key, so older incidents still export their time).
+  larger box for the chronology; every box has a hint. Multi-line answers
+  (Bagaimana, Tindakan) keep their further lines under the value. Until v12 it
+  was the seven SIADIDEMENBABI questions: *Dengan apa* is gone, and *Bilamana*
+  became Kapan (same stored key, so older incidents still export their time).
+  Incidents saved before v13 still export their *Dengan apa* answer, in a
+  "Dengan apa (lama)" column that appears only when such an incident is in the
+  export.
 - **Laporan Shift:**
   - **Section A lists every check hour of the shift**, each with ✓ when a check
     was sent or `— tidak ada laporan` when none was (Billy confirmed he wants
@@ -171,8 +176,40 @@ then *Situasi aman, nihil temuan.* ("nihil taruna" in the sample was read as
 autocorrect). Three photo slots, **all required**, each stamped with its subject
 ("Foto: Plat Nomor Kendaraan") and filed in that order. The camera unlocks once
 Menuju is filled, because the route is printed on the photo. The date follows
-Pukul: 23:50 saved at 00:10 is dated the day the goods left. Names follow the
+Pukul (see "Dates of typed times" below): 23:50 saved at 00:10 is dated the day
+the goods left. Names follow the
 app's list (YOSAFAT, not the sample's "YOSAFAT KRESNO").
+
+### Body Check (v15, Billy 2026-10-01)
+
+Metal-detector body check of the staff coming in and going out at shift change.
+Every post; not on the timeline (a separate button, like Access Control); sent by
+whichever crew does it — filed under the shift open on the phone, so an incoming
+crew checking before the handover report appears under the outgoing crew's names
+(accepted by Billy). Title `LAPORAN BODY CHECK <POS>`. Sentence:
+*Pukul 08:00 WIB, saat pergantian shift, petugas melakukan body check
+menggunakan metal detector terhadap karyawan yang masuk dan keluar KOTA BATAK
+JUNCTION.* then *Situasi aman, nihil temuan.* — or, with **Ada temuan**,
+*Temuan: \<typed\>.* (the finding is then required). One sentence, no head
+count (Billy).
+
+**Pukul defaults to the nearer shift change** of the current shift: Malam opened
+at 07:20 starts at 08:00 (outgoing crew), at 00:20 at 00:00 (incoming crew);
+the guard can change it. Dated by the rule below, so the 08:00 default typed at
+07:40 is today and Sore's 00:00 typed at 23:50 is tomorrow. Stored as
+`bodyTime`, `bodyResult`, `bodyFinding` (not LDS's `result`/`finding`). Photos 4–6 suggested, never gated; band line
+*Metal detector · Nihil temuan / Ada temuan*. Excel sheet **Body Check**.
+
+### Dates of typed times (v16)
+
+Access Control's Pukul, Body Check's Pukul and LDS's Jam are dated by one rule
+(`typedTimeDate` in `js/app.js`): the day that puts the time between **20 hours
+before now and 4 hours after**. Goods out 23:50 saved 00:10 → yesterday; 08:00
+typed at 07:40 → today; 00:00 typed at 23:50 → tomorrow; 23:00 reported at 11:30
+the next morning → yesterday. It is anchored to now, not to the shift, so a
+shift nobody closed on the phone cannot drag the date back. (Until v15 Access
+Control and LDS used "later than now + 5 minutes = yesterday", which dated a
+time written a little in advance as yesterday.)
 
 ### Personnel (from `Database Personil.xlsx`, corrected on purpose)
 
@@ -256,7 +293,7 @@ them.
   cleanly. Removing the card entirely was tried and rejected: the dark-blue post
   name vanishes on a dark photo. Comparison: `design/badge-opacity-compare.png`.
 - Bottom band: report type, place, crew, (report-specific lines: the route and
-  photo subject for Access Control, KP and condition for WT, KP and result for
+  photo subject for Access Control, the result for Body Check, KP and condition for WT, KP and result for
   LDS), time, coordinates, address.
 - Bottom right: the verification code — `SEC-VERIFY` (Security) or `WT-VERIFY`
   (Walkthrough). It detects a photo edited after the app wrote it; it is not a
@@ -269,7 +306,7 @@ One file per export, per team:
 
 | Team | File name | Sheets | Colour |
 |---|---|---|---|
-| Security | `SECURITY_<POS>_<date>_<time>.xlsx` | Pengecekan, Kejadian, Access Control, Shift | navy `#0A5C8C` |
+| Security | `SECURITY_<POS>_<date>_<time>.xlsx` | Pengecekan, Kejadian, Access Control, Body Check, Shift | navy `#0A5C8C` |
 | Walkthrough | `WT_TIM<N>_<date>_<time>.xlsx` | Laporan KP, LDS | dark green `#548235` |
 | Patrol (later) | — | — | blue `#0090C8` (the dashboard's own) |
 
@@ -405,6 +442,20 @@ from its HTTP cache — reload with the cache bypassed before trusting a result.
 8. The chip rows share `renderChoice`.
 9. Both main screens use one counter (`renderCount`).
 
+### Third review (v16)
+
+Eight findings on v13–v15; seven fixed, one accepted:
+
+1. The photo hint said "Belum ada foto" with 1–3 photos attached; it now says
+   "2 foto, disarankan 4–6 — tetap bisa dikirim."
+2. *Accepted:* a Body Check is filed under the shift open on the phone.
+3. One date rule for every typed time (see "Dates of typed times").
+4. One closing line, `CLEAR_SITUATION`, for Access Control and Body Check.
+5. "Dengan apa" from before v13 is still exported.
+6. Multi-line answers stay under their value in the caption.
+7. Body Check has its own field names (`bodyResult`, `bodyFinding`).
+8. A stale "all three" comment.
+
 ---
 
 ## Open items
@@ -453,3 +504,5 @@ PERSONIL; Patrol also sends LDS (shared report). Still to ask:
 | v12 | Fixes from the second code review |
 | v13 | Laporan Kejadian in 5W1H (Apa, Siapa, Kapan, Dimana, Mengapa, Bagaimana) |
 | v14 | Photo badge: white card see-through (45%), logo and words solid |
+| v15 | Body Check report (metal detector, at shift change) |
+| v16 | Fixes from the third code review |
