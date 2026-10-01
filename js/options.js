@@ -26,7 +26,9 @@ SA.TEAMS = [
   { id: 'patrol',      label: 'Patrol',           ready: true,
     icon: 'i-route',  note: 'Patroli kendaraan per zona' },
   { id: 'walkthrough', label: 'Walkthrough',      ready: true,
-    icon: 'i-steps',  note: 'Jalan kaki sepanjang ROW' }
+    icon: 'i-steps',  note: 'Jalan kaki sepanjang ROW' },
+  { id: 'office',      label: 'Security Perkantoran', ready: true,
+    icon: 'i-building', note: 'SECWAN · kantor SORA dan Area Melur' }
 ];
 
 /* Excel colours, one per team (Billy, 2026-10-01), taken from Prabhu's own
@@ -39,7 +41,9 @@ SA.TEAMS = [
 SA.EXCEL_THEMES = {
   security:    { primary: '0A5C8C', title: 'LAPORAN SECURITY OFFICER' },
   patrol:      { primary: '0090C8', title: 'LAPORAN MONITORING PATROLI SECURITY' },
-  walkthrough: { primary: '548235', title: 'LAPORAN TEAM WALKTHROUGH' }
+  walkthrough: { primary: '548235', title: 'LAPORAN TEAM WALKTHROUGH' },
+  // Slate: apart from the other three teams' navy, blue and green.
+  office:      { primary: '4A5A6A', title: 'LAPORAN SECURITY PERKANTORAN' }
 };
 SA.EXCEL_LOGO = 'assets/brand/prabhu-logo.png';
 
@@ -154,6 +158,7 @@ SA.SECURITY = {
     body:     { min: 4, max: 6 },
     patrol:   { min: 1, max: 4 },
     pend:     { min: 2, max: 4 },
+    office:   { min: 4, max: 6 },
     close:    { min: 1, max: 2 }
   },
 
@@ -166,6 +171,20 @@ SA.SECURITY = {
 /** Typed text as one sentence: trimmed, exactly one full stop, '-' if empty. */
 SA.sentence = function (text) {
   return (String(text || '').trim().replace(/[.\s]+$/, '') || '-') + '.';
+};
+
+/* Security Perkantoran (SECWAN), Billy 2026-10-02: office security at two of
+   Security's posts, one officer each (the two left out of the Security
+   roster). Always Pagi; one report per officer per day, at the shift's end,
+   with the visitors counted through the day. Photos 4-6 suggested (guest book,
+   the area, other). Badges: the posts' own. */
+SA.OFFICE = {
+  posts: [
+    { name: 'SORA',       officers: ['YESSICIKA RELAISE TAMBA'] },
+    { name: 'AREA MELUR', officers: ['MEGA SURYANINGRUMNUGROHO'] }
+  ],
+  SHIFT: 'PAGI',
+  SITUATION: 'Laporan standby, situasi area sementara aman terkendali, temuan nihil.'
 };
 
 /** The incident type whose details are typed: Security's "Other", Patrol's "Dll". */

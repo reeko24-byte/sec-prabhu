@@ -1,16 +1,17 @@
 # Laporan Tim — the super app
 
-One PWA for three teams: **Security Officer**, **Patrol**, **Walkthrough**.
+One PWA for four teams: **Security Officer**, **Patrol**, **Walkthrough**, **Security Perkantoran** (SECWAN).
 Works on Android (Chrome) and iPhone (Safari), offline, no backend. Each report
 goes to WhatsApp as photos + caption in one tap; the Excel is a separate export.
 
-**Status (v23, 2026-10-02)**
+**Status (v26, 2026-10-02)**
 
 | Team | State | Reports |
 |---|---|---|
 | Security Officer | **built** | Pengecekan (hourly), Laporan Kejadian, Access Control, Body Check, Laporan Shift |
 | Walkthrough | **built** | Laporan KP, Laporan LDS |
 | Patrol | **built** (placeholder areas and facilities) | Guard tour, Laporan Kejadian, LDS, Akhir Shift |
+| Security Perkantoran | **built** (v25) | Visitor counter all day, Laporan Harian at the end of the shift |
 | Office | **built** — `D:\Users\reeko\laporan-tools\rekap_harian.py` | Rekap harian per zona (South / North) from the exports |
 
 The old `wt-surveillance` app is to be **retired**; WT crews switch to this app.
@@ -26,12 +27,12 @@ Exif reader, .xlsx writer, share handling, version marker). The other apps in
 This folder is **not** a git repo. Upload the whole folder to GitHub Pages by
 hand. On **every** upload, bump both of these together — they are a pair:
 
-- `CACHE_VERSION` in `sw.js` (now `superapp-laporan-v23`)
-- `BUILD` in `js/app.js` (now `v23`)
+- `CACHE_VERSION` in `sw.js` (now `superapp-laporan-v26`)
+- `BUILD` in `js/app.js` (now `v26`)
 
 If files change and `sw.js` does not, phones that already have the app keep the
 old files forever. The line at the foot of each main screen prints
-`kode v23 · cache v23`; if the two differ, the new version downloaded but the app
+`kode v26 · cache v26`; if the two differ, the new version downloaded but the app
 has not been restarted. A changed home-screen icon usually only appears after the
 app is removed and added to the Home Screen again.
 
@@ -310,8 +311,13 @@ Personil").
    refused) and the **jarak tempuh**; this shift's checkpoints and findings
    (frozen when saved); **Fasilitas 1–3: Aktif / Tidak Aktif — a placeholder**
    until Rokan's facility list exists. Speedometer photos (start and end)
-   suggested, 2–4. After sending, *Mulai shift berikutnya* opens the next shift
-   with the patrol, vehicle and KM carried over.
+   suggested, 2–4. **G. SERAH TERIMA** (v24, Billy): the handover time (the
+   shift's end) and the **incoming crew** — picked from the patrol's people
+   (others behind *Tampilkan patrol lain*), **required**, with *TNI shift
+   lanjut* as the last numbered line. After sending, *Mulai shift berikutnya*
+   opens the next shift with that crew, the patrol, vehicle and KM carried over.
+   Excel: *Shift Lanjut* and *TNI Lanjut* columns on Akhir Shift. An end-of-shift
+   report saved before v24 (no incoming crew) is re-sent without section G.
 
 **Vehicles** (Billy, 2026-10-02) — picked by default for the patrol, another
 one or *Ketik sendiri* when swapped; the report prints the plate:
@@ -325,6 +331,66 @@ them in `js/patrol-options.js` when the real lists arrive.
 **Badge:** Billy's "TEAM Patrol N" artwork (`assets/badges/patrol-N.png`) top
 right of every photo, and the band reads **SECURITY PATROL - PATROL N**. Photo
 code: `PAT-VERIFY`.
+
+## Security Perkantoran — SECWAN (v25, Billy 2026-10-02)
+
+Office security at two of Security's posts, **one officer each**: SORA —
+Yessicika Relaise Tamba; AREA MELUR — Mega Suryaningrumnugroho (the two left out
+of the Security roster). Always **Pagi, 08:00–16:00**. One report per officer
+per day, sent **at the end of the shift**. Data: `SA.OFFICE` in
+`js/options.js`; texts, stamp, seal, sheet: `js/office-records.js`.
+
+1. **Mulai hari:** the post (SORA / AREA MELUR) and the officer (the post's
+   own first; the other office's for a day one covers for the other). A new
+   day opens the start screen again, as for Walkthrough.
+2. **Tamu hari ini:** a counter on the main screen — **+1 Tamu** at each visit
+   (its time is kept), **−** to undo the last one (asks first). Every tap is
+   stored at once, so the count survives closing the app.
+3. **Laporan akhir shift** — the report:
+   ```
+   To  : ARCO
+   Cc  : PM, Data Analyst
+   Hal : LAPORAN SECURITY PERKANTORAN SORA
+
+   Hari/Tgl : KAMIS, 1 OKTOBER 2026
+   Shift    : PAGI, 08:00 WIB s/d 16:00 WIB
+
+   NAMA PETUGAS :
+   1. YESSICIKA RELAISE TAMBA
+
+   Laporan standby, situasi area sementara aman terkendali, temuan nihil.
+
+   Jumlah tamu pukul 08:00–16:00 WIB : 6 orang.
+
+   Terima kasih.
+   ```
+   Jumlah tamu comes from the counter and can be corrected on the form — a
+   correction is kept as a difference ("koreksi +1"), so visitors tapped
+   after it still count;
+   the situation sentence is editable ("taruna" in Billy's sample was
+   "temuan"). Photos **4–6 suggested** (guest book, the area, other), never
+   required.
+4. **Kept until Simpan:** the form's photos and text are saved on the phone as
+   they change and come back when the form is opened again — after *Batal*,
+   closing the app, or a restart. Photos are written only when they change,
+   text a moment after typing stops. **Reset foto dan isian** clears them (asks
+   first; the count goes back to the counter's). Sending clears the kept draft.
+   The main screen says "N foto tersimpan, belum dikirim" (also after an earlier
+   report of the day was sent).
+   - **Not sent by the next day?** When a new day starts, the app asks:
+     *"Laporan JUMAT, 2 OKTOBER 2026 belum dikirim (N foto). Kirim sekarang?"* —
+     it opens that day's report (its date, its counter, its photos); or, if
+     not, offers to throw it away. Never lost silently.
+   - The counter refuses a tap once the day is over (a screen left open past
+     midnight) and opens the start screen.
+   - This is a general mechanism (`keep` in a team's `MODULES` entry, e.g.
+     `keep: { office: ['situation', 'visitorsAdjust'] }`); any other report
+     written over a whole shift can switch it on the same way.
+5. Badge: the **post's own** (SORA / Area Melur). The photo stamp has no visitor
+   count (it changes all day, which would mark earlier photos out of date).
+   Photo code `OFF-VERIFY`. Excel: `SECWAN_<POS>_….xlsx`, one sheet *Laporan
+   Harian* (Jumlah Tamu as a number, Jam Tamu, Situasi), slate `#4A5A6A`. No
+   incident report (Billy).
 
 ---
 
@@ -529,6 +595,7 @@ user skill on this PC) and `web-design-guidelines` skills.
 | `js/sheets.js` | the Excel sheet builder shared by every team |
 | `js/findings.js` | findings shared by every team: Tindak lanjut, Status, the UPDATE TEMUAN text |
 | `js/patrol-options.js` | Patrol: Patrol 1–8 (mapped from the sheet's zones), people, vehicles, placeholder facilities, gangguan, field interview |
+| `js/office-records.js` | Security Perkantoran: the daily report, stamp, seal, sheet |
 | `js/patrol-records.js` | Patrol: guard tour, akhir shift and kejadian texts, stamps, seals, sheets |
 | `js/xlsx.js` | the .xlsx writer — dashboard layout, logo, team colour |
 | `js/photo.js` · `seal.js` · `exif.js` · `geo.js` | photo pipeline (from WT); the see-through badge card is in `photo.js` |
@@ -660,6 +727,17 @@ Ten findings on v17–v22, all fixed:
    a zone (`zone` means North/South Area everywhere).
 10. One table of form sections per report kind (`FORMS` in `js/app.js`).
 
+### Fifth review (v26)
+
+Nine findings on v24–v25 (and the office tool), all fixed: an unsent office
+report is offered on the next day instead of being lost; a corrected visitor
+count no longer freezes later taps; the tool counts a re-sent office report
+once (the latest); photos are no longer rewritten on every keystroke; no
+counting after midnight; the main screen mentions kept photos even after a
+send; pre-v24 Patrol reports re-send without an empty G; the keep-until-Simpan
+mechanism is general (`keep`); the office report uses Security's To/Cc/Hal
+header (`SA.secCaption.header`).
+
 ---
 
 ## Open items
@@ -715,3 +793,6 @@ shift.
 | v21 | Patrol numbered PATROL 1–8 (North inverted from the sheet's zones); Patrol N badges; "SECURITY PATROL - PATROL N" on the photo |
 | v22 | Patrol vehicles: the real plates, one per patrol, picked by default |
 | v23 | Fixes from the fourth code review |
+| v24 | Patrol akhir shift: G. Serah terima with the incoming crew (required) |
+| v25 | Security Perkantoran (SECWAN): visitor counter, end-of-shift report kept on the phone until Simpan |
+| v26 | Fixes from the fifth code review: kept drafts made general, offered on the next day, cheap to save; corrections survive later taps |

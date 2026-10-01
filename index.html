@@ -36,6 +36,7 @@
     <symbol id="i-bang" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 5v9M12 19h.01"/></symbol>
     <symbol id="i-dot" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" fill="currentColor"/></symbol>
     <symbol id="i-truck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.62l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/></symbol>
+    <symbol id="i-building" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="1.5"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01M12 6h.01M16 6h.01M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M16 14h.01"/></symbol>
     <symbol id="i-detector" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="8" height="11" rx="4"/><rect x="7.5" y="13" width="3" height="9" rx="1.5"/><path d="M16 5.5a4.5 4.5 0 0 1 0 5"/><path d="M19 3.5a8 8 0 0 1 0 9"/></symbol>
     <symbol id="i-send" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></symbol>
   </defs>
@@ -356,6 +357,82 @@
   </div>
 </section>
 
+<!-- ── O1. Security Perkantoran: start of day ─────────────────────────────
+     Post and officer; the shift is always Pagi. One report per officer.
+-->
+<section id="screen-o-setup" class="screen">
+  <header class="bar">
+    <button id="o-setup-back" class="link">Ganti tim</button>
+    <span class="who">Mulai hari · Security Perkantoran</span>
+  </header>
+  <div class="pad">
+    <div class="section">
+      <p class="eyebrow">Pos</p>
+      <div id="o-post" class="chips"></div>
+    </div>
+    <div class="section">
+      <p class="eyebrow">Petugas</p>
+      <div id="o-officer" class="chips wrap"></div>
+      <p class="hint">Satu laporan per petugas. Shift Pagi, 08:00–16:00 WIB · <span id="o-date"></span></p>
+    </div>
+    <button id="o-start" class="primary" disabled>Mulai</button>
+    <p id="o-blocker" class="hint" style="text-align:center"></p>
+  </div>
+</section>
+
+<!-- ── O2. Security Perkantoran: the day ───────────────────────────────────
+     A visitor counter all day; one report at the end of the shift, whose
+     photos and text are kept on the phone until Simpan.
+-->
+<section id="screen-o-main" class="screen">
+  <header class="bar">
+    <span class="who">Security Perkantoran</span>
+    <button id="o-main-team" class="link">Ganti tim</button>
+  </header>
+  <div class="pad">
+    <div class="post-card">
+      <div class="post-badge-wrap"><img id="o-badge" class="post-badge" alt="" width="320" height="64"></div>
+      <div class="post-meta">
+        <div id="o-session" class="assign-line"></div>
+        <button id="o-edit" class="link">Ubah</button>
+      </div>
+    </div>
+    <p id="o-over" class="warn hidden"></p>
+
+    <div class="counter-card">
+      <p class="eyebrow">Tamu hari ini</p>
+      <div class="counter-row">
+        <button id="o-minus" class="counter-btn" type="button" aria-label="Kurangi satu tamu">−</button>
+        <output id="o-visitors" class="counter-value" aria-live="polite">0</output>
+        <button id="o-plus" class="action main counter-plus" type="button">
+          <span><b>+1 Tamu</b><small>ketuk setiap tamu datang</small></span>
+        </button>
+      </div>
+      <p id="o-times" class="hint"></p>
+    </div>
+
+    <button id="go-office" class="action plain wide-plain">
+      <svg width="24" height="24" aria-hidden="true"><use href="#i-clipboard"/></svg>
+      <span><b>Laporan akhir shift</b><small id="go-office-sub">Foto dan isian tersimpan sampai Simpan</small></span>
+    </button>
+
+    <div id="o-gps" class="gps-pill waiting">
+      <span class="dot"></span>
+      <span class="gps-text">
+        <span class="gps-line" id="o-gps-status"></span>
+        <span class="gps-line small" id="o-gps-detail"></span>
+      </span>
+    </div>
+
+    <div class="footer-row">
+      <span id="o-today"></span>
+      <button id="o-view-list" class="link">Riwayat</button>
+    </div>
+    <button id="o-go-export" class="secondary">Export ke Excel</button>
+    <p id="o-version" class="version"></p>
+  </div>
+</section>
+
 <!-- ── 4. Security: one report (hourly check, incident or shift) ──────────
      One screen, three shapes. The sections for the other two kinds are hidden.
 -->
@@ -525,6 +602,23 @@
       </label>
     </div>
 
+    <!-- Security Perkantoran: the day's report. Kept on the phone (photos too)
+         until Simpan; Reset clears it. -->
+    <div id="r-office" class="hidden">
+      <label class="field">
+        <span>Jumlah tamu (08:00–16:00 WIB)</span>
+        <input id="r-o-visitors" type="text" inputmode="numeric" autocomplete="off">
+      </label>
+      <p id="r-o-times" class="hint"></p>
+      <label class="field">
+        <span>Situasi</span>
+        <textarea id="r-o-situation" rows="2"></textarea>
+      </label>
+      <p class="hint">Foto dan isian tersimpan di HP sampai Simpan — boleh ditutup dan dilanjutkan nanti.
+        Disarankan 4–6 foto: buku tamu, area kantor, lainnya.</p>
+      <button id="r-o-reset" class="danger-link" type="button">Reset foto dan isian</button>
+    </div>
+
     <!-- Patrol: one guard-tour checkpoint. Area typed until the list arrives;
          the check replaces "Nihil". -->
     <div id="r-patrol" class="hidden">
@@ -578,6 +672,15 @@
       <div id="r-pend-facilities" class="asset-list"></div>
       <p class="eyebrow">Guard tour dan temuan shift ini</p>
       <div id="r-pend-summary" class="summary"></div>
+      <!-- Who takes over: required (Billy, 2026-10-02). -->
+      <div class="field">
+        <span id="r-pend-next-label">Shift lanjut (masuk)</span>
+        <div id="r-pend-next" class="picklist"></div>
+      </div>
+      <label class="field">
+        <span>TNI shift lanjut — kosongkan bila tidak ada</span>
+        <input id="r-pend-next-tni" type="text" autocomplete="off">
+      </label>
       <p class="hint">Foto speedometer awal dan akhir disarankan — tidak wajib.</p>
     </div>
 
@@ -713,6 +816,7 @@
 <script src="js/sec-records.js"></script>
 <script src="js/wt-records.js"></script>
 <script src="js/patrol-records.js"></script>
+<script src="js/office-records.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

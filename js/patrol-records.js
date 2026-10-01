@@ -10,7 +10,8 @@
  *     patrolResult ('none'|'found'), patrolFinding, followUp, status, fieldInterview
  *   pend (end of shift):
  *     kmStart, kmEnd, facilities {name: 'Aktif'|'Tidak Aktif'},
- *     tours [{time, area, check}], findingList [{time, label, status}]
+ *     tours [{time, area, check}], findingList [{time, label, status}],
+ *     nextOfficers [..], nextTni        the incoming crew (required)
  *   incident: incidentType, otherText, answers {5W1H}, tindakan, status
  *   lds, close: as Walkthrough's / findings.js
  *   photos [..]
@@ -142,6 +143,17 @@
       found.forEach(function (f) {
         lines.push('   - Pukul ' + f.time + ' WIB · ' + f.label + ' (' + f.status + ')');
       });
+      // G. Who takes over (Billy, 2026-10-02), as in Security's shift report.
+      // Reports saved before v24 have no incoming crew: no empty G for them.
+      if (Array.isArray(record.nextOfficers)) {
+        var shift = SA.shiftById(record.shift);
+        var g = SA.aligner(['Jam serah terima', 'Shift lanjut']);
+        lines.push('');
+        lines.push('G. SERAH TERIMA :');
+        lines.push('   - ' + g('Jam serah terima', shift ? SA.hourText(shift.end) + ' WIB' : '-'));
+        lines.push('   - ' + g.head('Shift lanjut'));
+        lines = lines.concat(SA.secCaption.numbered(record.nextOfficers, 'TNI', record.nextTni, '     '));
+      }
       lines.push('');
       lines.push(P.CLOSING);
       return lines.join('\n').replace(/ : \n/g, ' :\n');
@@ -287,7 +299,9 @@
         })).concat([
           col('Temuan', 36, 'text', function (r) {
             return (r.findingList || []).map(function (f) { return f.label + ' (' + f.status + ')'; }).join('; ');
-          })
+          }),
+          col('Shift Lanjut', 34, 'text', function (r) { return (r.nextOfficers || []).join(', '); }),
+          col('TNI Lanjut', 18, 'text', 'nextTni')
         ])),
         build('Update Temuan', 'close', [col('Pukul', 9, 'center', 'closeTime')].concat(SA.findings.closeColumns()))
       ];

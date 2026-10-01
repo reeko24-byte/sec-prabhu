@@ -58,6 +58,7 @@
   SA.secCaption = {
 
     numbered: numbered,
+    header: header,
     block: block,
 
     /** The hourly check. The date is the date of the scheduled hour, so the

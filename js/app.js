@@ -26,6 +26,7 @@
     team: '',
     sessions: {},        // per team: Security's shift, Walkthrough's day
     wtSetup: { teamNo: 0, officers: [], routeId: '', others: false, allRoutes: false },
+    oSetup: { post: '', officer: '' },
     pSetup: { patrolId: '', officers: [], tni: '', vehicle: '', ownVehicle: false, km: '', shift: '', date: '', others: false },
     setup: { post: '', officers: [], bko: '', shift: '', date: '', others: false },
     gps: { state: 'waiting' },
@@ -59,7 +60,8 @@
   function $(id) { return document.getElementById(id); }
 
   var XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-  var SCREENS = ['team', 'setup', 'main', 'wt-setup', 'wt-main', 'p-setup', 'p-main', 'report', 'send', 'list', 'export'];
+  var SCREENS = ['team', 'setup', 'main', 'wt-setup', 'wt-main', 'p-setup', 'p-main', 'o-setup', 'o-main',
+    'report', 'send', 'list', 'export'];
 
   function show(name) {
     SCREENS.forEach(function (screen) {
@@ -598,7 +600,306 @@
 
   var TITLES = { check: 'Pengecekan', incident: 'Laporan Kejadian', shift: 'Laporan Shift',
     access: 'Access Control', body: 'Body Check', wtkp: 'Laporan KP', lds: 'Laporan LDS',
-    close: 'Tutup Temuan', patrol: 'Guard Tour', pend: 'Akhir Shift Patroli' };
+    close: 'Tutup Temuan', patrol: 'Guard Tour', pend: 'Akhir Shift Patroli', office: 'Laporan Harian' };
+  /* ── Security Perkantoran: start of day ─────────────────────────────── */
+
+  var O = SA.OFFICE;
+
+  function officePost(name) {
+    return O.posts.filter(function (p) { return p.name === name; })[0] || null;
+  }
+
+  function openOfficeSetup() {
+    var s = state.sessions.office;
+    state.oSetup = s ? { post: s.post, officer: s.officers[0] } : { post: '', officer: '' };
+    renderOfficeSetup();
+    show('o-setup');
+  }
+
+  function renderOfficeSetup() {
+    var setup = state.oSetup;
+    renderChoice($('o-post'), O.posts.map(function (p) { return { value: p.name, text: p.name }; }), setup.post,
+      function (value) {
+        setup.post = value;
+        var post = officePost(value);
+        if (post && post.officers.indexOf(setup.officer) === -1) setup.officer = post.officers[0] || '';
+        renderOfficeSetup();
+      });
+    // This post's officer first; the other office's, for a day one covers for the other.
+    var post = officePost(setup.post);
+    var names = (post ? post.officers : []).concat(O.posts.filter(function (p) { return p !== post; })
+      .reduce(function (all, p) { return all.concat(p.officers); }, []));
+    renderChoice($('o-officer'), names.map(function (n) { return { value: n, text: n }; }), setup.officer,
+      function (value) { setup.officer = value; renderOfficeSetup(); });
+    $('o-date').textContent = SA.longDate(new Date());
+    var ready = !!(setup.post && setup.officer);
+    $('o-start').disabled = !ready;
+    $('o-blocker').textContent = ready ? '' : !setup.post ? 'Pilih pos dulu.' : 'Pilih petugas.';
+  }
+
+  $('o-start').addEventListener('click', function () {
+    if (this.disabled) return;
+    var setup = state.oSetup;
+    var today = SA.dateOf(new Date());
+    var old = state.sessions.office;
+    // Same officer, post and day: a correction -- the visitors already counted stay.
+    var same = old && old.post === setup.post && old.officers[0] === setup.officer && old.date === today;
+    state.sessions.office = {
+      id: same ? old.id : 'o' + Date.now().toString(36),
+      post: setup.post,
+      zone: (SA.postByName(setup.post) || {}).zone || '',
+      officers: [setup.officer],
+      shift: O.SHIFT,
+      shiftDate: today,
+      date: today,
+      visits: same ? (old.visits || []) : []
+    };
+    SA.db.setPref('officeSession', state.sessions.office);
+    SA.photo.preload(badgeOf(setup.post));
+    renderOfficeMain();
+    show('o-main');
+    afterStart();
+  });
+
+  $('o-setup-back').addEventListener('click', function () { buildTeamChips(); show('team'); });
+  $('o-main-team').addEventListener('click', function () { buildTeamChips(); show('team'); });
+  $('o-edit').addEventListener('click', openOfficeSetup);
+
+  /* ── Security Perkantoran: the day ──────────────────────────────────── */
+
+  function renderOfficeMain() {
+    var s = state.sessions.office;
+    if (!s) return;
+    var badge = badgeOf(s.post);
+    if (badge && $('o-badge').getAttribute('src') !== badge) $('o-badge').src = badge;
+    $('o-badge').alt = 'Lokasi ' + s.post;
+    var shift = SA.shiftById(s.shift);
+    var line = $('o-session');
+    line.textContent = s.post + ' · ' + s.zone;
+    var when = document.createElement('small');
+    when.className = 'when';
+    when.textContent = s.shift + ' · ' + SA.hourText(shift.start) + '–' + SA.hourText(shift.end) + ' WIB · ' +
+      SA.longDate(SA.parseDate(s.date));
+    var who = document.createElement('small');
+    who.textContent = s.officers.join(', ');
+    line.appendChild(when);
+    line.appendChild(who);
+    renderVisitors();
+
+    var sent = null;
+    loadSessionRecords().then(function (records) {
+      sent = records.filter(function (r) { return r.kind === 'office'; }).pop() || null;
+      return SA.db.getPref(keptKey('office', 'office'), null);
+    }).then(function (kept) {
+      // What is kept is said first: a second report started after sending is
+      // not hidden behind "Sudah dikirim".
+      var photos = kept && kept.sessionId === s.id ? kept.photos || 0 : 0;
+      var sentText = sent ? 'dikirim pukul ' + String(sent.time).slice(0, 5) : '';
+      $('go-office-sub').textContent = photos ? photos + ' foto tersimpan, belum dikirim' + (sent ? ' · ' + sentText : '')
+        : sent ? 'Sudah ' + sentText : 'Foto dan isian tersimpan sampai Simpan';
+      return SA.db.all();
+    }).then(function (all) {
+      renderCount(all, 'office', 'o-today', 'o-go-export');
+    });
+    offerKept('office', 'office');
+  }
+
+  function renderVisitors() {
+    var visits = state.sessions.office.visits || [];
+    $('o-visitors').textContent = String(visits.length);
+    $('o-minus').disabled = !visits.length;
+    $('o-times').textContent = visits.length ? 'Jam: ' + visits.join(', ') : 'Belum ada tamu hari ini.';
+  }
+
+  /** A screen left open past midnight must not count on yesterday. */
+  function officeDayOver() {
+    var s = state.sessions.office;
+    if (s && s.date === SA.dateOf(new Date())) return false;
+    toast('Hari baru — mulai hari dulu.');
+    goMain();
+    return true;
+  }
+
+  /* Every tap is stored at once: the count survives closing the app. */
+  $('o-plus').addEventListener('click', function () {
+    if (officeDayOver()) return;
+    var s = state.sessions.office;
+    s.visits = (s.visits || []).concat([hhmm(new Date())]);
+    SA.db.setPref('officeSession', s);
+    renderVisitors();
+  });
+  $('o-minus').addEventListener('click', function () {
+    if (officeDayOver()) return;
+    var s = state.sessions.office;
+    if (!s.visits || !s.visits.length) return;
+    if (!confirm('Hapus tamu terakhir (pukul ' + s.visits[s.visits.length - 1] + ')?')) return;
+    s.visits = s.visits.slice(0, -1);
+    SA.db.setPref('officeSession', s);
+    renderVisitors();
+  });
+
+  $('go-office').addEventListener('click', function () {
+    var sent = latestRecord('office', null);
+    if (sent && !confirm('Laporan hari ini sudah dikirim pukul ' + String(sent.time).slice(0, 5) +
+        '. Buat lagi?')) return;
+    openReport('office');
+  });
+  $('o-view-list').addEventListener('click', function () { renderList(); show('list'); });
+  $('o-go-export').addEventListener('click', openExport);
+
+  /* ── Security Perkantoran: the report, kept until Simpan ────────────── */
+
+  function officeDraft(kind, s, now, ref) {
+    var taps = (s.visits || []).length;
+    return {
+      kind: kind, team: 'office', date: SA.dateOf(now),
+      post: s.post, zone: s.zone, shift: s.shift, shiftDate: s.shiftDate,
+      officers: s.officers.slice(), reporter: s.officers[0] || '',
+      // A correction is kept as a difference from the taps, so visitors
+      // counted after it still reach the report.
+      visitTimes: (s.visits || []).slice(), visitorsAdjust: 0, visitors: String(taps),
+      situation: O.SITUATION,
+      followUp: '', status: 'Open', closeTime: hhmm(now), ref: ref || null
+    };
+  }
+
+  function applyOfficeKept(d, fields) {
+    if (fields.situation) d.situation = fields.situation;
+    d.visitorsAdjust = Number(fields.visitorsAdjust) || 0;
+    d.visitors = String(Math.max(0, d.visitTimes.length + d.visitorsAdjust));
+  }
+
+  function renderOfficeFields() {
+    var d = state.draft;
+    function fill() {
+      $('r-o-visitors').value = d.visitors;
+      $('r-o-situation').value = d.situation;
+      var taps = d.visitTimes.length;
+      $('r-o-times').textContent = (taps ? 'Dari tombol +1 Tamu: ' + taps + ', pukul ' + d.visitTimes.join(', ')
+        : 'Belum ada tamu yang dicatat dengan tombol +1 Tamu.') +
+        (d.visitorsAdjust ? ' · koreksi ' + (d.visitorsAdjust > 0 ? '+' : '') + d.visitorsAdjust : '');
+    }
+    fill();
+    restoreKept(d, function (fields) { applyOfficeKept(d, fields); fill(); });
+  }
+
+  $('r-o-visitors').addEventListener('input', function () {
+    var d = state.draft;
+    if (!d) return;
+    this.value = this.value.replace(/\D/g, '').slice(0, 4);
+    d.visitors = this.value;
+    if (this.value !== '') d.visitorsAdjust = Number(this.value) - d.visitTimes.length;
+    updateReport();
+  });
+  wireText('r-o-situation', 'situation');
+
+  $('r-o-reset').addEventListener('click', function () {
+    var d = state.draft;
+    if (!d || !confirm('Hapus semua foto dan isian laporan ini? Jumlah tamu kembali ke hitungan tombol.')) return;
+    releasePhotoUrls(state.photos);
+    state.photos = [];
+    d.situation = O.SITUATION;
+    d.visitorsAdjust = 0;
+    d.visitors = String(d.visitTimes.length);
+    $('r-o-visitors').value = d.visitors;
+    $('r-o-situation').value = d.situation;
+    renderPhotoStrip();
+    updateReport();
+    saveKept(true);
+    toast('Foto dan isian direset.');
+  });
+
+  /* ── Kept drafts: a report written over a whole shift ─────────────────
+     A module that lists a kind in `keep` (the fields to keep) gets: the form
+     saved on the phone as it changes, restored when the form opens again,
+     Batal that keeps it, and -- once a new day or shift has started -- an
+     offer to send the earlier one or throw it away. Photos are written only
+     when they change; text a moment after typing stops. Per team and kind:
+       kept:<team>:<kind>        { sessionId, session, fields, photos (count), touched }
+       keptPhotos:<team>:<kind>  { sessionId, photos }                           */
+
+  function keptFields(draft) {
+    var module = draft && MODULES[draft.team];
+    return module && module.keep ? module.keep[draft.kind] || null : null;
+  }
+  function keptKey(team, kind) { return 'kept:' + team + ':' + kind; }
+  function keptPhotosKey(team, kind) { return 'keptPhotos:' + team + ':' + kind; }
+
+  var keptTimer = null;
+  var keptPhotoSig = '';
+  function photoSigOf(photos) {
+    return (photos || []).map(function (p) { return p.sealCode || p.takenAt; }).join('|');
+  }
+
+  function saveKept(now) {
+    var d = state.draft;
+    var fields = keptFields(d);
+    if (!fields || !d.restored) return;
+    var sig = photoSigOf(state.photos);
+    if (sig !== keptPhotoSig) {
+      keptPhotoSig = sig;
+      SA.db.setPref(keptPhotosKey(d.team, d.kind), { sessionId: d.session.id,
+        photos: state.photos.map(function (p) { return Object.assign({}, p, { url: null }); }) });
+    }
+    clearTimeout(keptTimer);
+    function write() {
+      var values = {};
+      var touched = state.photos.length > 0;
+      fields.forEach(function (f) {
+        values[f] = d[f];
+        if (d.keptInitial && d[f] !== d.keptInitial[f]) touched = true;
+      });
+      SA.db.setPref(keptKey(d.team, d.kind), { sessionId: d.session.id, session: d.session, fields: values,
+        photos: state.photos.length, touched: touched });
+    }
+    if (now) write(); else keptTimer = setTimeout(write, 600);
+  }
+
+  /** Reads the kept form back; nothing is saved over it before that. */
+  function restoreKept(d, apply) {
+    d.keptInitial = {};
+    keptFields(d).forEach(function (f) { d.keptInitial[f] = d[f]; });
+    Promise.all([SA.db.getPref(keptKey(d.team, d.kind), null),
+                 SA.db.getPref(keptPhotosKey(d.team, d.kind), null)]).then(function (got) {
+      if (state.draft !== d) return;
+      var kept = got[0];
+      var photos = got[1] && got[1].sessionId === d.session.id ? got[1].photos || [] : [];
+      if (kept && kept.sessionId === d.session.id) apply(kept.fields || {});
+      // Photos taken earlier first, then any taken while this was loading.
+      state.photos = photos.concat(state.photos);
+      keptPhotoSig = photoSigOf(photos);
+      d.restored = true;
+      renderPhotoStrip();
+      updateReport();
+    });
+  }
+
+  function clearKept(team, kind) {
+    clearTimeout(keptTimer);
+    keptPhotoSig = '';
+    SA.db.setPref(keptKey(team, kind), null);
+    SA.db.setPref(keptPhotosKey(team, kind), null);
+  }
+
+  /* A report kept from an earlier day or shift: send it now, or throw it away
+     -- asked once per app start, never silently lost (code review, v26). */
+  var keptOffered = {};
+  function offerKept(team, kind) {
+    var current = state.sessions[team];
+    SA.db.getPref(keptKey(team, kind), null).then(function (kept) {
+      if (!kept || !kept.session || (current && kept.sessionId === current.id)) return;
+      if (!kept.touched || keptOffered[kept.sessionId]) return;
+      keptOffered[kept.sessionId] = true;
+      var when = SA.longDate(SA.parseDate(kept.session.shiftDate || kept.session.date));
+      if (confirm('Laporan ' + when + ' belum dikirim (' + (kept.photos || 0) + ' foto). Kirim sekarang?')) {
+        openReport(kind, null, null, kept.session);
+      } else if (confirm('Buang laporan ' + when + ' yang belum dikirim itu? Foto dan isiannya dihapus.')) {
+        clearKept(team, kind);
+        toast('Laporan ' + when + ' dibuang.');
+      }
+    });
+  }
+
 
   /* ── Walkthrough: start of day ──────────────────────────────────────── */
 
@@ -991,6 +1292,7 @@
       fieldInterview: s.fieldInterview || P.FIELD_INTERVIEW,
       // end of shift
       kmStart: s.kmStart || '', kmEnd: '', facilities: {}, tours: [], findingList: [],
+      nextOfficers: [], nextTni: '',
       // incident (5W1H), as Security's
       incidentType: '', otherText: '', answers: { bilamana: 'Pukul ' + hhmm(now) + ' WIB' }, tindakan: '',
       // LDS, as Walkthrough's -- any segment, the patrol's first by default
@@ -1080,9 +1382,27 @@
     });
   }
 
+  /** The incoming crew: this patrol's people first, the rest behind "patrol lain". */
+  function renderPendNext() {
+    var d = state.draft;
+    $('r-pend-next-label').textContent = 'Shift lanjut (masuk) — ' + d.nextOfficers.length + ' dipilih';
+    renderPicker($('r-pend-next'), d.patrolId, d.nextOfficers, state.nextOthers,
+      function () { state.nextOthers = !state.nextOthers; renderPendNext(); },
+      function () { renderPendNext(); updateReport(); },
+      { noun: 'patrol', groups: patrolDirectory() });
+  }
+
+  $('r-pend-next-tni').addEventListener('input', function () {
+    if (!state.draft) return;
+    state.draft.nextTni = this.value;
+    updateReport();
+  });
+
   function renderPendFields() {
     var d = state.draft;
     patrolShiftSummary(d);
+    $('r-pend-next-tni').value = '';
+    renderPendNext();
     $('r-pend-km-start').value = d.kmStart;
     $('r-pend-km-end').value = '';
     var box = $('r-pend-facilities');
@@ -1377,19 +1697,21 @@
     lds:      ['r-lds',      renderLdsFields],
     close:    ['r-close',    renderCloseFields],
     patrol:   ['r-patrol',   renderPatrolFields],
-    pend:     ['r-pend',     renderPendFields]
+    pend:     ['r-pend',     renderPendFields],
+    office:   ['r-office',   renderOfficeFields]
   };
 
   /** A Tutup temuan asked for before the day or shift was started: opened
       as soon as it is (see afterStart). */
   var pendingClose = null;
 
-  function openReport(kind, hour, ref) {
-    var session = currentSession();
+  /** `keptSession`: an earlier day's session whose kept report is being sent. */
+  function openReport(kind, hour, ref, keptSession) {
+    var session = keptSession || currentSession();
     var module = moduleOf(currentTeam());
     /* No session, or a Walkthrough day that is not today: back to the start
        screen, so today's reports are never filed under yesterday's crew. */
-    if (!session || !module.fresh(session)) {
+    if (!keptSession && (!session || !module.fresh(session))) {
       if (kind === 'close') {
         pendingClose = ref;
         toast('Mulai hari/shift dulu — Tutup temuan terbuka setelah itu.');
@@ -1401,6 +1723,8 @@
 
     loadSessionRecords().then(function () {
       state.draft = module.draft(kind, session, now, hour, ref);
+      state.draft.session = session;   // the record is filed under this session
+      state.draft.restored = !keptFields(state.draft);
       // A close report is filed where the finding was (findings.js refOf).
       if (kind === 'close' && ref && ref.place) Object.assign(state.draft, ref.place);
       state.nextOthers = false;
@@ -1424,6 +1748,13 @@
   }
 
   $('r-back').addEventListener('click', function () {
+    // A report kept until Simpan (Security Perkantoran): Batal keeps it.
+    if (keptFields(state.draft)) {
+      saveKept(true);
+      toast('Foto dan isian tetap tersimpan di HP sampai Simpan.');
+      goMain();
+      return;
+    }
     if ((state.photos.length || state.processing) &&
         !confirm('Laporan belum disimpan. Keluar dan buang fotonya?')) return;
     goMain();
@@ -1981,7 +2312,9 @@
     if (draft.kind === 'patrol' && draft.patrolResult === 'found' && !String(draft.patrolFinding).trim()) {
       missing.push('keterangan temuan');
     }
+    if (draft.kind === 'office' && !/^\d+$/.test(String(draft.visitors))) missing.push('jumlah tamu');
     if (draft.kind === 'pend') {
+      if (!draft.nextOfficers.length) missing.push('shift lanjut');
       if (!String(draft.kmEnd).trim()) missing.push('KM akhir');
       else if (String(draft.kmStart).trim() && SA.patrolRecords.distance(draft) === null) {
         missing.push('KM akhir lebih kecil dari KM awal');
@@ -2067,6 +2400,41 @@
           (c.access || 0) + ' access control, ' + (c.body || 0) + ' body check, ' +
           (c.shift || 0) + ' shift' + (c.close ? ', ' + c.close + ' update temuan' : '') + '.';
       }
+    },
+    office: {
+      caption: function (r) { return SA.officeRecords.caption(r); },
+      label: function (r) { return SA.officeRecords.label(r); },
+      stamp: function (d) { return SA.officeRecords.stampLines(d); },
+      seal: function (d, t, f) { return SA.officeRecords.sealFacts(d, t, f); },
+      sealPrefix: 'OFF',
+      badge: function (d) { return badgeOf(d.post); },
+      fallback: function (d) { return 'SECURITY PERKANTORAN\n' + d.post; },
+      sheets: function (rs) { return SA.officeRecords.sheets(rs); },
+      fileLabel: function (r) { return 'SECWAN ' + r.post + ' ' + SA.officeRecords.label(r); },
+      exportName: function (rs) {
+        var s = state.sessions.office;
+        return 'SECWAN_' + SA.fileSafe(s ? s.post : rs[0].post);
+      },
+      where: function (r) { return r.post; },
+      prefKey: 'officeSession',
+      // Written over the whole shift and sent at its end: kept until Simpan.
+      keep: { office: ['situation', 'visitorsAdjust'] },
+      valid: function (s) { return !!(s && s.post && s.officers && s.officers.length); },
+      sessionBadge: function (s) { return badgeOf(s.post); },
+      // One officer's day: another day means the start screen again.
+      fresh: function (s) { return s.date === SA.dateOf(new Date()); },
+      home: function () { renderOfficeMain(); show('o-main'); },
+      setup: function () { openOfficeSetup(); },
+      draft: function (kind, session, now, hour, ref) { return officeDraft(kind, session, now, ref); },
+      recordBase: function (draft, now, session) {
+        return {
+          team: 'office', kind: draft.kind, sessionId: session.id,
+          date: SA.dateOf(now), time: SA.timeOf(now), timestamp: SA.timestampOf(now),
+          post: draft.post, zone: draft.zone, shift: draft.shift, shiftDate: draft.shiftDate,
+          officers: draft.officers.slice(), reporter: draft.reporter
+        };
+      },
+      summary: function (c, n) { return n + ' laporan harian.'; }
     },
     patrol: {
       caption: function (r) { return SA.patrolRecords.caption(r); },
@@ -2184,6 +2552,7 @@
 
     showFindingFields();
     $('r-preview').textContent = captionOf(draft);
+    saveKept();
     renderStaleWarning();
   }
 
@@ -2192,7 +2561,7 @@
   function renderGps() {
     var gps = state.gps;
     // The same panel sits on both main screens: Security's and Walkthrough's.
-    ['', 'wt-', 'p-'].forEach(function (prefix) {
+    ['', 'wt-', 'p-', 'o-'].forEach(function (prefix) {
       $(prefix + 'gps').className = 'gps-pill ' +
         (gps.state === 'ok' ? 'ok' : gps.state === 'denied' ? 'denied' : 'waiting');
       if (gps.state === 'ok') {
@@ -2433,7 +2802,7 @@
         draft.incidentSummary = incidentSummary();
       }
 
-      var record = moduleOf(draft.team).recordBase(draft, now, state.sessions[draft.team]);
+      var record = moduleOf(draft.team).recordBase(draft, now, draft.session || state.sessions[draft.team]);
       // Access control photos are filed in slot order: manifest, plate, goods.
       record.photos = state.photos.slice().sort(function (a, b) {
           return (a.slot == null ? 0 : a.slot) - (b.slot == null ? 0 : b.slot);
@@ -2490,6 +2859,12 @@
         record.facilities = Object.assign({}, draft.facilities);
         record.tours = draft.tours;
         record.findingList = draft.findingList;
+        record.nextOfficers = draft.nextOfficers.slice();
+        record.nextTni = String(draft.nextTni || '').trim();
+      } else if (draft.kind === 'office') {
+        record.visitors = Number(draft.visitors) || 0;
+        record.visitTimes = draft.visitTimes.slice();
+        record.situation = String(draft.situation).trim() || O.SITUATION;
       } else if (draft.kind === 'close') {
         record.closeTime = draft.closeTime;
         record.followUp = String(draft.followUp).trim();
@@ -2527,6 +2902,7 @@
         return SA.db.markClosed(saved.ref.id, saved.timestamp).then(function () { return saved; });
       });
     }).then(function (saved) {
+      if (keptFields(draft)) clearKept(draft.team, draft.kind);   // sent: nothing left to keep
       button.disabled = false;
       button.innerHTML = label;
       releasePhotoUrls(state.photos);
@@ -2695,9 +3071,10 @@
     var date = SA.parseDate(record.shiftDate);
     if (record.shift === 'SORE') date.setDate(date.getDate() + 1);  // Sore → Malam crosses midnight
     if (record.team === 'patrol') {
-      // Same patrol and vehicle; the next crew ticks its names; km carries over.
+      // Same patrol and vehicle, the crew that was handed over, km carried over.
       openPatrolSetup({
-        patrolId: record.patrolId, officers: [], tni: '', vehicle: record.vehicle,
+        patrolId: record.patrolId, officers: (record.nextOfficers || []).slice(), tni: record.nextTni || '',
+        vehicle: record.vehicle,
         ownVehicle: P.vehicles.indexOf(record.vehicle) === -1, km: record.kmEnd || '',
         shift: next, date: SA.dateOf(date), others: false
       });
@@ -3029,7 +3406,7 @@
   /* BUILD and CACHE_VERSION in sw.js are a PAIR -- bump both on every upload.
      The marker prints both; when they differ, the new version has downloaded
      but the app has not been restarted. */
-  var BUILD = 'v23';
+  var BUILD = 'v26';
   var CACHE_PREFIX = 'superapp-laporan-';
 
   function showVersion() {
@@ -3039,6 +3416,7 @@
       $('app-version-team').textContent = text;
       $('wt-version').textContent = text;
       $('p-version').textContent = text;
+      $('o-version').textContent = text;
     }
     if (!window.caches || !caches.keys) { put(running); return; }
     caches.keys().then(function (names) {

@@ -390,6 +390,30 @@ input:focus, select:focus, textarea:focus {
   padding: 12px 10px 12px;
   margin-bottom: 14px;
 }
+/* Security Perkantoran: the visitor counter. */
+.counter-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  margin-bottom: 14px;
+}
+.counter-card .eyebrow { margin: 0 0 8px; }
+.counter-row { display: flex; align-items: center; gap: 12px; }
+.counter-value {
+  min-width: 64px; text-align: center;
+  font-size: 44px; font-weight: 700; line-height: 1; color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.counter-btn {
+  flex: 0 0 auto; width: 52px; height: 52px; border-radius: var(--radius-sm);
+  background: var(--surface); border: 1px solid var(--line-strong);
+  color: var(--link); font-size: 26px; font-weight: 700; cursor: pointer;
+}
+.counter-btn:disabled { opacity: .4; cursor: default; }
+.action.main.counter-plus { flex: 1 1 auto; margin: 0; min-height: 64px; }
+.counter-card .hint { margin: 10px 0 0; }
+
 .tl-head { display: flex; align-items: baseline; justify-content: space-between; margin: 0 4px 10px; }
 .tl-head .eyebrow { margin: 0; }
 .tl-count { font-size: 13px; font-weight: 700; color: var(--ink-2); font-variant-numeric: tabular-nums; }
