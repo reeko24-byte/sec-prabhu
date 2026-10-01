@@ -343,7 +343,9 @@
       shift: setup.shift,
       shiftDate: setup.date,
       officers: setup.officers.slice(),
-      bko: setup.bko.trim()
+      bko: setup.bko.trim(),
+      // What the partner sent from their own phone (see partnerMarks).
+      partner: same && old.partner ? old.partner : { hours: {}, incidents: {} }
     };
     SA.db.setPref('session', state.session);
     SA.photo.preload(badgeOf(state.session.post));
@@ -376,12 +378,53 @@
     });
   }
 
+  /** The checks THIS phone sent, by hour (the record, so its reporter is known). */
   function hoursDone() {
     var done = {};
     state.sessionRecords.forEach(function (r) {
-      if (r.kind === 'check') done[r.hour] = true;
+      if (r.kind === 'check') done[r.hour] = r;
     });
     return done;
+  }
+
+  /*
+   * Two guards a shift, each on their own phone, often take turns: one phone
+   * cannot see what the other sent. So a guard marks what the partner sent --
+   * an hour (on the timeline's check form, or in section A at handover) or an
+   * incident type (section B). The marks live on the shift session:
+   *   session.partner = { hours: { 2: 'ALAM ILAHI' }, incidents: { Theft: '…' } }
+   * The partner is anyone on the shift but the first name (this phone's owner,
+   * the reporter). A check this phone sent always wins over a mark.
+   */
+  function partnerMarks() {
+    var session = state.session;
+    if (!session.partner) session.partner = { hours: {}, incidents: {} };
+    return session.partner;
+  }
+
+  function partnersOf(session) { return (session.officers || []).slice(1); }
+
+  function setPartnerMark(group, key, name) {
+    var marks = partnerMarks()[group];
+    if (name) marks[key] = name; else delete marks[key];
+    SA.db.setPref('session', state.session);
+  }
+
+  /** Tapping a mark steps through the partners and back to none. */
+  function nextPartner(current) {
+    var list = partnersOf(state.session);
+    var i = list.indexOf(current);
+    return i + 1 < list.length ? list[i + 1] : null;
+  }
+
+  /** Every hour that is covered: sent by this phone, or marked as the partner's. */
+  function hoursCovered() {
+    var covered = {};
+    var own = hoursDone();
+    var marks = partnerMarks().hours;
+    Object.keys(marks).forEach(function (h) { covered[h] = true; });
+    Object.keys(own).forEach(function (h) { covered[h] = true; });
+    return covered;
   }
 
   /** `tick` is the once-a-minute refresh: it redraws the timeline only, and
@@ -432,7 +475,9 @@
    */
   function renderDue(now) {
     var session = state.session;
-    var done = hoursDone();
+    var own = hoursDone();
+    var marks = partnerMarks().hours;
+    var done = hoursCovered();
     var hours = SA.checkHours(session.shift);
     var end = SA.shiftById(session.shift).end;
     var window_ = SA.shiftWindow(session.shiftDate, session.shift);
@@ -448,6 +493,7 @@
       var inHour = now.getTime() >= at && now.getTime() < at + HOUR;
       var past = at <= now.getTime();
       var sent = isHandover ? handedOver : done[h];
+      var byPartner = !isHandover && !own[h] && marks[h];
       var status = sent ? 'done' : past && !inHour ? 'missed' : inHour ? 'now' : 'future';
       if (status === 'missed') missing.push(isHandover ? 'serah terima ' + SA.hourText(h) : SA.hourText(h));
 
@@ -455,17 +501,19 @@
       if (isHandover) item.className = 'handover';
       var button = document.createElement('button');
       button.type = 'button';
-      button.className = status + (inHour && sent ? ' now' : '');
+      button.className = status + (inHour && sent ? ' now' : '') + (byPartner ? ' partner' : '');
       var icon = status === 'done' ? 'i-check' : status === 'missed' ? 'i-bang'
         : isHandover ? 'i-clipboard' : 'i-dot';
       button.innerHTML = '<span>' + SA.pad2(h % 24) + '</span>' +
         '<svg class="mark" aria-hidden="true"><use href="#' + icon + '"/></svg>';
       button.setAttribute('aria-label', (isHandover ? 'Serah terima ' : 'Pukul ') + SA.hourText(h) + ': ' +
-        (status === 'done' ? 'sudah dikirim' : status === 'missed' ? 'belum dikirim'
+        (byPartner ? 'dikirim ' + byPartner + ' (rekan)'
+          : status === 'done' ? 'sudah dikirim' : status === 'missed' ? 'belum dikirim'
           : status === 'now' ? 'jam sekarang' : 'belum waktunya'));
       button.addEventListener('click', function () {
         // A sent cell opens the report that was sent (to read or re-send it);
-        // making a second one would send a duplicate to the group.
+        // making a second one would send a duplicate to the group. A cell marked
+        // as the partner's opens its check form, where the mark can be undone.
         var already = latestRecord(isHandover ? 'shift' : 'check', isHandover ? null : h);
         if (already) { openSend(already); return; }
         if (isHandover) openReport('shift'); else openReport('check', h);
@@ -479,7 +527,7 @@
     var sentCount = hours.filter(function (h) { return done[h]; }).length + (handedOver ? 1 : 0);
     $('tl-count').textContent = sentCount + ' / ' + (hours.length + 1) + ' terkirim';
     $('go-check-sub').textContent = 'Pukul ' + SA.hourText(current) + ' WIB' +
-      (done[current] ? ' · sudah dikirim' : '');
+      (own[current] ? ' · sudah dikirim' : marks[current] ? ' · dikirim rekan' : '');
 
     var first = SA.shiftHourDate(session.shiftDate, hours[0]).getTime();
     var due = $('main-due');
@@ -865,7 +913,7 @@
       the shift; otherwise the first one nobody has reported yet. */
   function defaultHour(session, now) {
     var hours = SA.checkHours(session.shift);
-    var done = hoursDone();
+    var done = hoursCovered();
     for (var i = 0; i < hours.length; i++) {
       var from = SA.shiftHourDate(session.shiftDate, hours[i]).getTime();
       var to = from + 60 * 60 * 1000;
@@ -980,18 +1028,53 @@
   function renderHourSelect() {
     var select = $('r-hour');
     var done = hoursDone();
+    var marks = partnerMarks().hours;
     select.innerHTML = '';
     SA.checkHours(state.draft.shift).forEach(function (h) {
       var option = document.createElement('option');
       option.value = String(h);
-      option.textContent = SA.hourText(h) + ' WIB' + (done[h] ? '  ✓ sudah dikirim' : '');
+      option.textContent = SA.hourText(h) + ' WIB' + (done[h] ? '  ✓ sudah dikirim'
+        : marks[h] ? '  ✓ dikirim ' + marks[h] : '');
       select.appendChild(option);
     });
     select.value = String(state.draft.hour);
+    renderPartnerBox();
+  }
+
+  /** "Already sent by my partner from their phone?" -- mark it, no photo. */
+  function renderPartnerBox() {
+    var draft = state.draft;
+    var box = $('r-partner');
+    var partners = partnersOf(state.session);
+    if (!partners.length || hoursDone()[draft.hour]) { box.classList.add('hidden'); return; }
+    box.classList.remove('hidden');
+    var hour = SA.hourText(draft.hour);
+    var marked = partnerMarks().hours[draft.hour];
+    $('r-partner-text').textContent = marked
+      ? 'Pukul ' + hour + ' WIB ditandai: dikirim ' + marked + ' dari HP-nya.'
+      : 'Pukul ' + hour + ' WIB sudah dikirim rekan dari HP-nya? Tandai saja — tanpa foto.';
+    var actions = $('r-partner-actions');
+    actions.innerHTML = '';
+    (marked ? [null] : partners).forEach(function (name) {
+      var button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'secondary';
+      button.textContent = name ? 'Dikirim ' + name : 'Batalkan tanda';
+      button.addEventListener('click', function () {
+        if (name && (state.photos.length || state.processing) &&
+            !confirm('Foto di layar ini dibuang. Tandai pukul ' + hour + ' dikirim ' + name + '?')) return;
+        setPartnerMark('hours', draft.hour, name);
+        if (!name) { toast('Tanda pukul ' + hour + ' dibatalkan.'); renderHourSelect(); return; }
+        toast('Pukul ' + hour + ' ditandai: dikirim ' + name + '.');
+        goMain();
+      });
+      actions.appendChild(button);
+    });
   }
 
   $('r-hour').addEventListener('change', function () {
     state.draft.hour = Number(this.value);
+    renderPartnerBox();
     updateReport();
   });
 
@@ -1041,12 +1124,18 @@
 
   /* Shift report */
 
-  /** Section A: every hour of the shift up to now, and whether it was sent. */
+  /** Section A: every hour of the shift up to now, whether it was sent, and
+      by whom -- this phone's reporter, or the partner it was marked for. */
   function checkLines(draft, now) {
-    var done = hoursDone();
+    var own = hoursDone();
+    var marks = partnerMarks().hours;
     return SA.checkHours(draft.shift).filter(function (h) {
-      return done[h] || SA.shiftHourDate(draft.shiftDate, h).getTime() <= now.getTime();
-    }).map(function (h) { return { hour: h, done: !!done[h] }; });
+      return own[h] || marks[h] || SA.shiftHourDate(draft.shiftDate, h).getTime() <= now.getTime();
+    }).map(function (h) {
+      if (own[h]) return { hour: h, done: true, by: own[h].reporter || '' };
+      if (marks[h]) return { hour: h, done: true, by: marks[h], partner: true };
+      return { hour: h, done: false };
+    });
   }
 
   /** Section B: "None", or where to find the incident report(s). */
@@ -1056,16 +1145,24 @@
       if (r.kind !== 'incident') return;
       (byType[r.incidentType] = byType[r.incidentType] || []).push(r);
     });
+    var marks = partnerMarks().incidents;
     var summary = {};
     S.incidentTypes.forEach(function (type) {
-      var list = byType[type];
-      if (!list) { summary[type] = 'None'; return; }
-      var times = list.map(function (r) { return (r.time || '').slice(0, 5); });
+      var list = byType[type] || [];
+      var partner = marks[type];
+      if (!list.length && !partner) { summary[type] = 'None'; return; }
+      var parts = [];
+      if (list.length) {
+        var times = list.map(function (r) { return (r.time || '').slice(0, 5); });
+        var who = SA.sheets.unique(list.map(function (r) { return r.reporter; }).filter(Boolean));
+        parts.push('lihat Laporan Kejadian pukul ' + times.join(' & ') + ' WIB' +
+          (who.length ? ' (' + who.join(', ') + ')' : ''));
+      }
+      if (partner) parts.push('lihat Laporan Kejadian dari ' + partner);
       var what = type === S.OTHER
         ? list.map(function (r) { return (r.otherText || '').trim(); }).filter(Boolean).join('; ')
         : '';
-      summary[type] = 'Ada' + (what ? ' (' + what + ')' : '') +
-        ', lihat Laporan Kejadian pukul ' + times.join(' & ') + ' WIB';
+      summary[type] = 'Ada' + (what ? ' (' + what + ')' : '') + ', ' + parts.join('; ');
     });
     return summary;
   }
@@ -1073,33 +1170,64 @@
   function renderShiftFields() {
     var draft = state.draft;
     var now = new Date();
-    draft.checkLines = checkLines(draft, now);
+    renderShiftSummary(now);
+    $('r-handover').value = draft.handover;
+    $('r-next-bko').value = '';
+    $('r-final').value = draft.finalSituation;
+    renderNextPicker();
+  }
+
+  /**
+   * Sections A and B as they will be sent. With a partner on the shift, an
+   * hour this phone did not send, and an incident type, can be tapped to mark
+   * it as the partner's (tap again for the next partner, then none).
+   */
+  function renderShiftSummary(now) {
+    var draft = state.draft;
+    var canMark = partnersOf(state.session).length > 0;
+    draft.checkLines = checkLines(draft, now || new Date());
     draft.incidentSummary = incidentSummary();
+    $('r-partner-hint').classList.toggle('hidden', !canMark);
+
+    function row(box, text, className, onTap, action) {
+      var el = document.createElement(onTap ? 'button' : 'div');
+      el.className = className + (onTap ? ' tap' : '');
+      el.textContent = text;
+      if (onTap) {
+        el.type = 'button';
+        var tag = document.createElement('small');
+        tag.textContent = action;
+        el.appendChild(tag);
+        el.addEventListener('click', function () {
+          onTap();
+          renderShiftSummary();
+          updateReport();
+        });
+      }
+      box.appendChild(el);
+    }
 
     var checks = $('r-checks');
     checks.innerHTML = '';
     if (!draft.checkLines.length) checks.textContent = 'Belum ada jam pengecekan.';
     draft.checkLines.forEach(function (c) {
-      var row = document.createElement('div');
-      row.className = c.done ? 'ok' : 'missing';
-      row.textContent = 'Pukul ' + SA.hourText(c.hour) + ' WIB  ' +
-        (c.done ? '✓' : '— tidak ada laporan');
-      checks.appendChild(row);
+      var text = 'Pukul ' + SA.hourText(c.hour) + ' WIB  ' +
+        (c.done ? '✓' + (c.by ? ' ' + c.by : '') + (c.partner ? ' (rekan)' : '') : '— tidak ada laporan');
+      var mine = c.done && !c.partner;
+      row(checks, text, c.partner ? 'ok partner' : c.done ? 'ok' : 'missing',
+        canMark && !mine ? function () { setPartnerMark('hours', c.hour, nextPartner(c.by || null)); } : null,
+        c.partner ? 'ubah' : 'dikirim rekan?');
     });
 
+    var marks = partnerMarks().incidents;
     var incidents = $('r-incidents');
     incidents.innerHTML = '';
     S.incidentTypes.forEach(function (type) {
-      var row = document.createElement('div');
-      row.textContent = type + ': ' + draft.incidentSummary[type];
-      if (draft.incidentSummary[type] !== 'None') row.className = 'missing';
-      incidents.appendChild(row);
+      var text = type + ': ' + draft.incidentSummary[type];
+      row(incidents, text, draft.incidentSummary[type] !== 'None' ? 'missing' : '',
+        canMark ? function () { setPartnerMark('incidents', type, nextPartner(marks[type] || null)); } : null,
+        marks[type] ? 'ubah' : 'dilaporkan rekan?');
     });
-
-    $('r-handover').value = draft.handover;
-    $('r-next-bko').value = '';
-    $('r-final').value = draft.finalSituation;
-    renderNextPicker();
   }
 
   function renderNextPicker() {
@@ -2237,7 +2365,7 @@
   /* BUILD and CACHE_VERSION in sw.js are a PAIR -- bump both on every upload.
      The marker prints both; when they differ, the new version has downloaded
      but the app has not been restarted. */
-  var BUILD = 'v16';
+  var BUILD = 'v17';
   var CACHE_PREFIX = 'superapp-laporan-';
 
   function showVersion() {

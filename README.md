@@ -4,7 +4,7 @@ One PWA for three teams: **Security Officer**, **Patrol**, **Walkthrough**.
 Works on Android (Chrome) and iPhone (Safari), offline, no backend. Each report
 goes to WhatsApp as photos + caption in one tap; the Excel is a separate export.
 
-**Status (v16, 2026-10-01)**
+**Status (v17, 2026-10-01)**
 
 | Team | State | Reports |
 |---|---|---|
@@ -25,12 +25,12 @@ Exif reader, .xlsx writer, share handling, version marker). The other apps in
 This folder is **not** a git repo. Upload the whole folder to GitHub Pages by
 hand. On **every** upload, bump both of these together — they are a pair:
 
-- `CACHE_VERSION` in `sw.js` (now `superapp-laporan-v16`)
-- `BUILD` in `js/app.js` (now `v16`)
+- `CACHE_VERSION` in `sw.js` (now `superapp-laporan-v17`)
+- `BUILD` in `js/app.js` (now `v17`)
 
 If files change and `sw.js` does not, phones that already have the app keep the
 old files forever. The line at the foot of each main screen prints
-`kode v16 · cache v16`; if the two differ, the new version downloaded but the app
+`kode v17 · cache v17`; if the two differ, the new version downloaded but the app
 has not been restarted. A changed home-screen icon usually only appears after the
 app is removed and added to the Home Screen again.
 
@@ -88,6 +88,9 @@ Badges `assets/badges/patrol-1…8.png` are in place (Patrol N = ZONA N, to conf
 4. After the shift report, **Mulai shift berikutnya** opens the next shift with
    the handed-over names and BKO already ticked.
 
+Main screen buttons: *Kirim pengecekan* (wide, green), then two pairs of tiles —
+*Laporan kejadian* · *Access control*, and *Body check* · *Laporan shift*.
+
 A web app cannot ring the phone every hour while it is closed. The guards set an
 hourly alarm in the phone's Clock app; missed hours show on the timeline and in
 section A of the shift report.
@@ -125,7 +128,7 @@ handover was already reported by the previous shift.
 
 Recorded here so it is not "tidied" later. Code: `js/sec-caption.js`.
 
-- Header on all four: `To : ARCO` / `Cc : PM, Data Analyst` / `Hal : …`.
+- Header on all five: `To : ARCO` / `Cc : PM, Data Analyst` / `Hal : …`.
 - **Post names are the Excel names** everywhere in the text. The badge label
   ("KB KP21", "Stasiun Batang") is only on the photo.
 - **Full names from the list, no ID numbers.**
@@ -148,20 +151,22 @@ Recorded here so it is not "tidied" later. Code: `js/sec-caption.js`.
   "Dengan apa (lama)" column that appears only when such an incident is in the
   export.
 - **Laporan Shift:**
-  - **Section A lists every check hour of the shift**, each with ✓ when a check
-    was sent or `— tidak ada laporan` when none was (Billy confirmed he wants
-    the missed hours listed, not hidden). Example, Sore:
+  - **Section A lists every check hour of the shift**, each with ✓ and **who
+    sent it** (since v17), or `— tidak ada laporan` when nobody did (Billy
+    confirmed he wants the missed hours listed, not hidden). Example, Sore:
     ```
     A. PEMERIKSAAN DAN CEK LIST :
-       - Pukul 17:00 WIB ✓
-       - Pukul 18:00 WIB ✓
+       - Pukul 17:00 WIB ✓ (IRFAN MAHENDRA)
+       - Pukul 18:00 WIB ✓ (ALAM ILAHI)
        - Pukul 19:00 WIB — tidak ada laporan
        …
-       - Pukul 23:00 WIB ✓
     ```
+    Shift reports saved before v17 print the bare ✓.
   - Section B heading uses *apa, siapa, kapan, dimana, mengapa, bagaimana*
-    (5W1H, like the incident report); each type reads `None`, or points to the
-    incident report(s) sent during the shift.
+    (5W1H, like the incident report); each type reads `None`, or `Ada, lihat
+    Laporan Kejadian pukul 02:51 WIB (IRFAN MAHENDRA)` for this phone's
+    reports, or `Ada, lihat Laporan Kejadian dari ALAM ILAHI` for one marked as
+    the partner's (both, joined by `;`).
   - Section C: Jam serah terima (the shift's end; required), Shift lanjut (the
     incoming names + BKO), Situasi akhir. KM Akhir was removed on request.
 
@@ -177,8 +182,8 @@ autocorrect). Three photo slots, **all required**, each stamped with its subject
 ("Foto: Plat Nomor Kendaraan") and filed in that order. The camera unlocks once
 Menuju is filled, because the route is printed on the photo. The date follows
 Pukul (see "Dates of typed times" below): 23:50 saved at 00:10 is dated the day
-the goods left. Names follow the
-app's list (YOSAFAT, not the sample's "YOSAFAT KRESNO").
+the goods left. Names follow the app's list (YOSAFAT, not the sample's "YOSAFAT
+KRESNO").
 
 ### Body Check (v15, Billy 2026-10-01)
 
@@ -195,10 +200,12 @@ count (Billy).
 
 **Pukul defaults to the nearer shift change** of the current shift: Malam opened
 at 07:20 starts at 08:00 (outgoing crew), at 00:20 at 00:00 (incoming crew);
-the guard can change it. Dated by the rule below, so the 08:00 default typed at
-07:40 is today and Sore's 00:00 typed at 23:50 is tomorrow. Stored as
-`bodyTime`, `bodyResult`, `bodyFinding` (not LDS's `result`/`finding`). Photos 4–6 suggested, never gated; band line
-*Metal detector · Nihil temuan / Ada temuan*. Excel sheet **Body Check**.
+the guard can change it (a note under the field says so). Dated by the rule
+below, so the 08:00 default typed at 07:40 is today and Sore's 00:00 typed at
+23:50 is tomorrow. Photos 4–6 suggested, never gated. Photo band: *LAPORAN BODY
+CHECK · Pukul 08:00 WIB* and *Metal detector · Nihil temuan / Ada temuan*. Excel
+sheet **Body Check** (Pukul, Hasil, Temuan, …). Stored as `bodyTime`,
+`bodyResult`, `bodyFinding` — deliberately not LDS's `result`/`finding`.
 
 ### Dates of typed times (v16)
 
@@ -210,6 +217,32 @@ the next morning → yesterday. It is anchored to now, not to the shift, so a
 shift nobody closed on the phone cannot drag the date back. (Until v15 Access
 Control and LDS used "later than now + 5 minutes = yesterday", which dated a
 time written a little in advance as yesterday.)
+
+### Two guards, two phones (v17, Billy 2026-10-01)
+
+Each guard runs the app on their **own phone**, and the two often take turns
+with the hourly check. A phone cannot see what the other sent (no backend), so
+without help the handover would print the partner's hours as `— tidak ada
+laporan` and the partner's incidents as `None`. So a guard **marks what the
+partner sent** (Billy: both places, show who sent it, incidents too):
+
+- **On the timeline:** tapping an unsent hour opens its check form, which now
+  has *"sudah dikirim rekan dari HP-nya? Tandai saja — tanpa foto"* with a
+  button per partner (*Dikirim ALAM ILAHI*). The cell turns ticked but
+  **outlined, not filled**; tapping it again offers *Batalkan tanda*.
+- **In the shift report:** every row of A that this phone did not send, and
+  every incident type in B, can be tapped: *dikirim rekan?* → the partner's
+  name → (next partner…) → none. Rows this phone sent are fixed.
+- **The partner** is anyone on the shift but the first ticked name (the phone's
+  owner and reporter). On a one-person shift nothing changes.
+- A check this phone sent always wins over a mark. The marks are kept on the
+  shift session (`session.partner`), so they survive closing the app and a
+  mid-shift correction (*Ubah*), and are gone when the next shift starts.
+- It is an honour system; the real reports are in the WhatsApp group, so a
+  wrong mark is easy to catch.
+- Both guards may export Excel from their own phones, so the office gets **two
+  files per post per shift**. The Shift sheet separates *Pengecekan Terkirim*
+  (this phone), *Dikirim Rekan* (marked, with the name) and *Pengecekan Kosong*.
 
 ### Personnel (from `Database Personil.xlsx`, corrected on purpose)
 
@@ -258,7 +291,7 @@ teams), each group with its zone and routes. Data: `js/wt-options.js`.
 
    Terima kasih
    ```
-   - **Jam** is the actual time (dated like Access Control).
+   - **Jam** is the actual time (see "Dates of typed times" under Security).
    - **Radius** is pre-filled 500, digits only, and **required** — the report
      never invents a radius.
    - **Ditemukan indikasi** replaces the last two lines with the typed finding
@@ -292,9 +325,9 @@ them.
   opacity goes from 45% (pure white) to solid (ink), so letter edges blend
   cleanly. Removing the card entirely was tried and rejected: the dark-blue post
   name vanishes on a dark photo. Comparison: `design/badge-opacity-compare.png`.
-- Bottom band: report type, place, crew, (report-specific lines: the route and
-  photo subject for Access Control, the result for Body Check, KP and condition for WT, KP and result for
-  LDS), time, coordinates, address.
+- Bottom band: report type, place, crew, report-specific lines (the route and
+  photo subject for Access Control, the result for Body Check, KP and condition
+  for a WT KP, KP and result for LDS), time, coordinates, address.
 - Bottom right: the verification code — `SEC-VERIFY` (Security) or `WT-VERIFY`
   (Walkthrough). It detects a photo edited after the app wrote it; it is not a
   signature. The same code is in the Excel's *Kode Foto* column.
@@ -323,7 +356,9 @@ seven rows (pandas: `header=7`).
 Photos at 5.00 × 3.75 cm; Waktu / Kode / Lat / Long per photo. Access Control has
 three named photo columns (Cargo Manifest, Plat Nomor Kendaraan, Barang); other
 sheets get as many photo columns as their busiest row needs (at least 3 for WT
-KP, 4 for LDS). Android saves the file (Chrome will not share .xlsx); send it
+KP, 4 for LDS). The Kejadian sheet gains a "Dengan apa (lama)" column only when
+an incident saved before v13 is exported. The Shift sheet has *Pengecekan
+Terkirim* / *Dikirim Rekan* / *Pengecekan Kosong* (v17). Android saves the file (Chrome will not share .xlsx); send it
 from WhatsApp › Lampirkan › Dokumen.
 
 **Hapus data yang sudah diexport** removes only reports that were exported AND
@@ -366,20 +401,20 @@ user skill on this PC) and `web-design-guidelines` skills.
 | `styles.css` | colour tokens, light/dark themes, all components |
 | `js/app.js` | screens and the report engine; **`MODULES`** (per-team behaviour), `photoRule()` |
 | `js/options.js` | teams, Security posts / roster / shifts, **`checkHours()`**, Excel themes, badge list, date helpers |
-| `js/sec-caption.js` | Security: the four WhatsApp captions (the agreed wording) |
-| `js/sec-records.js` | Security: photo stamp lines, seal facts, the four Excel sheets |
+| `js/sec-caption.js` | Security: the five WhatsApp captions (the agreed wording) |
+| `js/sec-records.js` | Security: photo stamp lines, seal facts, the five Excel sheets |
 | `js/wt-options.js` | Walkthrough: groups, people, routes, segments, KP helpers |
 | `js/wt-records.js` | Walkthrough: KP caption, **LDS caption (shared)**, stamps, seals, sheets |
 | `js/sheets.js` | the Excel sheet builder shared by every team |
 | `js/xlsx.js` | the .xlsx writer — dashboard layout, logo, team colour |
-| `js/photo.js` · `seal.js` · `exif.js` · `geo.js` | photo pipeline (from WT) |
+| `js/photo.js` · `seal.js` · `exif.js` · `geo.js` | photo pipeline (from WT); the see-through badge card is in `photo.js` |
 | `js/db.js` | IndexedDB: reports + preferences (version 2, `bySession` index) |
 | `sw.js` | offline cache — **bump `CACHE_VERSION` every upload**; badges cached best-effort |
 | `assets/badges/` | Security post badges, WT team badges (used); Patrol zone badges (not yet) |
 | `assets/brand/prabhu-logo.png` | the logo on every Excel sheet |
 | `assets/fonts/` | Barlow + licence |
 | `icons/`, `favicon.ico` | app icons |
-| `design/` | icon sources |
+| `design/` | icon sources; `badge-opacity-compare.png` (the v14 badge choice) |
 
 ---
 
@@ -388,15 +423,28 @@ user skill on this PC) and `web-design-guidelines` skills.
 **Verified** by driving the app in a browser at phone size, light and dark:
 
 - Security: setup; hourly check with a photo (badge and stamp at full size);
-  incident without photos; access control (required fields and photos block
-  saving; slot stamps; caption); shift report (A and B filled from the other
-  reports); the 8-cell timeline and handover cell; next-shift prefill.
+  incident without photos, and in 5W1H (v13); access control (required fields
+  and photos block saving; slot stamps; caption); body check (v15–v16: Pukul
+  defaults to the nearer shift change and is dated today, typed time, Ada temuan
+  needs the finding, photo hint at 0 and 2 photos); shift report (A and B filled
+  from the other reports); the 8-cell timeline and handover cell; next-shift
+  prefill.
+- Two guards, two phones (v17): marking an hour from the timeline's check form
+  (cell outlined, count and "Belum dikirim" updated), undoing it there; marking
+  and unmarking an hour and an incident type in the shift report; the caption's
+  A and B with names; the Shift sheet's three columns (Node).
+- The see-through badge (v14) on a generated day and night scene — no real
+  field photo was at hand; judge it on the first real photos.
 - Walkthrough: start screen (team, names, routes); new-day rule (next morning
   and past midnight); KP report (mask, 3 required photos, caption, stamp with
   `wt-9` badge); LDS (radius and finding required, 4 photos, caption, tag
   reminder); each team's history shows only its own reports.
 - Every generated workbook type was opened in **real Excel 16 on this PC** (no
-  repair prompt) and rendered to check the layout.
+  repair prompt) and rendered to check the layout — re-checked for v16 with all
+  five Security sheets, the Body Check sheet, a multi-line Bagaimana and the
+  "Dengan apa (lama)" column.
+- In Node: every caption, stamp line and seal; the typed-time date rule against
+  seven cases (before/after midnight, ahead of now, reported the next day).
 - The service worker's install was checked in a Node simulation with one badge
   failing on purpose (the install still completes).
 
@@ -482,7 +530,12 @@ PERSONIL; Patrol also sends LDS (shared report). Still to ask:
 - Retire `wt-surveillance` once the crews have switched; update `wt_tracker.py`
   for the new Excel layout.
 
-**Everyone:** a real-phone test (see Testing).
+**Office:** with two phones per post, two Excel files per post per shift
+arrive; the analyst's merge should expect that (the Shift report comes from
+whichever phone sent the handover).
+
+**Everyone:** a real-phone test (see Testing), including two phones on one
+shift.
 
 ---
 
@@ -506,3 +559,4 @@ PERSONIL; Patrol also sends LDS (shared report). Still to ask:
 | v14 | Photo badge: white card see-through (45%), logo and words solid |
 | v15 | Body Check report (metal detector, at shift change) |
 | v16 | Fixes from the third code review |
+| v17 | Two guards, two phones: mark the partner's checks and incidents; section A shows who sent each hour |

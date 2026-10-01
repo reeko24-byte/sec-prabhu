@@ -425,6 +425,8 @@ input:focus, select:focus, textarea:focus {
 .timeline .missed { background: var(--amber-soft); border-color: var(--amber-line); color: var(--amber-ink); }
 .timeline .now { border: 2px solid var(--sky); color: var(--ink); background: var(--surface); }
 .timeline .now.done { border-color: var(--leaf); background: var(--leaf-soft); color: var(--leaf-ink); }
+/* Marked as sent by the partner from their phone: ticked, but outlined, not filled. */
+.timeline .done.partner { background: var(--surface); border: 1.5px dashed var(--leaf); }
 /* The last cell is the shift report, not a check: set apart by a gap and a
    clipboard mark instead of a dot. */
 .timeline li.handover { margin-left: 4px; }
@@ -670,6 +672,26 @@ input:focus, select:focus, textarea:focus {
 .summary div:last-child { border-bottom: 0; }
 .summary .ok { color: var(--leaf-ink); }
 .summary .missing { color: var(--amber-ink); font-weight: 600; }
+/* A row that can be marked as the partner's: a full-width tap target. */
+.summary button.tap {
+  display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  width: 100%; min-height: 44px; padding: 5px 0; text-align: left;
+  background: none; border: 0; border-bottom: 1px dashed var(--line);
+  font: inherit; cursor: pointer;
+}
+.summary button.tap:last-child { border-bottom: 0; }
+.summary button.tap:not(.ok):not(.missing) { color: var(--ink); }
+.summary button.tap small { flex: 0 0 auto; color: var(--link); font-size: 12.5px; font-weight: 600; }
+.summary .partner { font-style: italic; }
+
+/* "Already sent by my partner?" on the check form. */
+.partner-box {
+  margin: 0 0 14px; padding: 12px; border-radius: var(--radius-sm);
+  background: var(--surface); border: 1px solid var(--line); font-size: 14px;
+}
+.partner-box p { margin: 0 0 10px; color: var(--ink-2); }
+.partner-actions { display: grid; gap: 8px; }
+.partner-actions .secondary { margin-top: 0; }
 
 /* The report as it will be sent. Collapsed on the form (the send screen shows
    it in full), because this screen is filled in every hour. */

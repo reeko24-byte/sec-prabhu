@@ -267,6 +267,11 @@
         <select id="r-hour"></select>
       </label>
       <p class="hint">Jam yang dijadwalkan. Waktu sebenarnya tercetak di foto.</p>
+      <!-- Two guards, two phones: an hour the partner sent from theirs. -->
+      <div id="r-partner" class="partner-box hidden">
+        <p id="r-partner-text"></p>
+        <div id="r-partner-actions" class="partner-actions"></div>
+      </div>
       <button id="r-to-incident" class="subtle-link">
         <svg width="16" height="16" aria-hidden="true"><use href="#i-alert"/></svg>Ada kejadian? Buat laporan kejadian
       </button>
@@ -384,6 +389,7 @@
     <div id="r-shift" class="hidden">
       <div class="field">
         <span>A. Pengecekan — dari laporan per jam</span>
+        <p id="r-partner-hint" class="hint hidden">Dikirim rekan dari HP-nya? Ketuk jamnya (atau jenis kejadian di B) untuk menandai.</p>
         <div id="r-checks" class="summary"></div>
       </div>
       <div class="field">

@@ -8,7 +8,7 @@
  *   check:    hour                   the scheduled hour, 0..24
  *   incident: incidentType, otherText, answers {apa..bagaimana, 5W1H; Kapan is 'bilamana'}, tindakan
  *   body:     bodyTime, bodyResult ('none'|'found'), bodyFinding
- *   shift:    checkLines [{hour, done}], incidentSummary {type: text},
+ *   shift:    checkLines [{hour, done, by, partner}], incidentSummary {type: text},
  *             handover, nextOfficers [..], nextBko, finalSituation
  *   photos [{ blob, thumb, takenAt, sealCode, sealDigest, sealAlgo, lat, long }]
  */
@@ -187,8 +187,9 @@
           col('Shift', 9, 'center', 'shift'),
           col('Petugas', 34, 'text', function (r) { return (r.officers || []).join(', '); }),
           col('BKO TNI', 18, 'text', 'bko'),
-          col('Pengecekan Terkirim', 26, 'text', function (r) { return hours(r, true); }),
-          col('Pengecekan Kosong', 26, 'text', function (r) { return hours(r, false); })
+          col('Pengecekan Terkirim', 26, 'text', function (r) { return hours(r, 'own'); }),
+          col('Dikirim Rekan', 26, 'text', function (r) { return hours(r, 'partner'); }),
+          col('Pengecekan Kosong', 26, 'text', function (r) { return hours(r, 'none'); })
         ].concat(S.incidentTypes.map(function (type) {
           return col(type, 22, 'text', function (r) {
             return (r.incidentSummary || {})[type] || 'None';
@@ -205,10 +206,14 @@
     }
   };
 
-  function hours(record, done) {
+  /** 'own' = sent from this phone, 'partner' = marked as the partner's (with
+      the name), 'none' = nobody sent it. */
+  function hours(record, which) {
     return (record.checkLines || [])
-      .filter(function (c) { return !!c.done === done; })
-      .map(function (c) { return SA.hourText(c.hour); })
+      .filter(function (c) {
+        return which === 'none' ? !c.done : which === 'partner' ? c.done && c.partner : c.done && !c.partner;
+      })
+      .map(function (c) { return SA.hourText(c.hour) + (which === 'partner' && c.by ? ' (' + c.by + ')' : ''); })
       .join(', ');
   }
 

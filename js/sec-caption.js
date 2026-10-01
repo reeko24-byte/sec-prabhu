@@ -198,8 +198,10 @@
       var checks = record.checkLines || [];
       if (!checks.length) lines.push('   -');
       checks.forEach(function (check) {
+        // Who sent it: two guards on two phones take turns (v17). Records from
+        // before carry no name and print the bare tick.
         lines.push('   - Pukul ' + SA.hourText(check.hour) + ' WIB' +
-          (check.done ? ' ✓' : ' — tidak ada laporan'));
+          (check.done ? ' ✓' + (check.by ? ' (' + check.by + ')' : '') : ' — tidak ada laporan'));
       });
 
       lines.push('');
