@@ -250,6 +250,112 @@
   </div>
 </section>
 
+<!-- ── P1. Patrol: start of shift ──────────────────────────────────────────
+     Patrol number, crew, TNI, vehicle, shift and the speedometer. Same three shifts as
+     Security (Billy, 2026-10-01).
+-->
+<section id="screen-p-setup" class="screen">
+  <header class="bar">
+    <button id="p-setup-back" class="link">Ganti tim</button>
+    <span class="who">Mulai shift · Patrol</span>
+  </header>
+  <div class="pad">
+    <div class="section">
+      <p class="eyebrow">Patrol</p>
+      <div id="p-unit" class="chips grid"></div>
+      <p id="p-unit-note" class="hint"></p>
+    </div>
+
+    <div class="section">
+      <p id="p-officers-label" class="eyebrow">Personil patroli</p>
+      <div id="p-officers" class="picklist"></div>
+      <p class="hint">Urutan centang menjadi urutan di laporan. Nama pertama dicatat sebagai pelapor.</p>
+      <label class="field">
+        <span>Personil TNI — kosongkan bila tidak ada</span>
+        <input id="p-tni" type="text" autocomplete="off" placeholder="mis. SERTU AHMAD…">
+      </label>
+    </div>
+
+    <div class="section">
+      <p class="eyebrow">Kendaraan</p>
+      <div id="p-vehicle" class="chips wrap"></div>
+      <label id="p-vehicle-own-field" class="field hidden">
+        <span>Kendaraan dan plat nomor</span>
+        <input id="p-vehicle-own" type="text" autocomplete="off" placeholder="mis. TOYOTA HILUX BM 8035 QI">
+      </label>
+      <p class="hint">Terisi kendaraan patrol ini — ganti bila hari ini memakai kendaraan lain.</p>
+      <label class="field">
+        <span>KM awal (speedometer)</span>
+        <input id="p-km" type="text" inputmode="numeric" autocomplete="off" placeholder="mis. 125430">
+      </label>
+    </div>
+
+    <div class="section">
+      <p class="eyebrow">Shift</p>
+      <div id="p-shift" class="chips"></div>
+      <label class="field" style="margin-top:12px">
+        <span>Tanggal shift</span>
+        <input id="p-date" type="date">
+      </label>
+    </div>
+
+    <button id="p-start" class="primary" disabled>Mulai shift</button>
+    <p id="p-blocker" class="hint" style="text-align:center"></p>
+  </div>
+</section>
+
+<!-- ── P2. Patrol: the shift ────────────────────────────────────────────── -->
+<section id="screen-p-main" class="screen">
+  <header class="bar">
+    <span class="who">Patrol</span>
+    <button id="p-main-team" class="link">Ganti tim</button>
+  </header>
+  <div class="pad">
+    <div class="post-card">
+      <div class="post-badge-wrap"><img id="p-badge" class="post-badge" alt="" width="320" height="64"></div>
+      <div class="post-meta">
+        <div id="p-session" class="assign-line"></div>
+        <button id="p-edit" class="link">Ubah</button>
+      </div>
+    </div>
+    <p id="p-over" class="warn hidden"></p>
+
+    <button id="go-patrol" class="action main">
+      <svg width="28" height="28" aria-hidden="true"><use href="#i-route"/></svg>
+      <span><b>Laporan guard tour</b><small id="go-patrol-sub"></small></span>
+    </button>
+    <div class="action-pair">
+      <button id="go-p-incident" class="action danger">
+        <svg width="24" height="24" aria-hidden="true"><use href="#i-alert"/></svg>
+        <span><b>Laporan kejadian</b><small>Gangguan · kirim segera</small></span>
+      </button>
+      <button id="go-p-lds" class="action plain">
+        <svg width="24" height="24" aria-hidden="true"><use href="#i-alert"/></svg>
+        <span><b>Laporan LDS</b><small>Saat ada tiket SPO</small></span>
+      </button>
+    </div>
+    <button id="go-pend" class="action plain wide-plain">
+      <svg width="24" height="24" aria-hidden="true"><use href="#i-clipboard"/></svg>
+      <span><b>Laporan akhir shift</b><small id="go-pend-sub">KM akhir, fasilitas</small></span>
+    </button>
+
+    <div id="p-gps" class="gps-pill waiting">
+      <span class="dot"></span>
+      <span class="gps-text">
+        <span class="gps-line" id="p-gps-status"></span>
+        <span class="gps-line small" id="p-gps-detail"></span>
+      </span>
+    </div>
+
+    <div class="footer-row">
+      <span id="p-count"></span>
+      <button id="p-view-list" class="link">Riwayat</button>
+    </div>
+    <button id="p-go-export" class="secondary">Export ke Excel</button>
+    <p id="p-version" class="version"></p>
+  </div>
+</section>
+
 <!-- ── 4. Security: one report (hourly check, incident or shift) ──────────
      One screen, three shapes. The sections for the other two kinds are hidden.
 -->
@@ -282,7 +388,7 @@
       <p class="eyebrow">Jenis kejadian</p>
       <div id="r-type" class="chips wrap" style="margin-bottom:16px"></div>
       <label id="r-other-field" class="field hidden">
-        <span>Jelaskan (Other)</span>
+        <span id="r-other-label">Jelaskan (Other)</span>
         <input id="r-other" type="text" autocomplete="off">
       </label>
       <div id="r-questions"></div>
@@ -352,6 +458,11 @@
         <textarea id="r-wt-other" rows="3" placeholder="mis. Ditemukan galian pihak ketiga di atas ROW…"></textarea>
       </label>
       <p id="r-wt-note" class="note-preview"></p>
+      <!-- What is at this KP, for the daily B.II counts. All optional. -->
+      <p class="eyebrow">Aset di titik ini (opsional)</p>
+      <div id="r-wt-assets" class="asset-list"></div>
+      <p class="eyebrow">Bangunan di ROW (opsional)</p>
+      <div id="r-wt-buildings" class="asset-list"></div>
     </div>
 
     <!-- LDS: answering a leak-detection ticket from SPO. -->
@@ -412,6 +523,86 @@
         <span>Situasi akhir</span>
         <textarea id="r-final" rows="2"></textarea>
       </label>
+    </div>
+
+    <!-- Patrol: one guard-tour checkpoint. Area typed until the list arrives;
+         the check replaces "Nihil". -->
+    <div id="r-patrol" class="hidden">
+      <label class="field">
+        <span>Area</span>
+        <input id="r-p-area" type="text" autocomplete="off" list="r-p-areas" placeholder="mis. Balai Raja Pinggir">
+        <datalist id="r-p-areas"></datalist>
+      </label>
+      <label class="field">
+        <span>C. Guard tour — yang dicek</span>
+        <textarea id="r-p-check" rows="2" placeholder="mis. Pengecekan Vent Cocks dan Warning Sign KP 47+900"></textarea>
+      </label>
+      <p class="eyebrow">D. Cuaca</p>
+      <div id="r-p-weather" class="chips wrap" style="margin-bottom:12px"></div>
+      <p class="eyebrow">Jalan</p>
+      <div id="r-p-road" class="chips wrap" style="margin-bottom:12px"></div>
+      <label class="field">
+        <span>Kemacetan</span>
+        <input id="r-p-traffic" type="text" autocomplete="off">
+      </label>
+      <label class="field">
+        <span>Tabrakan</span>
+        <input id="r-p-crash" type="text" autocomplete="off">
+      </label>
+      <p class="eyebrow">E. Gangguan</p>
+      <p id="r-p-gangguan" class="note-preview"></p>
+      <p class="eyebrow">F. Temuan / kejadian</p>
+      <div id="r-p-result" class="chips wrap" style="margin-bottom:10px"></div>
+      <label id="r-p-finding-field" class="field hidden">
+        <span>Keterangan temuan</span>
+        <textarea id="r-p-finding" rows="3" placeholder="Apa yang ditemukan, di mana…"></textarea>
+      </label>
+      <label class="field">
+        <span>G. Field interview</span>
+        <textarea id="r-p-interview" rows="5"></textarea>
+      </label>
+    </div>
+
+    <!-- Patrol: end of shift. -->
+    <div id="r-pend" class="hidden">
+      <label class="field">
+        <span>KM awal</span>
+        <input id="r-pend-km-start" type="text" inputmode="numeric" autocomplete="off">
+      </label>
+      <label class="field">
+        <span>KM akhir (speedometer)</span>
+        <input id="r-pend-km-end" type="text" inputmode="numeric" autocomplete="off">
+      </label>
+      <p id="r-pend-distance" class="note-preview"></p>
+      <p class="eyebrow">Fasilitas (contoh — daftar menyusul)</p>
+      <div id="r-pend-facilities" class="asset-list"></div>
+      <p class="eyebrow">Guard tour dan temuan shift ini</p>
+      <div id="r-pend-summary" class="summary"></div>
+      <p class="hint">Foto speedometer awal dan akhir disarankan — tidak wajib.</p>
+    </div>
+
+    <!-- Closing an Open finding, opened from Riwayat. -->
+    <div id="r-close" class="hidden">
+      <p class="eyebrow">Temuan yang ditutup</p>
+      <p id="r-close-ref" class="note-preview"></p>
+      <label class="field">
+        <span>Pukul ditutup</span>
+        <input id="r-close-time" type="time">
+      </label>
+      <label class="field">
+        <span>Tindak lanjut</span>
+        <textarea id="r-close-followup" rows="3" placeholder="Apa yang sudah dilakukan sampai selesai…"></textarea>
+      </label>
+    </div>
+
+    <!-- Any report that found something: what was done, and is it finished. -->
+    <div id="r-finding" class="hidden">
+      <label id="r-followup-field" class="field">
+        <span>Tindak lanjut</span>
+        <textarea id="r-followup" rows="3" placeholder="Apa yang sudah dilakukan…"></textarea>
+      </label>
+      <p class="eyebrow">Status temuan</p>
+      <div id="r-status" class="chips wrap" style="margin-bottom:16px"></div>
     </div>
 
     <div id="r-photos-generic">
@@ -515,10 +706,13 @@
 <script src="js/photo.js"></script>
 <script src="js/xlsx.js"></script>
 <script src="js/wt-options.js"></script>
+<script src="js/patrol-options.js"></script>
 <script src="js/sheets.js"></script>
+<script src="js/findings.js"></script>
 <script src="js/sec-caption.js"></script>
 <script src="js/sec-records.js"></script>
 <script src="js/wt-records.js"></script>
+<script src="js/patrol-records.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

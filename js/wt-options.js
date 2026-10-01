@@ -93,7 +93,25 @@ SA.WT = {
   CONDITION_OTHER: 'Lainnya',
 
   /* LDS (leak detection) response -- shared with Patrol later. */
-  LDS_RADIUS: '500'
+  LDS_RADIUS: '500',
+
+  /* What a line checker counts on the ROW (Pertagas's daily report, part B.II;
+     Billy 2026-10-01). Tagged on a KP report when the point has one; the
+     office tool adds them up for the day. All optional. */
+  assets: [
+    { key: 'patok',      label: 'Patok ROW' },
+    { key: 'warning',    label: 'Warning Sign' },
+    { key: 'cathodic',   label: 'Cathodic' },
+    { key: 'centerLine', label: 'Center Line' }
+  ],
+  ASSET_STATES: ['Baik', 'Rusak', 'Hilang'],
+  buildings: [
+    { key: 'rumah',   label: 'Rumah' },
+    { key: 'sekolah', label: 'Sekolah' },
+    { key: 'pabrik',  label: 'Pabrik' },
+    { key: 'kebun',   label: 'Kebun' },
+    { key: 'kantor',  label: 'Kantor Pemerintah' }
+  ]
 };
 
 /* -- Lookups ----------------------------------------------------------- */

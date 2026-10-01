@@ -5,7 +5,10 @@
  *   team 'walkthrough', kind 'wtkp' | 'lds'
  *   sessionId, teamNo, zone, routeId, officers [..], reporter
  *   date, time, timestamp
- *   wtkp: segment, kp ("25+666"), condition, other
+ *   wtkp: segment, kp ("25+666"), condition, other,
+ *         assets {patok: 'Baik'|'Rusak'|'Hilang', ...}, buildings {rumah: 2, ...}
+ *   close: closeTime, followUp, ref {..}      closing an Open finding
+ *   findings (Lainnya, LDS found): followUp, status -- see findings.js
  *   lds:  ldsTime, ldsSegment, ldsKp, landmark, radius, result ('none'|'found'), finding
  *   photos [..]
  *
@@ -30,6 +33,20 @@
     var c = conditionOf(record.condition);
     if (!c) return '';
     return c.label === W.CONDITION_OTHER ? String(record.other || '').trim() : c.note;
+  }
+
+  /** "Patok ROW Baik, Warning Sign Rusak" -- only the assets that were tagged. */
+  function assetText(record) {
+    var tags = record.assets || {};
+    return W.assets.filter(function (a) { return tags[a.key]; })
+      .map(function (a) { return a.label + ' ' + tags[a.key]; }).join(', ');
+  }
+
+  /** "Rumah 2, Kebun 1" -- only what was counted. */
+  function buildingText(record) {
+    var counts = record.buildings || {};
+    return W.buildings.filter(function (b) { return Number(counts[b.key]) > 0; })
+      .map(function (b) { return b.label + ' ' + counts[b.key]; }).join(', ');
   }
 
   function zoneOfSegment(id, fallback) {
@@ -71,8 +88,9 @@
         seg + ' (KP ' + (kp || '-') + ').');
       if (record.result === 'found') {
         // One full stop at the end, whether or not the guard typed one.
-        lines.push('- Team menemukan indikasi: ' +
-          (String(record.finding || '').trim().replace(/[.\s]+$/, '') || '-') + '.');
+        lines.push('- Team menemukan indikasi: ' + SA.sentence(record.finding));
+        lines.push('- Tindak lanjut: ' + SA.sentence(record.followUp));
+        lines.push('- Status: ' + SA.findings.status(record));
       } else {
         lines.push('- Team tidak menemukan adanya crude atau kebocoran pada pipa PTG.');
         lines.push('- Area ROW PTG saat ini terpantau aman dan tidak ada indikasi hal-hal yang mencurigakan.');
@@ -86,6 +104,22 @@
 
     resultText: function (record) {
       return record.result === 'found' ? 'Ditemukan indikasi' : 'Tidak ditemukan kebocoran';
+    },
+
+    /** The LDS columns every team shares, after its own place columns. */
+    columns: function () {
+      var col = SA.sheets.col;
+      return [
+        col('Segment', 9, 'center', 'ldsSegment'),
+        col('KP', 11, 'center', function (r) { return SA.kpPrint(r.ldsKp); }),
+        col('Patokan', 20, 'text', 'landmark'),
+        col('Radius (m)', 10, 'center', 'radius'),
+        col('Hasil', 22, 'text', SA.lds.resultText),
+        col('Keterangan', 36, 'text', 'finding'),
+        col('Tindak Lanjut', 30, 'text', 'followUp'),
+        // Nothing found closes the ticket there and then.
+        col('Status', 10, 'center', function (r) { return SA.findings.status(r) || 'Close'; })
+      ];
     }
   };
 
@@ -95,8 +129,23 @@
 
     caption: function (record) {
       if (record.kind === 'lds') return SA.lds.caption(record, SA.wtRecords.teamLabel(record));
+      if (record.kind === 'close') {
+        return SA.findings.closeCaption(record,
+          ['UPDATE TEMUAN ' + SA.wtRecords.teamLabel(record).toUpperCase(), ''],
+          ticks(record.officers));
+      }
       var seg = SA.wtSegment(record.segment);
-      var line = SA.aligner(['Location', 'Segment', 'KP', 'Size Pipe', 'Note']);
+      /* The approved five lines, then -- only when there is something to say --
+         the finding's follow-up and status, and the tagged assets (v18). */
+      var extra = [];
+      if (SA.findings.is(record)) {
+        extra.push(['Tindak Lanjut', String(record.followUp || '').trim()]);
+        extra.push(['Status', SA.findings.status(record)]);
+      }
+      if (assetText(record)) extra.push(['Aset', assetText(record)]);
+      if (buildingText(record)) extra.push(['Bangunan ROW', buildingText(record)]);
+      var line = SA.aligner(['Location', 'Segment', 'KP', 'Size Pipe', 'Note']
+        .concat(extra.map(function (e) { return e[0]; })));
       return ['LAPORAN TEAM WT']
         .concat(ticks(record.officers))
         .concat([
@@ -105,17 +154,24 @@
           line('KP', SA.kpPrint(record.kp)),
           line('Size Pipe', seg ? SA.sizeText(seg.size) : ''),
           line('Note', noteOf(record))
-        ]).join('\n');
+        ])
+        .concat(extra.map(function (e) { return line(e[0], e[1]); }))
+        .join('\n');
     },
 
     label: function (record) {
       if (record.kind === 'lds') return 'LDS · Seg ' + record.ldsSegment + ' KP ' + SA.kpPrint(record.ldsKp);
+      if (record.kind === 'close') return 'Tutup Temuan · ' + ((record.ref || {}).label || '');
       return 'KP ' + SA.kpPrint(record.kp) + ' · Seg ' + record.segment;
     },
 
     /** The band's lines, minus time and place (the photo pipeline adds those). */
     stampLines: function (report) {
       var crew = (report.officers || []).length ? 'Tim: ' + report.officers.join(', ') : '';
+      if (report.kind === 'close') {
+        return ['UPDATE TEMUAN · Tim WT ' + report.teamNo + ' · Pukul ' + (report.closeTime || '') + ' WIB',
+          'Menutup: ' + ((report.ref || {}).label || ''), crew];
+      }
       if (report.kind === 'lds') {
         var landmark = String(report.landmark || '').trim();
         return [
@@ -141,6 +197,7 @@
     sealFacts: function (report, timestamp, fix) {
       var where = report.kind === 'lds'
         ? [report.ldsSegment, report.ldsKp, report.ldsTime, report.result]
+        : report.kind === 'close' ? [report.closeTime, (report.ref || {}).label || '', '', '']
         : [report.segment, report.kp, report.condition, ''];
       return ['WT2', timestamp, report.kind, 'T' + report.teamNo].concat(where).concat([
         (report.officers || []).join('+'),
@@ -148,7 +205,7 @@
       ]);
     },
 
-    /** Two sheets: the KP reports and the LDS responses. */
+    /** Three sheets: the KP reports, the LDS responses, the closed findings. */
     sheets: function (records) {
       var theme = SA.EXCEL_THEMES.walkthrough;
       var col = SA.sheets.col;
@@ -169,28 +226,44 @@
         col('Size Pipe', 11, 'center', function (r) { var s = SA.wtSegment(r.segment); return s ? SA.sizeText(s.size) : ''; }),
         col('Kondisi', 22, 'text', 'condition'),
         col('Note', 44, 'text', noteOf),
+        col('Tindak Lanjut', 30, 'text', 'followUp'),
+        col('Status', 10, 'center', SA.findings.status)
+      ].concat(W.assets.map(function (a) {
+        return col(a.label, 12, 'center', function (r) { return (r.assets || {})[a.key] || ''; });
+      })).concat(W.buildings.map(function (b) {
+        return col(b.label, 9, 'center', function (r) {
+          var n = Number((r.buildings || {})[b.key]);
+          return n > 0 ? String(n) : '';
+        });
+      })).concat([
         col('Petugas', 34, 'text', names),
         col('Pelapor', 20, 'text', 'reporter')
-      ], { label: SA.wtRecords.label, freeze: 3, minPhotos: 3 });
+      ]), { label: SA.wtRecords.label, freeze: 3, minPhotos: 3 });
 
       var ldsSheet = SA.sheets.build('LDS', records.filter(function (r) { return r.kind === 'lds'; }), [
         col('Tanggal', 12, 'center', 'date'),
         col('Jam', 9, 'center', 'ldsTime'),
         col('Tim', 7, 'center', 'teamNo'),
-        col('Loc', 12, 'center', function (r) { return zoneOfSegment(r.ldsSegment, r.zone); }),
-        col('Segment', 9, 'center', 'ldsSegment'),
-        col('KP', 11, 'center', function (r) { return SA.kpPrint(r.ldsKp); }),
-        col('Patokan', 20, 'text', 'landmark'),
-        col('Radius (m)', 10, 'center', 'radius'),
-        col('Hasil', 22, 'text', SA.lds.resultText),
-        col('Keterangan', 36, 'text', 'finding'),
+        col('Loc', 12, 'center', function (r) { return zoneOfSegment(r.ldsSegment, r.zone); })
+      ].concat(SA.lds.columns()).concat([
         col('Petugas', 34, 'text', names),
         col('Pelapor', 20, 'text', 'reporter'),
         col('Waktu Simpan', 19, 'center', 'timestamp')
-      ], { label: SA.wtRecords.label, freeze: 3, minPhotos: 4 });
+      ]), { label: SA.wtRecords.label, freeze: 3, minPhotos: 4 });
 
-      var titles = { 'Laporan KP': 'LAPORAN KP', LDS: 'LAPORAN LDS' };
-      return [kpSheet, ldsSheet].map(function (sheet) {
+      var closeSheet = SA.sheets.build('Update Temuan', records.filter(function (r) { return r.kind === 'close'; }), [
+        col('Tanggal', 12, 'center', 'date'),
+        col('Pukul', 9, 'center', 'closeTime'),
+        col('Tim', 7, 'center', 'teamNo'),
+        col('Location', 12, 'center', 'zone')
+      ].concat(SA.findings.closeColumns()).concat([
+        col('Petugas', 34, 'text', names),
+        col('Pelapor', 20, 'text', 'reporter'),
+        col('Waktu Simpan', 19, 'center', 'timestamp')
+      ]), { label: SA.wtRecords.label, freeze: 3 });
+
+      var titles = { 'Laporan KP': 'LAPORAN KP', LDS: 'LAPORAN LDS', 'Update Temuan': 'UPDATE TEMUAN' };
+      return [kpSheet, ldsSheet, closeSheet].map(function (sheet) {
         sheet.title = theme.title + ' — ' + titles[sheet.name];
         sheet.subtitle = 'PT Prabhu · ' + (teams.join(', ') || '-');
         sheet.meta = [

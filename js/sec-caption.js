@@ -58,6 +58,7 @@
   SA.secCaption = {
 
     numbered: numbered,
+    block: block,
 
     /** The hourly check. The date is the date of the scheduled hour, so the
         00:00 check of a Sore shift is dated the next day, as it happened. */
@@ -133,8 +134,10 @@
         'body check menggunakan metal detector terhadap karyawan yang masuk dan keluar ' + post + '.';
       var outcome = record.bodyResult === 'found'
         // One full stop at the end, whether or not the guard typed one.
-        ? 'Temuan: ' + (String(record.bodyFinding || '').trim().replace(/[.\s]+$/, '') || '-') + '.'
-        : S.CLEAR_SITUATION;
+        ? ['Temuan: ' + SA.sentence(record.bodyFinding),
+           'Tindak lanjut: ' + SA.sentence(record.followUp),
+           'Status: ' + SA.findings.status(record)]
+        : [S.CLEAR_SITUATION];
 
       return header('LAPORAN BODY CHECK ' + post)
         .concat([
@@ -143,14 +146,14 @@
           ''
         ])
         .concat(officerBlock(record))
-        .concat(['', sentence, outcome, '', 'Salam,'])
+        .concat(['', sentence]).concat(outcome).concat(['', 'Salam,'])
         .concat(record.officers || [])
         .join('\n');
     },
 
     /** One incident, sent the moment it is written. */
     incident: function (record) {
-      var labels = ['Hari/Tgl', 'Shift', 'Kejadian', 'Tindakan'];
+      var labels = ['Hari/Tgl', 'Shift', 'Kejadian', 'Tindakan', 'Status'];
       S.questions.forEach(function (q) { labels.push(q.label); });
       var line = SA.aligner(labels);
       var answers = record.answers || {};
@@ -168,6 +171,7 @@
 
       lines.push('');
       lines = lines.concat(block(line, 'Tindakan', record.tindakan));
+      lines.push(line('Status', SA.findings.status(record)));
       lines.push('');
       lines.push('Pelapor :');
       lines = lines.concat(numbered(record.officers, 'BKO TNI', record.bko));
@@ -176,11 +180,18 @@
       return lines.join('\n');
     },
 
+    /** Closing an Open finding later: "UPDATE TEMUAN <POS>". */
+    close: function (record) {
+      return SA.findings.closeCaption(record,
+        header('UPDATE TEMUAN ' + record.post),
+        ['Pelapor :'].concat(numbered(record.officers, 'BKO TNI', record.bko)).concat(['', 'Salam..']));
+    },
+
     /** "VANDALISME", or "OTHER - pagar dirusak" when it was typed. */
     incidentName: function (record) {
       var type = String(record.incidentType || '').toUpperCase();
       var other = (record.otherText || '').trim();
-      return record.incidentType === S.OTHER && other ? type + ' - ' + other : type;
+      return record.incidentType === SA.otherTypeOf(record.team) && other ? type + ' - ' + other : type;
     },
 
     /** The end-of-shift report. Sections A and B were frozen onto the record

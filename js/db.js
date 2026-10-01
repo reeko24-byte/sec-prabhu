@@ -117,6 +117,8 @@
 
     markSent: function (ids, when) { return stamp(ids, 'sentAt', when); },
     markExported: function (ids, when) { return stamp(ids, 'exportedAt', when); },
+    /** An Open finding closed later by an UPDATE TEMUAN report (findings.js). */
+    markClosed: function (id, when) { return stamp([id], 'closedAt', when); },
 
     getPref: function (key, fallback) {
       return tx(PREFS, 'readonly', function (store, set) {

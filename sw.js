@@ -15,7 +15,7 @@
    BYTES of this file, and only the new worker re-caches everything else.
    Upload twenty changed files with this line untouched and every phone that
    already has the app keeps the old ones, silently. */
-var CACHE_VERSION = 'superapp-laporan-v17';
+var CACHE_VERSION = 'superapp-laporan-v23';
 
 var SHELL = [
   './',
@@ -30,8 +30,11 @@ var SHELL = [
   './js/photo.js',
   './js/xlsx.js',
   './js/wt-options.js',
+  './js/patrol-options.js',
   './js/sheets.js',
+  './js/findings.js',
   './js/wt-records.js',
+  './js/patrol-records.js',
   './js/sec-caption.js',
   './js/sec-records.js',
   './js/app.js',
@@ -61,7 +64,7 @@ var BADGES = [
   './assets/badges/sec-dsp.png',
   './assets/badges/sec-kota-batak-junction.png',
   './assets/badges/sec-kota-batak-kp21.png',
-  './assets/badges/sec-menggala-booster.png',
+  './assets/badges/sec-manggala-booster.png',
   './assets/badges/sec-dumai-metering.png',
   './assets/badges/wt-team.png',
   './assets/badges/wt-1.png',
@@ -76,7 +79,15 @@ var BADGES = [
   './assets/badges/wt-10.png',
   './assets/badges/wt-11.png',
   './assets/badges/wt-12.png',
-  './assets/badges/wt-13.png'
+  './assets/badges/wt-13.png',
+  './assets/badges/patrol-1.png',
+  './assets/badges/patrol-2.png',
+  './assets/badges/patrol-3.png',
+  './assets/badges/patrol-4.png',
+  './assets/badges/patrol-5.png',
+  './assets/badges/patrol-6.png',
+  './assets/badges/patrol-7.png',
+  './assets/badges/patrol-8.png'
 ];
 
 self.addEventListener('install', function (event) {

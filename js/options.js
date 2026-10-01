@@ -11,19 +11,19 @@
  * places and must not be "fixed" back to it:
  *
  *   - KOTA BATAK KP 21 ... KP 28 are ONE post, KOTA BATAK KP 21.
- *   - MANGGALA BOOSTER is spelled MENGGALA BOOSTER (the badge is right).
+ *   - MANGGALA BOOSTER, as in the Excel and the badge (Billy, 2026-10-01; it was
+ *     spelled MENGGALA until v18 -- SA.postByName still knows the old name).
  *   - Yessicika Relaise Tamba and Mega Suryaningrumnugroho are left out for now.
  *   - Full names, no ID numbers.
  */
 
 var SA = window.SA || {};
 
-/* The three teams of the super app. Only Security is built; the other two are
-   listed so the first screen already shows where they will go. */
+/* The three teams of the super app, all built (Patrol since v20). */
 SA.TEAMS = [
   { id: 'security',    label: 'Security Officer', ready: true,
     icon: 'i-shield', note: 'Pos jaga dan fasilitas' },
-  { id: 'patrol',      label: 'Patrol',           ready: false,
+  { id: 'patrol',      label: 'Patrol',           ready: true,
     icon: 'i-route',  note: 'Patroli kendaraan per zona' },
   { id: 'walkthrough', label: 'Walkthrough',      ready: true,
     icon: 'i-steps',  note: 'Jalan kaki sepanjang ROW' }
@@ -43,15 +43,10 @@ SA.EXCEL_THEMES = {
 };
 SA.EXCEL_LOGO = 'assets/brand/prabhu-logo.png';
 
-/* Badge artwork for the two teams not built yet, received 2026-10-01.
-   Assumed: Patrol N = ZONA N of the personnel file, Walkthrough N = TIM N.
-   `team` is the plain "TEAM Walkthrough" badge. Wire these in when the
-   modules are built (and add them to sw.js then). */
+/* Walkthrough badges: WT N = TIM N; `team` is the plain "TEAM Walkthrough"
+   badge. Patrol's are assets/badges/patrol-N.png, one per Patrol number (see
+   SA.patrolBadge in patrol-options.js). */
 SA.BADGES = {
-  patrol: ['assets/badges/patrol-1.png', 'assets/badges/patrol-2.png',
-    'assets/badges/patrol-3.png', 'assets/badges/patrol-4.png',
-    'assets/badges/patrol-5.png', 'assets/badges/patrol-6.png',
-    'assets/badges/patrol-7.png', 'assets/badges/patrol-8.png'],
   walkthroughTeam: 'assets/badges/wt-team.png',
   walkthrough: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13].map(function (n) {
     return 'assets/badges/wt-' + n + '.png';
@@ -65,20 +60,22 @@ SA.SECURITY = {
   CC: 'PM, Data Analyst',
 
   /* name   the Excel post name: what the caption and the spreadsheet print
+     zone   North or South Area (Billy, 2026-10-01) -- the daily summary is per
+            zone, each with its own two ARCO
      badge  the artwork burned into the photo's top right corner. Its label
             ("KB KP21", "Stasiun Batang") is shorter than the post name, and
             that is agreed: the badge is a design, the caption uses the name. */
   posts: [
-    { name: 'SORA',                     badge: 'assets/badges/sec-sora.png' },
-    { name: 'SPO',                      badge: 'assets/badges/sec-spo.png' },
-    { name: 'WAREHOUSE',                badge: 'assets/badges/sec-warehouse.png' },
-    { name: 'AREA MELUR',               badge: 'assets/badges/sec-area-melur.png' },
-    { name: 'ST BATANG',                badge: 'assets/badges/sec-st-batang.png' },
-    { name: 'DURI SHIPPING PUMP (DSP)', badge: 'assets/badges/sec-dsp.png' },
-    { name: 'KOTA BATAK JUNCTION',      badge: 'assets/badges/sec-kota-batak-junction.png' },
-    { name: 'KOTA BATAK KP 21',         badge: 'assets/badges/sec-kota-batak-kp21.png' },
-    { name: 'MENGGALA BOOSTER',         badge: 'assets/badges/sec-menggala-booster.png' },
-    { name: 'DUMAI METERING',           badge: 'assets/badges/sec-dumai-metering.png' }
+    { name: 'SORA',                     zone: 'South Area', badge: 'assets/badges/sec-sora.png' },
+    { name: 'SPO',                      zone: 'North Area', badge: 'assets/badges/sec-spo.png' },
+    { name: 'WAREHOUSE',                zone: 'North Area', badge: 'assets/badges/sec-warehouse.png' },
+    { name: 'AREA MELUR',               zone: 'South Area', badge: 'assets/badges/sec-area-melur.png' },
+    { name: 'ST BATANG',                zone: 'North Area', badge: 'assets/badges/sec-st-batang.png' },
+    { name: 'DURI SHIPPING PUMP (DSP)', zone: 'South Area', badge: 'assets/badges/sec-dsp.png' },
+    { name: 'KOTA BATAK JUNCTION',      zone: 'South Area', badge: 'assets/badges/sec-kota-batak-junction.png' },
+    { name: 'KOTA BATAK KP 21',         zone: 'South Area', badge: 'assets/badges/sec-kota-batak-kp21.png' },
+    { name: 'MANGGALA BOOSTER',         zone: 'North Area', badge: 'assets/badges/sec-manggala-booster.png' },
+    { name: 'DUMAI METERING',           zone: 'North Area', badge: 'assets/badges/sec-dumai-metering.png' }
   ],
 
   roster: {
@@ -102,7 +99,7 @@ SA.SECURITY = {
     'KOTA BATAK KP 21': ['MISNA CANIAGO', 'WAHYU ANUGRAH PUTRA',
       'M RENDI SAPUTRA', 'IRFAN MAHENDRA', 'ARIFIN B', 'ALAM ILAHI',
       'ANTONI FAISAL', 'RAHMATAN PERDANA MUDASIR'],
-    'MENGGALA BOOSTER': ['DODI HARIANTO', 'RIDHO HAFIZAN', 'TAUFIK HIDAYAT',
+    'MANGGALA BOOSTER': ['DODI HARIANTO', 'RIDHO HAFIZAN', 'TAUFIK HIDAYAT',
       'RAFIJAL', 'M DARVANI ARILMAN', 'ADRI', 'FEBRI', 'BAYU JULIANSYAH'],
     'DUMAI METERING': ['FIKRI', 'ROBY YARLI', 'M FARID', 'RAFAEL',
       'WISNU KHAIRI', 'FARHAN SAHURA', 'RAHMANSYAH', 'M FARIZ']
@@ -154,7 +151,10 @@ SA.SECURITY = {
     incident: { min: 1, max: 4 },
     shift:    { min: 2, max: 4 },
     access:   { min: 3, max: 3 },
-    body:     { min: 4, max: 6 }
+    body:     { min: 4, max: 6 },
+    patrol:   { min: 1, max: 4 },
+    pend:     { min: 2, max: 4 },
+    close:    { min: 1, max: 2 }
   },
 
   /* A hard ceiling only so the share and the phone's memory stay sane. */
@@ -163,9 +163,26 @@ SA.SECURITY = {
 
 /* -- Lookups ----------------------------------------------------------- */
 
+/** Typed text as one sentence: trimmed, exactly one full stop, '-' if empty. */
+SA.sentence = function (text) {
+  return (String(text || '').trim().replace(/[.\s]+$/, '') || '-') + '.';
+};
+
+/** The incident type whose details are typed: Security's "Other", Patrol's "Dll". */
+SA.otherTypeOf = function (team) {
+  return team === 'patrol' && SA.PATROL ? SA.PATROL.OTHER : SA.SECURITY.OTHER;
+};
+
+/* Old post names still found on phones (a saved shift, older records). */
+SA.POST_ALIASES = { 'MENGGALA BOOSTER': 'MANGGALA BOOSTER' };
+
+/** A post's current name: "MENGGALA BOOSTER" -> "MANGGALA BOOSTER". */
+SA.canonicalPost = function (name) { return SA.POST_ALIASES[name] || name; };
+
 SA.postByName = function (name) {
+  var current = SA.canonicalPost(name);
   var found = null;
-  SA.SECURITY.posts.forEach(function (post) { if (post.name === name) found = post; });
+  SA.SECURITY.posts.forEach(function (post) { if (post.name === current) found = post; });
   return found;
 };
 

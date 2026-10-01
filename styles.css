@@ -511,6 +511,7 @@ input:focus, select:focus, textarea:focus {
 .chips.teams13 .chip { padding: 8px 0; font-family: var(--display); font-size: 18px; font-weight: 700; }
 .chips.routes .chip { flex: 1 1 100%; text-align: left; }
 .action.danger.wide-danger { margin-bottom: 14px; min-height: 64px; }
+.action.plain.wide-plain { margin-bottom: 14px; min-height: 64px; width: 100%; }
 .kp-input { text-align: center; letter-spacing: 3px; font-size: 22px !important; font-weight: 600;
   font-variant-numeric: tabular-nums; }
 
@@ -784,6 +785,25 @@ input:focus, select:focus, textarea:focus {
 }
 .badge.ok { background: var(--leaf-soft); color: var(--leaf-ink); }
 .badge.flat { background: var(--surface-2); color: var(--ink-2); }
+.badge.warn { background: var(--amber-soft); color: var(--amber-ink); }
+
+/* WT asset tags and building counts: a name, then its chips or a stepper. */
+.asset-list { margin-bottom: 16px; }
+.asset-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 6px 0; border-bottom: 1px dashed var(--line); font-size: 14px;
+}
+.asset-row:last-child { border-bottom: 0; }
+.asset-row > span { flex: 1 1 auto; min-width: 0; }
+.asset-row .chips { flex: 0 0 auto; margin: 0; }
+.stepper { display: flex; align-items: center; gap: 6px; }
+.stepper b { min-width: 24px; text-align: center; font-variant-numeric: tabular-nums; }
+.step-btn {
+  width: 44px; height: 44px; border-radius: var(--radius-sm);
+  background: var(--surface); border: 1px solid var(--line-strong);
+  color: var(--link); font-size: 20px; font-weight: 700; cursor: pointer;
+}
+.step-btn:disabled { opacity: .4; cursor: default; }
 
 .filename {
   font-size: 13px;

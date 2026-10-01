@@ -4,13 +4,13 @@ One PWA for three teams: **Security Officer**, **Patrol**, **Walkthrough**.
 Works on Android (Chrome) and iPhone (Safari), offline, no backend. Each report
 goes to WhatsApp as photos + caption in one tap; the Excel is a separate export.
 
-**Status (v17, 2026-10-01)**
+**Status (v23, 2026-10-02)**
 
 | Team | State | Reports |
 |---|---|---|
 | Security Officer | **built** | Pengecekan (hourly), Laporan Kejadian, Access Control, Body Check, Laporan Shift |
 | Walkthrough | **built** | Laporan KP, Laporan LDS |
-| Patrol | "segera" — questions on hold | (LDS is ready to share) |
+| Patrol | **built** (placeholder areas and facilities) | Guard tour, Laporan Kejadian, LDS, Akhir Shift |
 
 The old `wt-surveillance` app is to be **retired**; WT crews switch to this app.
 
@@ -25,12 +25,12 @@ Exif reader, .xlsx writer, share handling, version marker). The other apps in
 This folder is **not** a git repo. Upload the whole folder to GitHub Pages by
 hand. On **every** upload, bump both of these together — they are a pair:
 
-- `CACHE_VERSION` in `sw.js` (now `superapp-laporan-v17`)
-- `BUILD` in `js/app.js` (now `v17`)
+- `CACHE_VERSION` in `sw.js` (now `superapp-laporan-v23`)
+- `BUILD` in `js/app.js` (now `v23`)
 
 If files change and `sw.js` does not, phones that already have the app keep the
 old files forever. The line at the foot of each main screen prints
-`kode v17 · cache v17`; if the two differ, the new version downloaded but the app
+`kode v23 · cache v23`; if the two differ, the new version downloaded but the app
 has not been restarted. A changed home-screen icon usually only appears after the
 app is removed and added to the Home Screen again.
 
@@ -58,12 +58,11 @@ Stored reports survive updates: the phone's database is upgraded in place
 - **Photo rules** (suggested / required / maximum per report) are in
   `photoRule()` in `js/app.js`.
 
-**Adding Patrol:** a `patrol` entry in `SA.TEAMS` (ready: true) and in
-`MODULES`; a `patrol-options.js` (people from sheet PATROL, zones, vehicles…) and
-`patrol-records.js` (caption, stamp, seal, sheets); a start screen and a main
-screen in `index.html`; its report kinds in `photoRule()` and the form sections.
-The LDS report is already shared: `SA.lds.caption(record, 'Tim Patrol 3')`.
-Badges `assets/badges/patrol-1…8.png` are in place (Patrol N = ZONA N, to confirm).
+**Adding a team** (as Patrol was in v20): an entry in `SA.TEAMS` and in
+`MODULES`; an options file (people, places) and a records file (caption,
+stamp, seal, sheets); a start screen and a main screen in `index.html`; its
+report kinds in `photoRule()` and the form sections. Shared pieces: the LDS
+report (`SA.lds`), findings (`SA.findings`), the 5W1H incident form.
 
 ---
 
@@ -247,8 +246,84 @@ partner sent** (Billy: both places, show who sent it, incidents too):
 ### Personnel (from `Database Personil.xlsx`, corrected on purpose)
 
 `js/options.js`. The Excel is wrong in these places; do not "fix" back to it:
-KOTA BATAK KP 21–28 are one post **KOTA BATAK KP 21**; **MENGGALA** Booster (not
-Manggala); Yessicika Relaise Tamba and Mega Suryaningrumnugroho left out for now.
+KOTA BATAK KP 21–28 are one post **KOTA BATAK KP 21**; Yessicika Relaise Tamba and Mega Suryaningrumnugroho left out for now. **MANGGALA BOOSTER** is spelled as in the Excel and the badge (it
+was MENGGALA until v18; a phone with a shift saved under the old name carries on
+under the new one).
+
+## Patrol (v20–v21, Billy 2026-10-01)
+
+Source: `Database Personil.xlsx`, sheet **PATROL** — 8 zones of 8 people, each
+with its segments. Data: `js/patrol-options.js`; texts, stamps, seals, sheets:
+`js/patrol-records.js`.
+
+**The crews are PATROL 1–8, not zones** (Billy, v21). South: Patrol N = ZONA N.
+North is inverted:
+
+| Patrol | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+|---|---|---|---|---|---|---|---|---|
+| Sheet's zone | ZONA 1 | ZONA 2 | ZONA 3 | ZONA 4 | ZONA 8 | ZONA 7 | ZONA 6 | ZONA 5 |
+| Area | South | South | South | South | North | North | North | North |
+
+The start screen shows which sheet zone a patrol is ("ZONA 8 di Database
+Personil").
+
+1. **Mulai shift**: Patrol (1–8; that patrol's people listed first), personil (tick
+   order = print order, the first is the reporter), Personil TNI (optional),
+   **kendaraan**, **KM awal**, shift (the same Pagi / Sore / Malam as
+   Security) and date.
+2. **Laporan guard tour** — one per guard-tour (RFID) checkpoint, the agreed
+   monitoring report:
+   ```
+   LAPORAN MONITORING PATROLI SECURITY PT PRABHU
+
+   HARI    : KAMIS
+   TANGGAL : 01 OKTOBER 2026
+   JAM     : 00:00 WIB s/d 08:00 WIB
+   PATROL  : PATROL 4 · SEG 3
+   AREA    : BALAI RAJA PINGGIR
+
+   A. TOTAL PERSONIL : 3 (TIGA)
+      1. METRO MANALU
+      2. NAULIANTO
+      3. TNI : PRADA BUDI
+   B. KENDARAAN : TOYOTA HILUX BM 8035 QI
+   C. GUARD TOUR : Pengecekan Vent Cocks dan Warning Sign KP 47+900
+   D. CUACA DAN KONDISI JALAN : Cuaca / Jalan / Kemacetan / Tabrakan
+   E. GANGGUAN : six types, each Nihil or "Ada, lihat Laporan Kejadian pukul …"
+   F. TEMUAN / KEJADIAN : Nihil, or Temuan / Tindak lanjut / Status
+   G. FIELD INTERVIEW : the four fixed lines, editable
+   Demikian laporan Patroli Security PT Prabhu.
+   ```
+   - The check **replaces "Nihil"** in C. TNI is the last numbered line and is
+     counted in the total (`3. TNI : -` when none, not counted).
+   - **Area is typed** ("ketik sendiri") until Billy sends the list per patrol;
+     what was typed is offered again next time (`patrolAreas` on the phone).
+   - G: what the crew last sent is offered on the next report.
+   - Photos 1–4 suggested, never required.
+3. **Laporan kejadian (Gangguan)** — one per disturbance, sent at once, 5W1H
+   like Security's: Illegal Tapping, Pencurian, Penyetopan, Demo, Perkelahian,
+   Dll (typed). The next guard tour's E points to it.
+4. **Laporan LDS** — the shared LDS report, "Patrol 4"; any segment, the
+   patrol's first by default.
+5. **Laporan akhir shift** — KM awal / KM akhir (typed; a lower KM akhir is
+   refused) and the **jarak tempuh**; this shift's checkpoints and findings
+   (frozen when saved); **Fasilitas 1–3: Aktif / Tidak Aktif — a placeholder**
+   until Rokan's facility list exists. Speedometer photos (start and end)
+   suggested, 2–4. After sending, *Mulai shift berikutnya* opens the next shift
+   with the patrol, vehicle and KM carried over.
+
+**Vehicles** (Billy, 2026-10-02) — picked by default for the patrol, another
+one or *Ketik sendiri* when swapped; the report prints the plate:
+
+| Patrol | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+|---|---|---|---|---|---|---|---|---|
+| Plate | BM 8036 QI | BM 8034 QI | BM 8035 QI | BM 8033 QI | BM 8031 QI | BM 8541 SJ | BM 8032 QI | BM 8248 QD |
+
+**Placeholders:** the area list is empty; the facilities are generic. Replace
+them in `js/patrol-options.js` when the real lists arrive.
+**Badge:** Billy's "TEAM Patrol N" artwork (`assets/badges/patrol-N.png`) top
+right of every photo, and the band reads **SECURITY PATROL - PATROL N**. Photo
+code: `PAT-VERIFY`.
 
 ---
 
@@ -313,6 +388,43 @@ them.
 
 ---
 
+## Findings and the daily summary (v18, Billy 2026-10-01)
+
+Pertagas's *Laporan Harian Shift Pengamanan Jalur* (from the Palembang zone,
+`Downloads\Laporan Harian Shift Pengamanan Jalur Rev_0.xlsx`) is a
+**reference** for a daily summary per zone, made on the office laptop from the
+phones' Excel exports (tool: still to build). What the phones now collect for
+it:
+
+- **Zones.** South Area: SORA, AREA MELUR, KOTA BATAK JUNCTION, KOTA BATAK KP
+  21, DSP. North Area: SPO, WAREHOUSE, ST BATANG, MANGGALA BOOSTER, DUMAI
+  METERING. WT groups already had theirs. The summary's header names the zone's
+  two **ARCO** (Area Coordinators, office hours) instead of Pertagas's Komandan
+  Regu and CMS: North — Dadang Kurnia, Deni Maulana; South — Dino Julivan, Yudi
+  Hardianto.
+- **Findings** (`js/findings.js`): a Security incident, a Body Check with *Ada
+  temuan*, a WT KP with *Lainnya*, an LDS with *Ditemukan indikasi*. Each has a
+  **Tindak lanjut** (required — an incident's is its Tindakan) and a **Status**,
+  *Open* (default) or *Close*, both printed in the WhatsApp text (`Status :
+  Open`). An LDS with nothing found counts as closed in the Excel.
+- **Tutup temuan.** In Riwayat an Open finding shows *TEMUAN OPEN* and a **Tutup
+  temuan** button. It opens a short report (Pukul, Tindak lanjut, photos 1–2
+  suggested) that sends **UPDATE TEMUAN \<POS / TIM WT N\>** — Temuan,
+  Keterangan, Dilaporkan, Ditutup, Tindak lanjut, `Status : Close` — and marks
+  the original closed (`closedAt`). The update is filed **where the finding
+  was** (its post, patrol or WT team), even if the phone has moved since. A
+  finding sent from the partner's phone is not in this phone's Riwayat; it is
+  closed from that phone. If the WT day (or a shift) has to be started first,
+  the app says so and opens the close form right after *Mulai*. The close report
+  carries the finding's first photo code, so the office tool can match it
+  either way.
+- **WT asset tags** (Pertagas B.II), all optional on each Laporan KP: *Patok
+  ROW*, *Warning Sign*, *Cathodic*, *Center Line* — each Baik / Rusak / Hilang
+  (tap again to clear) — and a count of buildings on the ROW: *Rumah, Sekolah,
+  Pabrik, Kebun, Kantor Pemerintah*. The text gets `Aset : …` and `Bangunan ROW
+  : …` lines only when something was tagged, so an ordinary KP report keeps the
+  approved five lines. The tool adds them up per day.
+
 ## Shared by every team
 
 ### The photo
@@ -341,7 +453,7 @@ One file per export, per team:
 |---|---|---|---|
 | Security | `SECURITY_<POS>_<date>_<time>.xlsx` | Pengecekan, Kejadian, Access Control, Body Check, Shift | navy `#0A5C8C` |
 | Walkthrough | `WT_TIM<N>_<date>_<time>.xlsx` | Laporan KP, LDS | dark green `#548235` |
-| Patrol (later) | — | — | blue `#0090C8` (the dashboard's own) |
+| Patrol | `PATROL_<N>_<date>_<time>.xlsx` | Guard Tour, Kejadian, LDS, Akhir Shift, Update Temuan | blue `#0090C8` (the dashboard's own) |
 
 Every sheet is laid out like Prabhu's own *Daily Report Dashboard Patroli*
 workbook: Prabhu logo, a title band and column headers in the **team colour**, a
@@ -358,11 +470,17 @@ three named photo columns (Cargo Manifest, Plat Nomor Kendaraan, Barang); other
 sheets get as many photo columns as their busiest row needs (at least 3 for WT
 KP, 4 for LDS). The Kejadian sheet gains a "Dengan apa (lama)" column only when
 an incident saved before v13 is exported. The Shift sheet has *Pengecekan
-Terkirim* / *Dikirim Rekan* / *Pengecekan Kosong* (v17). Android saves the file (Chrome will not share .xlsx); send it
-from WhatsApp › Lampirkan › Dokumen.
+Terkirim* / *Dikirim Rekan* / *Pengecekan Kosong* (v17). Since v18 every
+Security sheet has a **Zona** column; findings have **Tindak Lanjut** and
+**Status**; WT's Laporan KP has the asset and building columns; and both
+workbooks have an **Update Temuan** sheet. Android saves the file (Chrome will
+not share .xlsx); send it from WhatsApp › Lampirkan › Dokumen.
 
 **Hapus data yang sudah diexport** removes only reports that were exported AND
-sent to WhatsApp, and never the current shift's or day's.
+sent to WhatsApp, and never the current shift's or day's. A finding that is
+still **Open** is kept for **30 days** so it can still be closed from Riwayat;
+after that it is cleared like the rest (by then it has usually been closed from
+the partner's phone, and its photos must not pile up).
 
 ### Look and feel
 
@@ -406,11 +524,14 @@ user skill on this PC) and `web-design-guidelines` skills.
 | `js/wt-options.js` | Walkthrough: groups, people, routes, segments, KP helpers |
 | `js/wt-records.js` | Walkthrough: KP caption, **LDS caption (shared)**, stamps, seals, sheets |
 | `js/sheets.js` | the Excel sheet builder shared by every team |
+| `js/findings.js` | findings shared by every team: Tindak lanjut, Status, the UPDATE TEMUAN text |
+| `js/patrol-options.js` | Patrol: Patrol 1–8 (mapped from the sheet's zones), people, vehicles, placeholder facilities, gangguan, field interview |
+| `js/patrol-records.js` | Patrol: guard tour, akhir shift and kejadian texts, stamps, seals, sheets |
 | `js/xlsx.js` | the .xlsx writer — dashboard layout, logo, team colour |
 | `js/photo.js` · `seal.js` · `exif.js` · `geo.js` | photo pipeline (from WT); the see-through badge card is in `photo.js` |
 | `js/db.js` | IndexedDB: reports + preferences (version 2, `bySession` index) |
 | `sw.js` | offline cache — **bump `CACHE_VERSION` every upload**; badges cached best-effort |
-| `assets/badges/` | Security post badges, WT team badges (used); Patrol zone badges (not yet) |
+| `assets/badges/` | Security post badges, WT team badges, Patrol 1–8 badges |
 | `assets/brand/prabhu-logo.png` | the logo on every Excel sheet |
 | `assets/fonts/` | Barlow + licence |
 | `icons/`, `favicon.ico` | app icons |
@@ -429,6 +550,14 @@ user skill on this PC) and `web-design-guidelines` skills.
   needs the finding, photo hint at 0 and 2 photos); shift report (A and B filled
   from the other reports); the 8-cell timeline and handover cell; next-shift
   prefill.
+- Patrol (v20–v21): start of shift (patrol, people, typed vehicle, KM awal); guard
+  tour (area and check required, area remembered); a Pencurian incident and
+  the next guard tour's E pointing to it; LDS (the patrol's segment); akhir shift
+  (KM lower than the start refused, 82 km worked out, facilities, summary);
+  *Mulai shift berikutnya* (patrol, vehicle, KM carried, next shift and date);
+  Riwayat with Tutup temuan; v21: Patrol 5 lists ZONA 8's people, its badge on
+  the main screen and on a stamped photo with "SECURITY PATROL - PATROL 5".
+  All three teams' v20 workbooks opened in real Excel 16.
 - Two guards, two phones (v17): marking an hour from the timeline's check form
   (cell outlined, count and "Belum dikirim" updated), undoing it there; marking
   and unmarking an hour and an incident type in the shift report; the caption's
@@ -504,24 +633,36 @@ Eight findings on v13–v15; seven fixed, one accepted:
 7. Body Check has its own field names (`bodyResult`, `bodyFinding`).
 8. A stale "all three" comment.
 
+### Fourth review (v23)
+
+Ten findings on v17–v22, all fixed:
+
+1. Open findings are kept 30 days, then cleared (a finding closed from the
+   partner's phone used to stay on this phone, with its photos, for ever).
+2. UPDATE TEMUAN is filed where the finding was, not where the phone is now.
+3. *Mulai shift berikutnya* from a shift report saved as MENGGALA starts the
+   next shift at MANGGALA BOOSTER (`SA.canonicalPost`).
+4. Patrol's typed incident type is labelled *Jelaskan (Dll)*, Security's
+   *Jelaskan (Other)*.
+5. *Ketik sendiri* (Patrol vehicle) starts empty, never with an earlier plate.
+6. Tutup temuan before the WT day / shift is started: a message, then the
+   close form opens after *Mulai*.
+7. One `SA.sentence` instead of three copies.
+8. The Update Temuan and LDS sheet columns are shared (`SA.findings
+   .closeColumns`, `SA.lds.columns`) instead of written per team.
+9. The Patrol start screen calls its pick a patrol (`patrolId`, `p-unit`), not
+   a zone (`zone` means North/South Area everywhere).
+10. One table of form sections per report kind (`FORMS` in `js/app.js`).
+
 ---
 
 ## Open items
 
-**Patrol** (held by Billy on 2026-10-01, to be asked again). Agreed so far:
-tidied caption "LAPORAN MONITORING PATROLI SECURITY PT PRABHU"; no badge
-numbers; TNI rolled into the list as the last numbered line and counted in TOTAL
-PERSONIL; Patrol also sends LDS (shared report). Still to ask:
-
-1. Area — typed, or a list per zone?
-2. Guard Tour "Nihil" with a check listed under it — separate things, or does the
-   check replace "Nihil"?
-3. How often — one report per shift, or hourly as well?
-4. E. Gangguan — separate incident report per disturbance, like Security?
-5. G. Field Interview — same four lines every time (fixed, editable)?
-6. Vehicles — a fixed list with plates, or typed?
-7. Photos — how many, and should each carry its check ("Vent Cocks KP 47+900")?
-8. Confirm the badges: Patrol N = ZONA N?
+**Patrol** (built in v20 with placeholders) — still needed from Billy: the
+**area list** per patrol, Rokan's **facility
+list** (for the akhir shift report), and each patrol's wilayah kerja as a KP
+range (on hold). Two guards on two phones is not handled for Patrol (one crew,
+one car).
 
 **Walkthrough**
 
@@ -560,3 +701,9 @@ shift.
 | v15 | Body Check report (metal detector, at shift change) |
 | v16 | Fixes from the third code review |
 | v17 | Two guards, two phones: mark the partner's checks and incidents; section A shows who sent each hour |
+| v18 | Zones; findings with Tindak lanjut and Status, closed later by Tutup temuan; WT asset tags and building counts |
+| v19 | MANGGALA BOOSTER (was spelled MENGGALA): post name, staff list and Billy's corrected badge |
+| v20 | Patrol: guard tour per checkpoint, gangguan incidents, LDS, akhir shift with km and facilities (placeholders) |
+| v21 | Patrol numbered PATROL 1–8 (North inverted from the sheet's zones); Patrol N badges; "SECURITY PATROL - PATROL N" on the photo |
+| v22 | Patrol vehicles: the real plates, one per patrol, picked by default |
+| v23 | Fixes from the fourth code review |

@@ -26,6 +26,7 @@
     team: '',
     sessions: {},        // per team: Security's shift, Walkthrough's day
     wtSetup: { teamNo: 0, officers: [], routeId: '', others: false, allRoutes: false },
+    pSetup: { patrolId: '', officers: [], tni: '', vehicle: '', ownVehicle: false, km: '', shift: '', date: '', others: false },
     setup: { post: '', officers: [], bko: '', shift: '', date: '', others: false },
     gps: { state: 'waiting' },
     draft: null,         // the report being written
@@ -58,7 +59,7 @@
   function $(id) { return document.getElementById(id); }
 
   var XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-  var SCREENS = ['team', 'setup', 'main', 'wt-setup', 'wt-main', 'report', 'send', 'list', 'export'];
+  var SCREENS = ['team', 'setup', 'main', 'wt-setup', 'wt-main', 'p-setup', 'p-main', 'report', 'send', 'list', 'export'];
 
   function show(name) {
     SCREENS.forEach(function (screen) {
@@ -351,7 +352,16 @@
     SA.photo.preload(badgeOf(state.session.post));
     renderMain();
     show('main');
+    afterStart();
   });
+
+  /** A Tutup temuan that had to wait for the start screen. */
+  function afterStart() {
+    if (!pendingClose) return;
+    var ref = pendingClose;
+    pendingClose = null;
+    openReport('close', null, ref);
+  }
 
   function badgeOf(postName) {
     var post = SA.postByName(postName);
@@ -587,7 +597,8 @@
   /* ── 4. One report ──────────────────────────────────────────────────── */
 
   var TITLES = { check: 'Pengecekan', incident: 'Laporan Kejadian', shift: 'Laporan Shift',
-    access: 'Access Control', body: 'Body Check', wtkp: 'Laporan KP', lds: 'Laporan LDS' };
+    access: 'Access Control', body: 'Body Check', wtkp: 'Laporan KP', lds: 'Laporan LDS',
+    close: 'Tutup Temuan', patrol: 'Guard Tour', pend: 'Akhir Shift Patroli' };
 
   /* ── Walkthrough: start of day ──────────────────────────────────────── */
 
@@ -706,6 +717,7 @@
     SA.photo.preload(SA.wtBadge(setup.teamNo));
     renderWtMain();
     show('wt-main');
+    afterStart();
   });
 
   /* ── Walkthrough: the day ───────────────────────────────────────────── */
@@ -751,9 +763,376 @@
   $('go-wtkp').addEventListener('click', function () { openReport('wtkp'); });
   $('go-lds').addEventListener('click', function () { openReport('lds'); });
 
+  /* ── Patrol: start of shift ─────────────────────────────────────────── */
+
+  var P = SA.PATROL;
+
+  function patrolDirectory() {
+    return P.units.map(function (u) { return { name: u.id, members: u.members }; });
+  }
+
+  /** Opens the Patrol start screen; `prefill` is the next shift after an end
+      of shift report (same patrol and vehicle, the km carried over). */
+  function openPatrolSetup(prefill) {
+    var s = state.sessions.patrol;
+    var now = new Date();
+    var current = SA.shiftFor(now);
+    if (prefill) {
+      state.pSetup = prefill;
+    } else if (s && !sessionOver(s, now)) {
+      state.pSetup = { patrolId: s.patrolId, officers: s.officers.slice(), tni: s.tni || '', vehicle: s.vehicle,
+        ownVehicle: P.vehicles.indexOf(s.vehicle) === -1, km: s.kmStart || '',
+        shift: s.shift, date: s.shiftDate, others: false };
+    } else {
+      // A finished shift keeps its patrol and vehicle, not its people or its time.
+      state.pSetup = { patrolId: s ? s.patrolId : '', officers: [], tni: '', vehicle: s ? s.vehicle : '',
+        ownVehicle: !!(s && P.vehicles.indexOf(s.vehicle) === -1), km: '',
+        shift: current.shift, date: current.date, others: false };
+    }
+    renderPatrolSetup();
+    show('p-setup');
+  }
+
+  function buildPatrolChips() {
+    var units = $('p-unit');
+    units.innerHTML = '';
+    P.units.forEach(function (u) {
+      var chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'chip';
+      chip.textContent = u.id;
+      chip.addEventListener('click', function () {
+        var setup = state.pSetup;
+        if (setup.patrolId !== u.id) {
+          // The patrol's own vehicle, unless the crew already picked another.
+          if (!setup.vehicle || setup.vehicle === SA.patrolVehicle(setup.patrolId)) {
+            setup.vehicle = SA.patrolVehicle(u.id);
+            setup.ownVehicle = false;
+          }
+          setup.patrolId = u.id;
+          // Names picked for another patrol are almost certainly wrong here.
+          setup.officers = setup.officers.filter(function (name) { return u.members.indexOf(name) !== -1; });
+        }
+        renderPatrolSetup();
+      });
+      units.appendChild(chip);
+    });
+
+    var shifts = $('p-shift');
+    shifts.innerHTML = '';
+    S.shifts.forEach(function (shift) {
+      var chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'chip';
+      var b = document.createElement('b');
+      b.textContent = shift.id;
+      var small = document.createElement('small');
+      small.textContent = SA.hourText(shift.start) + '–' + SA.hourText(shift.end);
+      chip.appendChild(b);
+      chip.appendChild(small);
+      chip.addEventListener('click', function () { state.pSetup.shift = shift.id; renderPatrolSetup(); });
+      shifts.appendChild(chip);
+    });
+  }
+
+  function renderPatrolSetup() {
+    var setup = state.pSetup;
+    var u = SA.patrolUnit(setup.patrolId);
+    Array.prototype.forEach.call($('p-unit').children, function (chip, i) {
+      chip.setAttribute('aria-pressed', String(P.units[i].id === setup.patrolId));
+    });
+    $('p-unit-note').textContent = u ? u.segments + ' · ' + u.area + ' (' + u.sheetZone + ' di Database Personil)'
+      : 'Pilih patrol dulu.';
+
+    $('p-officers-label').textContent = 'Personil patroli (' + setup.officers.length + ' dipilih)';
+    renderPicker($('p-officers'), setup.patrolId, setup.officers, setup.others,
+      function () { setup.others = !setup.others; renderPatrolSetup(); },
+      renderPatrolSetup, { noun: 'patrol', groups: patrolDirectory() });
+
+    if (document.activeElement !== $('p-tni')) $('p-tni').value = setup.tni;
+    renderChoice($('p-vehicle'), P.vehicles.map(function (v, i) { return { value: v, text: 'Patrol ' + (i + 1) + ' · ' + v }; })
+      .concat([{ value: '__own', text: 'Ketik sendiri' }]),
+      setup.ownVehicle ? '__own' : setup.vehicle, function (value) {
+        var wasOwn = setup.ownVehicle;
+        setup.ownVehicle = value === '__own';
+        if (setup.ownVehicle && !wasOwn) $('p-vehicle-own').value = '';
+        setup.vehicle = setup.ownVehicle ? $('p-vehicle-own').value.trim() : value;
+        renderPatrolSetup();
+      });
+    $('p-vehicle-own-field').classList.toggle('hidden', !setup.ownVehicle);
+    if (setup.ownVehicle && document.activeElement !== $('p-vehicle-own')) $('p-vehicle-own').value = setup.vehicle;
+    if (!setup.ownVehicle) $('p-vehicle-own').value = '';
+    if (document.activeElement !== $('p-km')) $('p-km').value = setup.km;
+
+    Array.prototype.forEach.call($('p-shift').children, function (chip, i) {
+      chip.setAttribute('aria-pressed', String(S.shifts[i].id === setup.shift));
+    });
+    $('p-date').value = setup.date;
+
+    var ready = !!(setup.patrolId && setup.officers.length && String(setup.vehicle).trim() && setup.shift && setup.date);
+    $('p-start').disabled = !ready;
+    $('p-blocker').textContent = ready ? ''
+      : !setup.patrolId ? 'Pilih patrol dulu.'
+      : !setup.officers.length ? 'Centang personil patroli.'
+      : !String(setup.vehicle).trim() ? 'Pilih atau ketik kendaraan.'
+      : !setup.shift ? 'Pilih shift.'
+      : 'Isi tanggal shift.';
+  }
+
+  $('p-tni').addEventListener('input', function () { state.pSetup.tni = this.value; });
+  $('p-vehicle-own').addEventListener('input', function () {
+    state.pSetup.vehicle = this.value.trim();
+    renderPatrolSetup();
+  });
+  $('p-km').addEventListener('input', function () {
+    this.value = this.value.replace(/\D/g, '').slice(0, 7);
+    state.pSetup.km = this.value;
+  });
+  $('p-date').addEventListener('change', function () { state.pSetup.date = this.value; renderPatrolSetup(); });
+  $('p-setup-back').addEventListener('click', function () { buildTeamChips(); show('team'); });
+  $('p-main-team').addEventListener('click', function () { buildTeamChips(); show('team'); });
+
+  $('p-start').addEventListener('click', function () {
+    if (this.disabled) return;
+    var setup = state.pSetup;
+    var old = state.sessions.patrol;
+    var u = SA.patrolUnit(setup.patrolId);
+    // Same patrol, shift and date: a correction, not a new shift.
+    var same = old && old.patrolId === setup.patrolId && old.shift === setup.shift && old.shiftDate === setup.date;
+    state.sessions.patrol = {
+      id: same ? old.id : 'p' + Date.now().toString(36),
+      patrolId: setup.patrolId,
+      zone: u.area,
+      segments: u.segments,
+      officers: setup.officers.slice(),
+      tni: setup.tni.trim(),
+      vehicle: String(setup.vehicle).trim(),
+      kmStart: setup.km,
+      shift: setup.shift,
+      shiftDate: setup.date,
+      fieldInterview: same && old.fieldInterview ? old.fieldInterview : P.FIELD_INTERVIEW
+    };
+    SA.db.setPref('patrolSession', state.sessions.patrol);
+    SA.photo.preload(SA.patrolBadge(setup.patrolId));
+    renderPatrolMain();
+    show('p-main');
+    afterStart();
+  });
+
+  /* ── Patrol: the shift ──────────────────────────────────────────────── */
+
+  function renderPatrolMain() {
+    var s = state.sessions.patrol;
+    if (!s) return;
+    var shift = SA.shiftById(s.shift);
+    var badge = SA.patrolBadge(s.patrolId);
+    if (badge && $('p-badge').getAttribute('src') !== badge) $('p-badge').src = badge;
+    $('p-badge').alt = 'Team ' + SA.patrolRecords.teamLabel(s);
+    var line = $('p-session');
+    line.textContent = s.patrolId + ' · ' + s.segments + ' · ' + s.zone;
+    var when = document.createElement('small');
+    when.className = 'when';
+    when.textContent = s.shift + ' · ' + SA.hourText(shift.start) + '–' + SA.hourText(shift.end) +
+      ' WIB · ' + SA.longDate(SA.parseDate(s.shiftDate));
+    var who = document.createElement('small');
+    who.textContent = s.officers.join(', ') + ' · TNI: ' + (s.tni || '-');
+    var car = document.createElement('small');
+    car.textContent = s.vehicle + (s.kmStart ? ' · KM awal ' + s.kmStart : '');
+    line.appendChild(when);
+    line.appendChild(who);
+    line.appendChild(car);
+
+    var over = sessionOver(s, new Date());
+    $('p-over').textContent = over
+      ? 'Shift ini sudah selesai. Kirim Laporan Akhir Shift bila belum, lalu tekan Ubah untuk memulai shift baru.'
+      : '';
+    $('p-over').classList.toggle('hidden', !over);
+
+    loadSessionRecords().then(function (records) {
+      var tours = records.filter(function (r) { return r.kind === 'patrol'; });
+      var last = tours[tours.length - 1];
+      $('go-patrol-sub').textContent = last
+        ? tours.length + ' titik shift ini · terakhir ' + (last.area || '-') + ' ' + String(last.time).slice(0, 5)
+        : 'Belum ada titik shift ini';
+      var ended = records.filter(function (r) { return r.kind === 'pend'; }).length;
+      $('go-pend-sub').textContent = ended ? 'Sudah dikirim' : 'KM akhir, fasilitas';
+      return SA.db.all();
+    }).then(function (all) {
+      renderCount(all, 'patrol', 'p-count', 'p-go-export');
+    });
+  }
+
+  $('p-edit').addEventListener('click', function () { openPatrolSetup(); });
+  $('go-patrol').addEventListener('click', function () { openReport('patrol'); });
+  $('go-p-incident').addEventListener('click', function () { openReport('incident'); });
+  $('go-p-lds').addEventListener('click', function () { openReport('lds'); });
+  $('go-pend').addEventListener('click', function () {
+    var sent = latestRecord('pend', null);
+    if (sent && !confirm('Laporan akhir shift sudah dikirim pukul ' + String(sent.time).slice(0, 5) +
+        '. Buat lagi?')) return;
+    openReport('pend');
+  });
+
+  /* ── Patrol: the forms ──────────────────────────────────────────────── */
+
+  function patrolDraft(kind, s, now, ref) {
+    return {
+      kind: kind,
+      team: 'patrol',
+      date: SA.dateOf(now),
+      patrolId: s.patrolId, zone: s.zone, segments: s.segments,
+      shift: s.shift, shiftDate: s.shiftDate,
+      officers: s.officers.slice(), tni: s.tni, vehicle: s.vehicle,
+      reporter: s.officers[0] || '',
+      // guard tour
+      area: '', check: '',
+      weather: P.weather[0], road: P.road[0], traffic: P.NIHIL, crash: P.NIHIL,
+      gangguanSummary: {}, patrolResult: 'none', patrolFinding: '',
+      fieldInterview: s.fieldInterview || P.FIELD_INTERVIEW,
+      // end of shift
+      kmStart: s.kmStart || '', kmEnd: '', facilities: {}, tours: [], findingList: [],
+      // incident (5W1H), as Security's
+      incidentType: '', otherText: '', answers: { bilamana: 'Pukul ' + hhmm(now) + ' WIB' }, tindakan: '',
+      // LDS, as Walkthrough's -- any segment, the patrol's first by default
+      routeId: null, ldsTime: hhmm(now), ldsSegment: SA.patrolFirstSegment(s.patrolId), ldsKp: '',
+      landmark: '', radius: W.LDS_RADIUS, result: 'none', finding: '',
+      // findings and closing
+      followUp: '', status: 'Open', closeTime: hhmm(now), ref: ref || null
+    };
+  }
+
+  /** E. Gangguan: Nihil, or where to find the incident report(s) of this shift. */
+  function gangguanSummary() {
+    var summary = {};
+    P.gangguan.forEach(function (type) {
+      var list = state.sessionRecords.filter(function (r) { return r.kind === 'incident' && r.incidentType === type; });
+      if (!list.length) return;
+      summary[type] = 'Ada, lihat Laporan Kejadian pukul ' +
+        list.map(function (r) { return String(r.time || '').slice(0, 5); }).join(' & ') + ' WIB';
+    });
+    return summary;
+  }
+
+  /** The areas typed on this phone before, offered while the list is missing. */
+  var patrolAreas = [];
+
+  function renderPatrolFields() {
+    var d = state.draft;
+    d.gangguanSummary = gangguanSummary();
+    $('r-p-area').value = '';
+    $('r-p-check').value = '';
+    $('r-p-traffic').value = d.traffic;
+    $('r-p-crash').value = d.crash;
+    $('r-p-finding').value = '';
+    $('r-p-interview').value = d.fieldInterview;
+    var known = (P.areas[d.patrolId] || []).concat(patrolAreas);
+    $('r-p-areas').innerHTML = '';
+    SA.sheets.unique(known).forEach(function (area) {
+      var option = document.createElement('option');
+      option.value = area;
+      $('r-p-areas').appendChild(option);
+    });
+    renderChoice($('r-p-weather'), P.weather.map(function (w) { return { value: w, text: w }; }), d.weather,
+      function (value) { state.draft.weather = value; updateReport(); });
+    renderChoice($('r-p-road'), P.road.map(function (w) { return { value: w, text: w }; }), d.road,
+      function (value) { state.draft.road = value; updateReport(); });
+    $('r-p-gangguan').textContent = P.gangguan.map(function (type) {
+      return type + ': ' + (d.gangguanSummary[type] || P.NIHIL);
+    }).join(' · ') + '. Ada gangguan? Kirim lewat Laporan kejadian — terhitung di sini.';
+    renderChoice($('r-p-result'), [
+      { value: 'none', text: 'Nihil' },
+      { value: 'found', text: 'Ada temuan' }
+    ], d.patrolResult, function (value) {
+      state.draft.patrolResult = value;
+      $('r-p-finding-field').classList.toggle('hidden', value !== 'found');
+      updateReport();
+    });
+    $('r-p-finding-field').classList.add('hidden');
+  }
+
+  wireText('r-p-area', 'area');
+  wireText('r-p-check', 'check');
+  wireText('r-p-traffic', 'traffic');
+  wireText('r-p-crash', 'crash');
+  wireText('r-p-finding', 'patrolFinding');
+  wireText('r-p-interview', 'fieldInterview');
+
+  /** What the crew typed is offered next time: the area, the field interview. */
+  function rememberPatrol(record) {
+    if (record.area && patrolAreas.indexOf(record.area) === -1) {
+      patrolAreas = patrolAreas.concat([record.area]).slice(-60);
+      SA.db.setPref('patrolAreas', patrolAreas);
+    }
+    var s = state.sessions.patrol;
+    if (s && record.fieldInterview && s.fieldInterview !== record.fieldInterview) {
+      s.fieldInterview = record.fieldInterview;
+      SA.db.setPref('patrolSession', s);
+    }
+  }
+
+  /** End of shift: this shift's checkpoints and findings, frozen at saving. */
+  function patrolShiftSummary(d) {
+    d.tours = state.sessionRecords.filter(function (r) { return r.kind === 'patrol'; }).map(function (r) {
+      return { time: String(r.time || '').slice(0, 5), area: r.area || '', check: r.check || '' };
+    });
+    d.findingList = state.sessionRecords.filter(function (r) { return SA.findings.is(r); }).map(function (r) {
+      return { time: String(r.time || '').slice(0, 5), label: SA.patrolRecords.label(r), status: SA.findings.status(r) };
+    });
+  }
+
+  function renderPendFields() {
+    var d = state.draft;
+    patrolShiftSummary(d);
+    $('r-pend-km-start').value = d.kmStart;
+    $('r-pend-km-end').value = '';
+    var box = $('r-pend-facilities');
+    box.innerHTML = '';
+    P.facilities.forEach(function (name) {
+      if (!d.facilities[name]) d.facilities[name] = P.FACILITY_STATES[0];
+      var row = document.createElement('div');
+      row.className = 'asset-row';
+      var label = document.createElement('span');
+      label.textContent = name;
+      row.appendChild(label);
+      var chips = document.createElement('div');
+      chips.className = 'chips';
+      row.appendChild(chips);
+      renderChoice(chips, P.FACILITY_STATES.map(function (v) { return { value: v, text: v }; }),
+        d.facilities[name], function (value) { state.draft.facilities[name] = value; updateReport(); });
+      box.appendChild(row);
+    });
+    var summary = $('r-pend-summary');
+    summary.innerHTML = '';
+    var rows = d.tours.map(function (t) { return t.time + ' · ' + (t.area || '-'); })
+      .concat(d.findingList.map(function (f) { return f.time + ' · ' + f.label + ' (' + f.status + ')'; }));
+    if (!rows.length) summary.textContent = 'Belum ada guard tour atau temuan shift ini.';
+    rows.forEach(function (text) {
+      var row = document.createElement('div');
+      row.textContent = text;
+      summary.appendChild(row);
+    });
+    renderPendDistance();
+  }
+
+  function renderPendDistance() {
+    var km = SA.patrolRecords.distance(state.draft);
+    $('r-pend-distance').textContent = km === null ? 'Jarak tempuh: isi KM awal dan KM akhir.'
+      : 'Jarak tempuh: ' + km + ' km';
+  }
+
+  ['r-pend-km-start', 'r-pend-km-end'].forEach(function (id) {
+    $(id).addEventListener('input', function () {
+      if (!state.draft) return;
+      this.value = this.value.replace(/\D/g, '').slice(0, 7);
+      state.draft[id === 'r-pend-km-start' ? 'kmStart' : 'kmEnd'] = this.value;
+      renderPendDistance();
+      updateReport();
+    });
+  });
+
   /* ── Walkthrough: the two forms ─────────────────────────────────────── */
 
-  function wtDraft(kind, s, now) {
+  function wtDraft(kind, s, now, ref) {
     var route = W.routes[s.routeId] || { segments: [''] };
     return {
       kind: kind,
@@ -774,7 +1153,13 @@
       landmark: '',
       radius: W.LDS_RADIUS,
       result: 'none',
-      finding: ''
+      finding: '',
+      assets: {},
+      buildings: {},
+      followUp: '',
+      status: 'Open',
+      closeTime: hhmm(now),
+      ref: ref || null
     };
   }
 
@@ -831,6 +1216,7 @@
       updateReport();
     });
     renderWtNote();
+    renderWtAssets();
   }
 
   /** The sentence that will actually be sent, under the choice that makes it. */
@@ -846,6 +1232,7 @@
     var d = state.draft;
     $('r-lds-time').value = d.ldsTime;
     fillSegmentSelect($('r-lds-seg'), d.routeId, d.ldsSegment);
+    d.ldsSegment = $('r-lds-seg').value;
     $('r-lds-kp').value = '';
     $('r-lds-landmark').value = '';
     $('r-lds-radius').value = d.radius;
@@ -927,7 +1314,7 @@
   }
 
   /** A new Security report, filled from the shift. */
-  function secDraft(kind, session, now, hour) {
+  function secDraft(kind, session, now, hour, ref) {
     return {
       kind: kind,
       team: 'security',
@@ -956,7 +1343,12 @@
       // Body check: done at shift change, so Pukul starts at the nearer one.
       bodyTime: SA.hourText(nearestChange(session, now)),
       bodyResult: 'none',
-      bodyFinding: ''
+      bodyFinding: '',
+      // A finding's Tindak lanjut and Status, and the close report (findings.js).
+      followUp: '',
+      status: 'Open',
+      closeTime: hhmm(now),
+      ref: ref || null
     };
   }
 
@@ -972,38 +1364,58 @@
 
 
 
-  function openReport(kind, hour) {
+  /** `ref` only for 'close': the finding being closed (SA.findings.refOf). */
+  /* Every report kind: its form section and what fills it. A new kind is one
+     line here (and its section in index.html). */
+  var FORMS = {
+    check:    ['r-check',    renderHourSelect],
+    incident: ['r-incident', renderIncidentFields],
+    shift:    ['r-shift',    renderShiftFields],
+    access:   ['r-access',   renderAccessFields],
+    body:     ['r-body',     renderBodyFields],
+    wtkp:     ['r-wtkp',     renderWtKpFields],
+    lds:      ['r-lds',      renderLdsFields],
+    close:    ['r-close',    renderCloseFields],
+    patrol:   ['r-patrol',   renderPatrolFields],
+    pend:     ['r-pend',     renderPendFields]
+  };
+
+  /** A Tutup temuan asked for before the day or shift was started: opened
+      as soon as it is (see afterStart). */
+  var pendingClose = null;
+
+  function openReport(kind, hour, ref) {
     var session = currentSession();
     var module = moduleOf(currentTeam());
     /* No session, or a Walkthrough day that is not today: back to the start
        screen, so today's reports are never filed under yesterday's crew. */
-    if (!session || !module.fresh(session)) { goMain(); return; }
+    if (!session || !module.fresh(session)) {
+      if (kind === 'close') {
+        pendingClose = ref;
+        toast('Mulai hari/shift dulu — Tutup temuan terbuka setelah itu.');
+      }
+      goMain();
+      return;
+    }
     var now = new Date();
 
     loadSessionRecords().then(function () {
-      state.draft = module.draft(kind, session, now, hour);
+      state.draft = module.draft(kind, session, now, hour, ref);
+      // A close report is filed where the finding was (findings.js refOf).
+      if (kind === 'close' && ref && ref.place) Object.assign(state.draft, ref.place);
       state.nextOthers = false;
       releasePhotoUrls(state.photos);
       state.photos = [];
 
       $('r-title').textContent = TITLES[kind];
-      $('r-check').classList.toggle('hidden', kind !== 'check');
-      $('r-incident').classList.toggle('hidden', kind !== 'incident');
-      $('r-shift').classList.toggle('hidden', kind !== 'shift');
-      $('r-access').classList.toggle('hidden', kind !== 'access');
-      $('r-body').classList.toggle('hidden', kind !== 'body');
-      $('r-wtkp').classList.toggle('hidden', kind !== 'wtkp');
-      $('r-lds').classList.toggle('hidden', kind !== 'lds');
+      Object.keys(FORMS).forEach(function (k) {
+        $(FORMS[k][0]).classList.toggle('hidden', k !== kind);
+      });
       // Access control has its own three named photo slots.
       $('r-photos-generic').classList.toggle('hidden', kind === 'access');
 
-      if (kind === 'check') renderHourSelect();
-      if (kind === 'access') renderAccessFields();
-      if (kind === 'body') renderBodyFields();
-      if (kind === 'incident') renderIncidentFields();
-      if (kind === 'shift') renderShiftFields();
-      if (kind === 'wtkp') renderWtKpFields();
-      if (kind === 'lds') renderLdsFields();
+      FORMS[kind][1]();
+      renderFindingFields();
 
       renderPhotoStrip();
       updateReport();
@@ -1081,13 +1493,15 @@
   /* Incident */
 
   function renderIncidentFields() {
-    renderChoice($('r-type'), S.incidentTypes.map(function (t) { return { value: t, text: t }; }),
+    var types = state.draft.team === 'patrol' ? P.gangguan : S.incidentTypes;
+    renderChoice($('r-type'), types.map(function (t) { return { value: t, text: t }; }),
       state.draft.incidentType, function (type) {
         state.draft.incidentType = type;
-        $('r-other-field').classList.toggle('hidden', type !== S.OTHER);
+        $('r-other-field').classList.toggle('hidden', type !== SA.otherTypeOf(state.draft.team));
         updateReport();
       });
     $('r-other-field').classList.add('hidden');
+    $('r-other-label').textContent = 'Jelaskan (' + SA.otherTypeOf(state.draft.team) + ')';
     $('r-other').value = '';
 
     var box = $('r-questions');
@@ -1299,6 +1713,113 @@
   });
   wireText('r-body-finding', 'bodyFinding');
 
+  /* Finding: Tindak lanjut and Status (findings.js). Shown only while the
+     report has found something; an incident's Tindak lanjut is its Tindakan. */
+
+  function renderFindingFields() {
+    $('r-followup').value = '';
+    renderChoice($('r-status'), [
+      { value: 'Open', text: 'Open — belum selesai' },
+      { value: 'Close', text: 'Close — sudah selesai' }
+    ], state.draft.status, function (value) {
+      state.draft.status = value;
+      updateReport();
+    });
+  }
+
+  function showFindingFields() {
+    var draft = state.draft;
+    var finding = SA.findings.is(draft);
+    $('r-finding').classList.toggle('hidden', !finding);
+    $('r-followup-field').classList.toggle('hidden', draft.kind === 'incident');
+  }
+
+  wireText('r-followup', 'followUp');
+
+  /* Close: an UPDATE TEMUAN for an Open finding, opened from Riwayat. */
+
+  function renderCloseFields() {
+    var d = state.draft;
+    var ref = d.ref || {};
+    d.date = typedTimeDate(d.closeTime, new Date());
+    $('r-close-ref').textContent = (ref.label || '') + ' — dilaporkan ' + (ref.date || '') +
+      ' pukul ' + (ref.time || '') + (ref.text ? ': ' + ref.text : '');
+    $('r-close-time').value = d.closeTime;
+    $('r-close-followup').value = '';
+  }
+
+  wireText('r-close-time', 'closeTime', function (value) {
+    state.draft.date = typedTimeDate(value, new Date());
+  });
+  wireText('r-close-followup', 'followUp');
+
+  /* WT: what the line checker found at this KP, for Pertagas's B.II counts.
+     Tapping the chosen state again clears it -- every tag is optional. */
+
+  function renderWtAssets() {
+    var d = state.draft;
+    var box = $('r-wt-assets');
+    box.innerHTML = '';
+    W.assets.forEach(function (asset) {
+      var row = document.createElement('div');
+      row.className = 'asset-row';
+      var name = document.createElement('span');
+      name.textContent = asset.label;
+      row.appendChild(name);
+      var chips = document.createElement('div');
+      chips.className = 'chips';
+      W.ASSET_STATES.forEach(function (value) {
+        var chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'chip';
+        chip.textContent = value;
+        chip.setAttribute('aria-pressed', String(d.assets[asset.key] === value));
+        chip.addEventListener('click', function () {
+          if (state.draft.assets[asset.key] === value) delete state.draft.assets[asset.key];
+          else state.draft.assets[asset.key] = value;
+          renderWtAssets();
+          updateReport();
+        });
+        chips.appendChild(chip);
+      });
+      row.appendChild(chips);
+      box.appendChild(row);
+    });
+
+    var counts = $('r-wt-buildings');
+    counts.innerHTML = '';
+    W.buildings.forEach(function (building) {
+      var n = Number(d.buildings[building.key]) || 0;
+      var row = document.createElement('div');
+      row.className = 'asset-row';
+      var name = document.createElement('span');
+      name.textContent = building.label;
+      row.appendChild(name);
+      var stepper = document.createElement('div');
+      stepper.className = 'stepper';
+      [['−', -1], [String(n), 0], ['+', 1]].forEach(function (part) {
+        var el = document.createElement(part[1] ? 'button' : 'b');
+        el.textContent = part[0];
+        if (part[1]) {
+          el.type = 'button';
+          el.className = 'step-btn';
+          el.setAttribute('aria-label', (part[1] > 0 ? 'Tambah ' : 'Kurangi ') + building.label);
+          el.disabled = part[1] < 0 && n === 0;
+          el.addEventListener('click', function () {
+            var next = Math.max(0, n + part[1]);
+            if (next) state.draft.buildings[building.key] = next;
+            else delete state.draft.buildings[building.key];
+            renderWtAssets();
+            updateReport();
+          });
+        }
+        stepper.appendChild(el);
+      });
+      row.appendChild(stepper);
+      counts.appendChild(row);
+    });
+  }
+
   /**
    * The day a typed time (Access Control's Pukul, Body Check's Pukul, LDS's
    * Jam) belongs to: the one that puts it between 20 hours before now and 4
@@ -1409,7 +1930,9 @@
     var missing = [];
     if (draft.kind === 'incident') {
       if (!draft.incidentType) missing.push('jenis kejadian');
-      else if (draft.incidentType === S.OTHER && !draft.otherText.trim()) missing.push('penjelasan Other');
+      else if (draft.incidentType === SA.otherTypeOf(draft.team) && !draft.otherText.trim()) {
+        missing.push('penjelasan ' + SA.otherTypeOf(draft.team));
+      }
     }
     // Walkthrough: the KP and the condition are burned into the photo.
     if (draft.kind === 'wtkp') {
@@ -1430,6 +1953,12 @@
     }
     // The body check's Pukul is on the photo.
     if (draft.kind === 'body' && !draft.bodyTime) missing.push('Pukul');
+    if (draft.kind === 'close' && !draft.closeTime) missing.push('Pukul');
+    // Patrol: the area and what was checked are on the photo.
+    if (draft.kind === 'patrol') {
+      if (!String(draft.area).trim()) missing.push('Area');
+      if (!String(draft.check).trim()) missing.push('yang dicek');
+    }
     return missing;
   }
 
@@ -1443,6 +1972,20 @@
     if ((draft.kind === 'lds' && draft.result === 'found' && !String(draft.finding).trim()) ||
         (draft.kind === 'body' && draft.bodyResult === 'found' && !String(draft.bodyFinding).trim())) {
       missing.push('keterangan temuan');
+    }
+    // Every finding says what was done about it (Pertagas: "Wajib diisi").
+    if (SA.findings.is(draft) && !SA.findings.followUp(draft)) {
+      missing.push(draft.kind === 'incident' ? 'Tindakan' : 'tindak lanjut');
+    }
+    if (draft.kind === 'close' && !String(draft.followUp).trim()) missing.push('tindak lanjut');
+    if (draft.kind === 'patrol' && draft.patrolResult === 'found' && !String(draft.patrolFinding).trim()) {
+      missing.push('keterangan temuan');
+    }
+    if (draft.kind === 'pend') {
+      if (!String(draft.kmEnd).trim()) missing.push('KM akhir');
+      else if (String(draft.kmStart).trim() && SA.patrolRecords.distance(draft) === null) {
+        missing.push('KM akhir lebih kecil dari KM awal');
+      }
     }
     var rule = photoRule(draft.kind);
     if (draft.kind !== 'access' && rule.required && state.photos.length < rule.required) {
@@ -1483,6 +2026,7 @@
           : r.kind === 'incident' ? SA.secCaption.incident(r)
           : r.kind === 'access' ? SA.secCaption.access(r)
           : r.kind === 'body' ? SA.secCaption.body(r)
+          : r.kind === 'close' ? SA.secCaption.close(r)
           : SA.secCaption.shift(r);
       },
       label: function (r) { return SA.secRecords.label(r); },
@@ -1510,16 +2054,60 @@
           team: 'security', kind: draft.kind, sessionId: session.id,
           date: draft.kind === 'access' ? typedTimeDate(draft.accessTime, now)
             : draft.kind === 'body' ? typedTimeDate(draft.bodyTime, now)
+            : draft.kind === 'close' ? typedTimeDate(draft.closeTime, now)
             : SA.dateOf(now),
           time: SA.timeOf(now), timestamp: SA.timestampOf(now),
-          post: draft.post, shift: draft.shift, shiftDate: draft.shiftDate,
+          post: draft.post, zone: (SA.postByName(draft.post) || {}).zone || '',
+          shift: draft.shift, shiftDate: draft.shiftDate,
           officers: draft.officers.slice(), bko: (draft.bko || '').trim(), reporter: draft.reporter
         };
       },
       summary: function (c, n) {
         return n + ' laporan: ' + (c.check || 0) + ' pengecekan, ' + (c.incident || 0) + ' kejadian, ' +
           (c.access || 0) + ' access control, ' + (c.body || 0) + ' body check, ' +
-          (c.shift || 0) + ' shift.';
+          (c.shift || 0) + ' shift' + (c.close ? ', ' + c.close + ' update temuan' : '') + '.';
+      }
+    },
+    patrol: {
+      caption: function (r) { return SA.patrolRecords.caption(r); },
+      label: function (r) { return SA.patrolRecords.label(r); },
+      stamp: function (d) { return SA.patrolRecords.stampLines(d); },
+      seal: function (d, t, f) { return SA.patrolRecords.sealFacts(d, t, f); },
+      sealPrefix: 'PAT',
+      badge: function (d) { return SA.patrolBadge(d.patrolId); },
+      fallback: function (d) { return 'SECURITY PATROL\n' + d.patrolId; },
+      sheets: function (rs) { return SA.patrolRecords.sheets(rs); },
+      fileLabel: function (r) { return r.patrolId + ' ' + SA.patrolRecords.label(r); },
+      exportName: function (rs) {
+        var s = state.sessions.patrol;
+        return SA.fileSafe(s ? s.patrolId : rs[0].patrolId);
+      },
+      where: function (r) { return SA.patrolRecords.teamLabel(r); },
+      prefKey: 'patrolSession',
+      valid: function (s) { return !!(s && s.patrolId); },
+      sessionBadge: function (s) { return SA.patrolBadge(s.patrolId); },
+      // Like Security: a shift past its end only warns.
+      fresh: function () { return true; },
+      home: function () { renderPatrolMain(); show('p-main'); },
+      setup: function () { openPatrolSetup(); },
+      draft: function (kind, session, now, hour, ref) { return patrolDraft(kind, session, now, ref); },
+      recordBase: function (draft, now, session) {
+        return {
+          team: 'patrol', kind: draft.kind, sessionId: session.id,
+          date: draft.kind === 'lds' ? typedTimeDate(draft.ldsTime, now)
+            : draft.kind === 'close' ? typedTimeDate(draft.closeTime, now)
+            : SA.dateOf(now),
+          time: SA.timeOf(now), timestamp: SA.timestampOf(now),
+          patrolId: draft.patrolId, zone: draft.zone, segments: draft.segments,
+          shift: draft.shift, shiftDate: draft.shiftDate,
+          officers: draft.officers.slice(), tni: (draft.tni || '').trim(), vehicle: draft.vehicle,
+          reporter: draft.reporter
+        };
+      },
+      summary: function (c, n) {
+        return n + ' laporan: ' + (c.patrol || 0) + ' guard tour, ' + (c.incident || 0) + ' kejadian, ' +
+          (c.lds || 0) + ' LDS, ' + (c.pend || 0) + ' akhir shift' +
+          (c.close ? ', ' + c.close + ' update temuan' : '') + '.';
       }
     },
     walkthrough: {
@@ -1543,19 +2131,22 @@
       fresh: function (s) { return s.date === SA.dateOf(new Date()); },
       home: function () { renderWtMain(); show('wt-main'); },
       setup: function () { openWtSetup(); },
-      draft: function (kind, session, now) { return wtDraft(kind, session, now); },
+      draft: function (kind, session, now, hour, ref) { return wtDraft(kind, session, now, ref); },
       recordBase: function (draft, now, session) {
         return {
           team: 'walkthrough', kind: draft.kind, sessionId: session.id,
           // An LDS is dated by its Jam, like Access Control by its Pukul.
-          date: draft.kind === 'lds' ? typedTimeDate(draft.ldsTime, now) : SA.dateOf(now),
+          date: draft.kind === 'lds' ? typedTimeDate(draft.ldsTime, now)
+            : draft.kind === 'close' ? typedTimeDate(draft.closeTime, now)
+            : SA.dateOf(now),
           time: SA.timeOf(now), timestamp: SA.timestampOf(now),
           teamNo: draft.teamNo, zone: draft.zone, routeId: draft.routeId,
           officers: draft.officers.slice(), reporter: draft.reporter
         };
       },
       summary: function (c, n) {
-        return n + ' laporan: ' + (c.wtkp || 0) + ' KP, ' + (c.lds || 0) + ' LDS.';
+        return n + ' laporan: ' + (c.wtkp || 0) + ' KP, ' + (c.lds || 0) + ' LDS' +
+          (c.close ? ', ' + c.close + ' update temuan' : '') + '.';
       }
     }
   };
@@ -1591,6 +2182,7 @@
         ? taken + ' foto, disarankan ' + rule.min + '–' + rule.max + ' — tetap bisa dikirim.'
       : '';
 
+    showFindingFields();
     $('r-preview').textContent = captionOf(draft);
     renderStaleWarning();
   }
@@ -1600,7 +2192,7 @@
   function renderGps() {
     var gps = state.gps;
     // The same panel sits on both main screens: Security's and Walkthrough's.
-    ['', 'wt-'].forEach(function (prefix) {
+    ['', 'wt-', 'p-'].forEach(function (prefix) {
       $(prefix + 'gps').className = 'gps-pill ' +
         (gps.state === 'ok' ? 'ok' : gps.state === 'denied' ? 'denied' : 'waiting');
       if (gps.state === 'ok') {
@@ -1879,9 +2471,32 @@
         record.bodyFinding = draft.bodyResult === 'found' ? String(draft.bodyFinding).trim() : '';
       } else if (draft.kind === 'check') {
         record.hour = draft.hour;
+      } else if (draft.kind === 'patrol') {
+        record.area = String(draft.area).trim();
+        record.check = String(draft.check).trim();
+        record.weather = draft.weather;
+        record.road = draft.road;
+        record.traffic = String(draft.traffic).trim() || P.NIHIL;
+        record.crash = String(draft.crash).trim() || P.NIHIL;
+        record.gangguanSummary = gangguanSummary();
+        record.patrolResult = draft.patrolResult;
+        record.patrolFinding = draft.patrolResult === 'found' ? String(draft.patrolFinding).trim() : '';
+        record.fieldInterview = String(draft.fieldInterview).trim();
+        rememberPatrol(record);
+      } else if (draft.kind === 'pend') {
+        patrolShiftSummary(draft);
+        record.kmStart = String(draft.kmStart).trim();
+        record.kmEnd = String(draft.kmEnd).trim();
+        record.facilities = Object.assign({}, draft.facilities);
+        record.tours = draft.tours;
+        record.findingList = draft.findingList;
+      } else if (draft.kind === 'close') {
+        record.closeTime = draft.closeTime;
+        record.followUp = String(draft.followUp).trim();
+        record.ref = draft.ref;
       } else if (draft.kind === 'incident') {
         record.incidentType = draft.incidentType;
-        record.otherText = draft.incidentType === S.OTHER ? draft.otherText.trim() : '';
+        record.otherText = draft.incidentType === SA.otherTypeOf(draft.team) ? draft.otherText.trim() : '';
         record.answers = {};
         S.questions.forEach(function (q) {
           record.answers[q.key] = (draft.answers[q.key] || '').trim();
@@ -1896,7 +2511,21 @@
         record.finalSituation = draft.finalSituation.trim() || S.FINAL_SITUATION;
       }
 
-      return SA.db.add(record);
+      if (draft.kind === 'wtkp') {
+        record.assets = Object.assign({}, draft.assets);
+        record.buildings = Object.assign({}, draft.buildings);
+      }
+      // A finding keeps what was done and whether it is finished.
+      if (SA.findings.is(record)) {
+        record.status = draft.status === 'Close' ? 'Close' : 'Open';
+        if (record.kind !== 'incident') record.followUp = String(draft.followUp).trim();
+      }
+
+      return SA.db.add(record).then(function (saved) {
+        // Closing a finding marks the original, so Riwayat shows it closed.
+        if (saved.kind !== 'close' || !saved.ref || saved.ref.id == null) return saved;
+        return SA.db.markClosed(saved.ref.id, saved.timestamp).then(function () { return saved; });
+      });
     }).then(function (saved) {
       button.disabled = false;
       button.innerHTML = label;
@@ -1989,7 +2618,7 @@
       'Di menu berbagi, pilih ikon WhatsApp di baris bawah — bukan foto kontak di baris atas. ' +
       'Baru pilih grupnya. Kalau lewat baris atas, caption akan terulang di setiap foto.';
 
-    $('send-new-shift').classList.toggle('hidden', sending.record.kind !== 'shift');
+    $('send-new-shift').classList.toggle('hidden', sending.record.kind !== 'shift' && sending.record.kind !== 'pend');
     $('send-next').classList.toggle('hidden', sending.record.kind !== 'wtkp');
     /* LDS names people with @-tags. Tags only notify when picked from
        WhatsApp's own list, so the guard adds them there before sending. */
@@ -2065,8 +2694,17 @@
     var next = order[(order.indexOf(record.shift) + 1) % 3];
     var date = SA.parseDate(record.shiftDate);
     if (record.shift === 'SORE') date.setDate(date.getDate() + 1);  // Sore → Malam crosses midnight
+    if (record.team === 'patrol') {
+      // Same patrol and vehicle; the next crew ticks its names; km carries over.
+      openPatrolSetup({
+        patrolId: record.patrolId, officers: [], tni: '', vehicle: record.vehicle,
+        ownVehicle: P.vehicles.indexOf(record.vehicle) === -1, km: record.kmEnd || '',
+        shift: next, date: SA.dateOf(date), others: false
+      });
+      return;
+    }
     openSetup({
-      post: record.post,
+      post: SA.canonicalPost(record.post),
       officers: (record.nextOfficers || []).slice(),
       bko: record.nextBko || '',
       shift: next,
@@ -2079,6 +2717,7 @@
 
   $('view-list').addEventListener('click', function () { renderList(); show('list'); });
   $('wt-view-list').addEventListener('click', function () { renderList(); show('list'); });
+  $('p-view-list').addEventListener('click', function () { renderList(); show('list'); });
   $('list-back').addEventListener('click', function () { goMain(); });
 
   var listUrls = [];
@@ -2126,6 +2765,8 @@
         badges.className = 'badges';
         if (record.sentAt) badges.appendChild(badge('terkirim', 'ok'));
         if (record.exportedAt) badges.appendChild(badge('diexport', 'flat'));
+        var status = SA.findings.status(record);
+        if (status) badges.appendChild(badge('temuan ' + status, status === 'Open' ? 'warn' : 'flat'));
         info.appendChild(badges);
         card.appendChild(info);
 
@@ -2136,6 +2777,16 @@
         send.textContent = 'Kirim';
         send.addEventListener('click', function () { openSend(record); });
         actions.appendChild(send);
+        if (status === 'Open') {
+          var close = document.createElement('button');
+          close.className = 'link';
+          close.textContent = 'Tutup temuan';
+          close.addEventListener('click', function () {
+            var module = moduleOf(record.team);
+            openReport('close', null, SA.findings.refOf(record, module.label(record), module.where(record)));
+          });
+          actions.appendChild(close);
+        }
         var remove = document.createElement('button');
         remove.className = 'danger-link';
         remove.textContent = 'Hapus';
@@ -2161,6 +2812,7 @@
 
   $('go-export').addEventListener('click', openExport);
   $('wt-go-export').addEventListener('click', openExport);
+  $('p-go-export').addEventListener('click', openExport);
 
   function openExport() {
     state.built = null;
@@ -2336,13 +2988,25 @@
   /* Removes only reports that are safe to lose from the phone: already in a
      spreadsheet AND already sent to WhatsApp, and never the current shift's --
      the shift report's sections A and B and the timeline are built from those. */
+  /* An Open finding stays on the phone so it can still be closed -- for 30
+     days. After that it is cleared like the rest: by then it has usually been
+     closed from the partner's phone, and the photos must not pile up. */
+  var OPEN_KEEP_DAYS = 30;
+  function keepOpen(record, now) {
+    if (!SA.findings.isOpen(record)) return false;
+    var age = now.getTime() - SA.parseDate(record.date).getTime();
+    return age < OPEN_KEEP_DAYS * 24 * 60 * 60 * 1000;
+  }
+
   $('export-clear').addEventListener('click', function () {
     SA.db.all().then(function (all) {
       var team = currentTeam();
       var session = currentSession();
       var current = session ? session.id : null;
       var exported = all.filter(function (r) { return (r.team || 'security') === team && r.exportedAt; });
-      var done = exported.filter(function (r) { return r.sentAt && r.sessionId !== current; });
+      var done = exported.filter(function (r) {
+        return r.sentAt && r.sessionId !== current && !keepOpen(r, new Date());
+      });
       var kept = exported.length - done.length;
       if (!done.length) {
         toast(exported.length
@@ -2365,7 +3029,7 @@
   /* BUILD and CACHE_VERSION in sw.js are a PAIR -- bump both on every upload.
      The marker prints both; when they differ, the new version has downloaded
      but the app has not been restarted. */
-  var BUILD = 'v17';
+  var BUILD = 'v23';
   var CACHE_PREFIX = 'superapp-laporan-';
 
   function showVersion() {
@@ -2374,6 +3038,7 @@
       $('app-version').textContent = text;
       $('app-version-team').textContent = text;
       $('wt-version').textContent = text;
+      $('p-version').textContent = text;
     }
     if (!window.caches || !caches.keys) { put(running); return; }
     caches.keys().then(function (names) {
@@ -2422,6 +3087,11 @@
         var module = MODULES[team];
         return SA.db.getPref(module.prefKey, null).then(function (session) {
           if (!module.valid(session)) return;
+          // A shift saved under a post's old name carries on under the new one.
+          if (session.post && SA.canonicalPost(session.post) !== session.post) {
+            session.post = SA.canonicalPost(session.post);
+            SA.db.setPref(module.prefKey, session);
+          }
           state.sessions[team] = session;
           SA.photo.preload(module.sessionBadge(session));
         });
@@ -2429,6 +3099,9 @@
     }).then(function () {
       buildTeamChips();
       buildWtTeamChips();
+      buildPatrolChips();
+      return SA.db.getPref('patrolAreas', []).then(function (areas) { patrolAreas = areas || []; });
+    }).then(function () {
       if (MODULES[state.team]) goMain();
       else show('team');
     }).catch(function (error) {

@@ -8,6 +8,9 @@
  *   check:    hour                   the scheduled hour, 0..24
  *   incident: incidentType, otherText, answers {apa..bagaimana, 5W1H; Kapan is 'bilamana'}, tindakan
  *   body:     bodyTime, bodyResult ('none'|'found'), bodyFinding
+ *   close:    closeTime, followUp, ref {..}      closing an Open finding
+ *   zone      'North Area' | 'South Area', from the post
+ *   findings (incident, body with a find): followUp/tindakan, status -- see findings.js
  *   shift:    checkLines [{hour, done, by, partner}], incidentSummary {type: text},
  *             handover, nextOfficers [..], nextBko, finalSituation
  *   photos [{ blob, thumb, takenAt, sealCode, sealDigest, sealAlgo, lat, long }]
@@ -22,8 +25,13 @@
     incident: 'LAPORAN KEJADIAN',
     shift: 'LAPORAN SHIFT',
     access: 'LAPORAN ACCESS CONTROL',
-    body: 'LAPORAN BODY CHECK'
+    body: 'LAPORAN BODY CHECK',
+    close: 'UPDATE TEMUAN'
   };
+
+  function zoneOf(record) {
+    return record.zone || (SA.postByName(record.post) || {}).zone || '';
+  }
 
   function bodyResult(record) { return record.bodyResult === 'found' ? 'Ada temuan' : 'Nihil temuan'; }
 
@@ -43,6 +51,7 @@
       if (record.kind === 'incident') return 'Kejadian · ' + SA.secCaption.incidentName(record);
       if (record.kind === 'access') return 'Access Control ' + (record.accessTime || '');
       if (record.kind === 'body') return 'Body Check ' + (record.bodyTime || '');
+      if (record.kind === 'close') return 'Tutup Temuan · ' + ((record.ref || {}).label || '');
       return 'Laporan Shift ' + record.shift;
     },
 
@@ -61,6 +70,9 @@
         first = KIND_TITLE.access + ' · Pukul ' + (report.accessTime || '') + ' WIB';
         return [first, place, crewLine(report),
           (report.direction || '') + ': ' + (report.from || report.post) + ' → ' + (report.to || '')];
+      } else if (report.kind === 'close') {
+        return [KIND_TITLE.close + ' · Pukul ' + (report.closeTime || '') + ' WIB', place, crewLine(report),
+          'Menutup: ' + ((report.ref || {}).label || '')];
       } else if (report.kind === 'body') {
         first = KIND_TITLE.body + ' · Pukul ' + (report.bodyTime || '') + ' WIB';
         return [first, place, crewLine(report), 'Metal detector · ' + bodyResult(report)];
@@ -77,7 +89,8 @@
       var detail = report.kind === 'check' ? SA.hourText(report.hour)
         : report.kind === 'incident' ? SA.secCaption.incidentName(report)
         : report.kind === 'access' ? report.accessTime + ' ' + report.direction + ' ' + report.to
-        : report.kind === 'body' ? report.bodyTime + ' ' + report.bodyResult : '';
+        : report.kind === 'body' ? report.bodyTime + ' ' + report.bodyResult
+        : report.kind === 'close' ? report.closeTime + ' ' + ((report.ref || {}).label || '') : '';
       return [
         'SEC1', timestamp, report.kind, report.post, report.shift, report.shiftDate,
         detail, (report.officers || []).join('+'), report.bko || '',
@@ -95,7 +108,8 @@
       var period = SA.sheets.period(records.map(function (r) { return r.shiftDate; }));
       var now = new Date();
       var titles = { Pengecekan: 'PENGECEKAN PER JAM', Kejadian: 'LAPORAN KEJADIAN',
-        'Access Control': 'ACCESS CONTROL', 'Body Check': 'BODY CHECK', Shift: 'LAPORAN SHIFT' };
+        'Access Control': 'ACCESS CONTROL', 'Body Check': 'BODY CHECK', Shift: 'LAPORAN SHIFT',
+        'Update Temuan': 'UPDATE TEMUAN' };
 
       var incidents = records.filter(function (r) { return r.kind === 'incident'; });
       /* Until v12 an incident had a seventh question, "Dengan apa". 5W1H dropped
@@ -125,6 +139,7 @@
           }),
           col('Pukul', 9, 'center', function (r) { return SA.hourText(r.hour); }),
           col('Pos', 22, 'center', 'post'),
+          col('Zona', 12, 'center', zoneOf),
           col('Shift', 9, 'center', 'shift'),
           col('Tanggal Shift', 13, 'center', 'shiftDate'),
           col('Petugas', 34, 'text', function (r) { return (r.officers || []).join(', '); }),
@@ -138,6 +153,7 @@
           col('Tanggal', 12, 'center', 'date'),
           col('Waktu', 10, 'center', 'time'),
           col('Pos', 22, 'center', 'post'),
+          col('Zona', 12, 'center', zoneOf),
           col('Shift', 9, 'center', 'shift'),
           col('Tanggal Shift', 13, 'center', 'shiftDate'),
           col('Kejadian', 16, 'center', 'incidentType'),
@@ -146,6 +162,7 @@
           return col(q.label, 24, 'text', function (r) { return (r.answers || {})[q.key] || ''; });
         })).concat(legacy).concat([
           col('Tindakan', 30, 'text', 'tindakan'),
+          col('Status', 10, 'center', SA.findings.status),
           col('Petugas', 34, 'text', function (r) { return (r.officers || []).join(', '); }),
           col('BKO TNI', 18, 'text', 'bko'),
           col('Pelapor', 20, 'text', 'reporter')
@@ -155,6 +172,7 @@
           col('Tanggal', 12, 'center', 'date'),
           col('Pukul', 9, 'center', 'accessTime'),
           col('Pos', 22, 'center', 'post'),
+          col('Zona', 12, 'center', zoneOf),
           col('Shift', 9, 'center', 'shift'),
           col('Tanggal Shift', 13, 'center', 'shiftDate'),
           col('Arah', 15, 'center', 'direction'),
@@ -171,19 +189,34 @@
           col('Tanggal', 12, 'center', 'date'),
           col('Pukul', 9, 'center', 'bodyTime'),
           col('Pos', 22, 'center', 'post'),
+          col('Zona', 12, 'center', zoneOf),
           col('Shift', 9, 'center', 'shift'),
           col('Tanggal Shift', 13, 'center', 'shiftDate'),
           col('Hasil', 14, 'center', bodyResult),
           col('Temuan', 36, 'text', 'bodyFinding'),
+          col('Tindak Lanjut', 30, 'text', 'followUp'),
+          col('Status', 10, 'center', SA.findings.status),
           col('Petugas', 34, 'text', function (r) { return (r.officers || []).join(', '); }),
           col('BKO TNI', 18, 'text', 'bko'),
           col('Pelapor', 20, 'text', 'reporter'),
           col('Waktu Simpan', 19, 'center', 'timestamp')
         ], 2),
 
+        sheet('Update Temuan', records.filter(function (r) { return r.kind === 'close'; }), [
+          col('Tanggal', 12, 'center', 'date'),
+          col('Pukul', 9, 'center', 'closeTime'),
+          col('Pos', 22, 'center', 'post'),
+          col('Zona', 12, 'center', zoneOf)
+        ].concat(SA.findings.closeColumns()).concat([
+          col('Petugas', 34, 'text', function (r) { return (r.officers || []).join(', '); }),
+          col('Pelapor', 20, 'text', 'reporter'),
+          col('Waktu Simpan', 19, 'center', 'timestamp')
+        ]), 2),
+
         sheet('Shift', records.filter(function (r) { return r.kind === 'shift'; }), [
           col('Tanggal Shift', 13, 'center', 'shiftDate'),
           col('Pos', 22, 'center', 'post'),
+          col('Zona', 12, 'center', zoneOf),
           col('Shift', 9, 'center', 'shift'),
           col('Petugas', 34, 'text', function (r) { return (r.officers || []).join(', '); }),
           col('BKO TNI', 18, 'text', 'bko'),
