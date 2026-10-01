@@ -4,7 +4,7 @@ One PWA for three teams: **Security Officer**, **Patrol**, **Walkthrough**.
 Works on Android (Chrome) and iPhone (Safari), offline, no backend. Each report
 goes to WhatsApp as photos + caption in one tap; the Excel is a separate export.
 
-**Status (v13, 2026-10-01)**
+**Status (v14, 2026-10-01)**
 
 | Team | State | Reports |
 |---|---|---|
@@ -25,12 +25,12 @@ Exif reader, .xlsx writer, share handling, version marker). The other apps in
 This folder is **not** a git repo. Upload the whole folder to GitHub Pages by
 hand. On **every** upload, bump both of these together — they are a pair:
 
-- `CACHE_VERSION` in `sw.js` (now `superapp-laporan-v13`)
-- `BUILD` in `js/app.js` (now `v13`)
+- `CACHE_VERSION` in `sw.js` (now `superapp-laporan-v14`)
+- `BUILD` in `js/app.js` (now `v14`)
 
 If files change and `sw.js` does not, phones that already have the app keep the
 old files forever. The line at the foot of each main screen prints
-`kode v13 · cache v13`; if the two differ, the new version downloaded but the app
+`kode v14 · cache v14`; if the two differ, the new version downloaded but the app
 has not been restarted. A changed home-screen icon usually only appears after the
 app is removed and added to the Home Screen again.
 
@@ -247,9 +247,14 @@ them.
 
 ### The photo
 
-- **Badge top right, solid**, every badge at the same height (10% of the frame's
+- **Badge top right**, every badge at the same height (10% of the frame's
   shorter side): the post's badge for Security, `wt-N.png` for Walkthrough. Files
-  in `assets/badges/`; replace one to change it.
+  in `assets/badges/`; replace one to change it. **Since v14 the white card is
+  see-through** (45%, `CARD_OPACITY` in `js/photo.js`) so the scene behind the
+  badge can still be made out; the logo and words stay solid. Each pixel's
+  opacity goes from 45% (pure white) to solid (ink), so letter edges blend
+  cleanly. Removing the card entirely was tried and rejected: the dark-blue post
+  name vanishes on a dark photo. Comparison: `design/badge-opacity-compare.png`.
 - Bottom band: report type, place, crew, (report-specific lines: the route and
   photo subject for Access Control, KP and condition for WT, KP and result for
   LDS), time, coordinates, address.
@@ -447,3 +452,4 @@ PERSONIL; Patrol also sends LDS (shared report). Still to ask:
 | v11 | Walkthrough: KP report and LDS report; report engine made team-aware |
 | v12 | Fixes from the second code review |
 | v13 | Laporan Kejadian in 5W1H (Apa, Siapa, Kapan, Dimana, Mengapa, Bagaimana) |
+| v14 | Photo badge: white card see-through (45%), logo and words solid |

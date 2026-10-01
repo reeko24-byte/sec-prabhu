@@ -3,10 +3,10 @@
  *
  * Three things are burned into the pixels:
  *
- *   top right     the post's BADGE -- Billy's artwork, one per post, drawn
- *                 SOLID. It is a white card, so it reads on grass, sky and a
- *                 photographed document alike; WT's transparent white mark
- *                 needed an outline to survive a pale background, this does not.
+ *   top right     the post's BADGE -- Billy's artwork, one per post. The logo
+ *                 and words are drawn solid; the white card behind them is
+ *                 made see-through (CARD_OPACITY, since v14) so the scene under
+ *                 the badge can still be made out.
  *   bottom band   what the report is, who, when, the coordinates and address
  *   bottom right  the verification code (see seal.js)
  *
@@ -98,11 +98,45 @@
     badgeCache[src] = new Promise(function (resolve) {
       var img = new Image();
       // Null, never a rejection: a missing badge must not cost a photograph.
-      img.onload = function () { resolve(img); };
+      img.onload = function () { resolve(seeThroughCard(img)); };
       img.onerror = function () { resolve(null); };
       img.src = src;
     });
     return badgeCache[src];
+  }
+
+  /* How much of the white card is kept: 1 = solid, 0 = gone. The logo and the
+   * words stay solid; only the near-white card (and its shadow) fades, so the
+   * scene behind the badge can still be made out (Billy, 2026-10-01). */
+  var CARD_OPACITY = 0.45;
+  var INK_THRESHOLD = 96;  // this far from white (0..255) counts as fully ink
+
+  /**
+   * The badge with its white card turned translucent. Each pixel keeps its
+   * colour; its opacity goes from CARD_OPACITY (pure white) up to solid (ink),
+   * in proportion to how far it is from white, so anti-aliased letter edges
+   * blend smoothly instead of leaving a white fringe. The image itself is
+   * returned if the canvas cannot be read (the badge is then drawn solid).
+   */
+  function seeThroughCard(img) {
+    try {
+      var canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      var context = canvas.getContext('2d');
+      context.drawImage(img, 0, 0);
+      var image = context.getImageData(0, 0, canvas.width, canvas.height);
+      var px = image.data;
+      for (var i = 0; i < px.length; i += 4) {
+        if (!px[i + 3]) continue;
+        var ink = Math.min(1, (255 - Math.min(px[i], px[i + 1], px[i + 2])) / INK_THRESHOLD);
+        px[i + 3] = Math.round(px[i + 3] * (CARD_OPACITY + (1 - CARD_OPACITY) * ink));
+      }
+      context.putImageData(image, 0, 0);
+      return canvas;
+    } catch (e) {
+      return img;
+    }
   }
 
   /**
@@ -116,11 +150,14 @@
 
     if (badge) {
       var height = Math.round(shorter * BADGE_HEIGHT_FRACTION);
-      var width = Math.round(height * badge.naturalWidth / badge.naturalHeight);
+      // A canvas (see-through card) or, if that failed, the plain image.
+      var badgeWidth = badge.naturalWidth || badge.width;
+      var badgeHeight = badge.naturalHeight || badge.height;
+      var width = Math.round(height * badgeWidth / badgeHeight);
       var maxWidth = Math.round(canvas.width * BADGE_MAX_WIDTH_FRACTION);
       if (width > maxWidth) {
         width = maxWidth;
-        height = Math.round(width * badge.naturalHeight / badge.naturalWidth);
+        height = Math.round(width * badgeHeight / badgeWidth);
       }
       context.drawImage(badge, canvas.width - margin - width, margin, width, height);
       return;
