@@ -6,11 +6,15 @@
  *   sessionId, patrolId ('PATROL 5'), zone ('North Area'), segments ('SEG 6, 11B, 11A'),
  *   shift, shiftDate, officers [..], tni, vehicle, reporter, date, time, timestamp
  *   patrol (one guard-tour checkpoint):
- *     area, check, weather, road, traffic, crash, gangguanSummary {type: text},
+ *     point (a name on the patrol's list, '' when typed), area (= point, or typed),
+ *     facility ('Aktif'|'Tidak Aktif' for a listed point, else ''),
+ *     check, weather, road, traffic, crash, gangguanSummary {type: text},
  *     patrolResult ('none'|'found'), patrolFinding, followUp, status, fieldInterview
  *   pend (end of shift):
- *     kmStart, kmEnd, facilities {name: 'Aktif'|'Tidak Aktif'},
- *     tours [{time, area, check}], findingList [{time, label, status}],
+ *     kmStart, kmEnd,
+ *     points [{name, rawan, time, facility}]   the list, time '' = not checked (v27)
+ *     facilities {name: 'Aktif'|'Tidak Aktif'}  before v27 (placeholder list)
+ *     tours [{time, area, check, facility}], findingList [{time, label, status}],
  *     nextOfficers [..], nextTni        the incoming crew (required)
  *   incident: incidentType, otherText, answers {5W1H}, tindakan, status
  *   lds, close: as Walkthrough's / findings.js
@@ -56,6 +60,12 @@
       .concat(SA.secCaption.numbered(record.officers, 'TNI', record.tni, '   '));
   }
 
+  /** Whether a guard tour was at a titik rawan on its patrol's list. */
+  function rawanOf(record) {
+    var key = trim(record.point || record.area).toLowerCase();
+    return SA.patrolPoints(record.patrolId).some(function (p) { return p.rawan && p.name.toLowerCase() === key; });
+  }
+
   function bullets(pairs) {
     var line = SA.aligner(pairs.map(function (p) { return p[0]; }));
     return pairs.map(function (p) { return '   - ' + line(p[0], p[1]); });
@@ -64,6 +74,25 @@
   SA.patrolRecords = {
 
     teamLabel: teamLabel,
+    rawanOf: rawanOf,
+
+    /**
+     * The shift's checklist: every point on the patrol's list with the time
+     * and condition of its latest guard tour, time '' when not checked. A
+     * tour counts by its `point`, or by a typed area that is the point's name.
+     */
+    points: function (patrolId, tours) {
+      return SA.patrolPoints(patrolId).map(function (p) {
+        var key = p.name.toLowerCase();
+        var hit = null;
+        (tours || []).forEach(function (r) {
+          if (r.kind !== 'patrol' || trim(r.point || r.area).toLowerCase() !== key) return;
+          if (!hit || String(r.timestamp || '') >= String(hit.timestamp || '')) hit = r;
+        });
+        return { name: p.name, rawan: p.rawan, time: hit ? String(hit.time || '').slice(0, 5) : '',
+          facility: hit ? hit.facility || '' : '' };
+      });
+    },
 
     caption: function (record) {
       if (record.kind === 'lds') return SA.lds.caption(record, teamLabel(record));
@@ -81,11 +110,14 @@
     /** One guard-tour checkpoint: the agreed monitoring report. */
     tour: function (record) {
       var summary = record.gangguanSummary || {};
-      var lines = head(P.TITLE, record, record.area)
+      var area = trim(record.area) + (trim(record.area) && rawanOf(record) ? ' (titik rawan)' : '');
+      var lines = head(P.TITLE, record, area)
         .concat(personnel(record))
         .concat(['', 'B. KENDARAAN : ' + (trim(record.vehicle) || '-'), ''])
         // The check replaces "Nihil" (Billy).
-        .concat(['C. GUARD TOUR : ' + (trim(record.check) || P.NIHIL), ''])
+        .concat(['C. GUARD TOUR : ' + (trim(record.check) || P.NIHIL)])
+        .concat(trim(record.point) && record.facility ? ['   - Kondisi fasilitas : ' + record.facility] : [])
+        .concat([''])
         .concat(['D. CUACA DAN KONDISI JALAN :'])
         .concat(bullets([
           ['Cuaca', record.weather || '-'],
@@ -131,13 +163,32 @@
         .concat(['', 'D. GUARD TOUR : ' + (tours.length ? tours.length + ' titik' : P.NIHIL)]);
       tours.forEach(function (t) {
         lines.push('   - Pukul ' + t.time + ' WIB · ' + (trim(t.area).toUpperCase() || '-') +
+          (t.facility && t.facility !== P.FACILITY_STATES[0] ? ' (' + t.facility + ')' : '') +
           (trim(t.check) ? ' — ' + trim(t.check) : ''));
       });
       lines.push('');
-      lines.push('E. FASILITAS :');
-      lines = lines.concat(bullets(P.facilities.map(function (name) {
-        return [name, (record.facilities || {})[name] || '-'];
-      })));
+      if (Array.isArray(record.points)) {
+        // The patrol's list (Billy, 2026-10-05): what was not checked is said,
+        // not hidden -- the report is still sent.
+        var pts = record.points;
+        var done = pts.filter(function (p) { return p.time; });
+        var off = done.filter(function (p) { return p.facility === 'Tidak Aktif'; });
+        var left = pts.filter(function (p) { return !p.time; });
+        lines.push('E. FASILITAS : ' + (pts.length ? done.length + ' dari ' + pts.length + ' titik dicek' : P.NIHIL));
+        if (pts.length) {
+          lines.push('   - Tidak aktif : ' + (off.length ? '' : P.NIHIL));
+          off.forEach(function (p, i) { lines.push('     ' + (i + 1) + '. ' + p.name); });
+          lines.push('   - Belum dicek : ' + (left.length ? '' : P.NIHIL));
+          left.forEach(function (p, i) {
+            lines.push('     ' + (i + 1) + '. ' + p.name + (p.rawan ? ' (titik rawan)' : ''));
+          });
+        }
+      } else {
+        // Saved before v27: the placeholder facilities, as they were sent.
+        lines.push('E. FASILITAS :');
+        var old = record.facilities || {};
+        lines = lines.concat(bullets(Object.keys(old).map(function (name) { return [name, old[name] || '-']; })));
+      }
       lines.push('');
       lines.push('F. TEMUAN / KEJADIAN : ' + (found.length ? '' : P.NIHIL));
       found.forEach(function (f) {
@@ -260,6 +311,29 @@
         col('Pelapor', 20, 'text', 'reporter')
       ];
       function of(kind) { return records.filter(function (r) { return r.kind === kind; }); }
+      // The checklist as numbers, one per cell, and the names behind them.
+      function checklistColumns() {
+        function count(test) {
+          return function (r) {
+            return Array.isArray(r.points) ? String(r.points.filter(test).length) : '';
+          };
+        }
+        function names(test) {
+          return function (r) {
+            return (r.points || []).filter(test).map(function (p) { return p.name; }).join('; ');
+          };
+        }
+        var checked = function (p) { return !!p.time; };
+        var unchecked = function (p) { return !p.time; };
+        var off = function (p) { return p.time && p.facility === 'Tidak Aktif'; };
+        return [
+          col('Titik Daftar', 11, 'center', count(function () { return true; })),
+          col('Titik Dicek', 11, 'center', count(checked)),
+          col('Belum Dicek', 11, 'center', count(unchecked)),
+          col('Daftar Belum Dicek', 44, 'text', names(unchecked)),
+          col('Fasilitas Tidak Aktif', 30, 'text', names(off))
+        ];
+      }
       function build(name, kind, cols, extra) {
         return SA.sheets.build(name, of(kind), base.concat(cols).concat(crew),
           Object.assign({ label: SA.patrolRecords.label, freeze: 3 }, extra || {}));
@@ -268,6 +342,8 @@
       var sheets = [
         build('Guard Tour', 'patrol', [
           col('Lokasi', 22, 'text', 'area'),
+          col('Titik Rawan', 10, 'center', function (r) { return rawanOf(r) ? 'Ya' : ''; }),
+          col('Kondisi Fasilitas', 14, 'center', 'facility'),
           col('Pengecekan', 36, 'text', 'check'),
           col('Cuaca', 10, 'center', 'weather'),
           col('Jalan', 10, 'center', 'road'),
@@ -294,9 +370,7 @@
             var d = SA.patrolRecords.distance(r); return d === null ? '' : String(d);
           }),
           col('Titik Guard Tour', 16, 'center', function (r) { return String((r.tours || []).length); })
-        ].concat(P.facilities.map(function (name) {
-          return col(name, 12, 'center', function (r) { return (r.facilities || {})[name] || ''; });
-        })).concat([
+        ].concat(checklistColumns()).concat([
           col('Temuan', 36, 'text', function (r) {
             return (r.findingList || []).map(function (f) { return f.label + ' (' + f.status + ')'; }).join('; ');
           }),

@@ -1252,15 +1252,49 @@
     loadSessionRecords().then(function (records) {
       var tours = records.filter(function (r) { return r.kind === 'patrol'; });
       var last = tours[tours.length - 1];
-      $('go-patrol-sub').textContent = last
-        ? tours.length + ' titik shift ini · terakhir ' + (last.area || '-') + ' ' + String(last.time).slice(0, 5)
-        : 'Belum ada titik shift ini';
+      var points = SA.patrolRecords.points(s.patrolId, records);
+      var left = points.filter(function (p) { return !p.time; });
+      $('go-patrol-sub').textContent = (points.length
+        ? (points.length - left.length) + ' dari ' + points.length + ' titik dicek'
+        : tours.length + ' titik') +
+        (last ? ' · terakhir ' + String(last.time).slice(0, 5) : ' · belum ada shift ini');
+      renderPointsLeft(left, s);
       var ended = records.filter(function (r) { return r.kind === 'pend'; }).length;
-      $('go-pend-sub').textContent = ended ? 'Sudah dikirim' : 'KM akhir, fasilitas';
+      $('go-pend-sub').textContent = ended ? 'Sudah dikirim' : 'KM akhir, titik belum dicek';
       return SA.db.all();
     }).then(function (all) {
       renderCount(all, 'patrol', 'p-count', 'p-go-export');
     });
+  }
+
+  /**
+   * The checkpoints not yet checked this shift (Billy, 2026-10-05): a notice,
+   * never a block. Amber in the shift's last two hours and after it.
+   */
+  function renderPointsLeft(left, s) {
+    var box = $('p-points');
+    box.innerHTML = '';
+    box.classList.toggle('hidden', !left.length);
+    if (!left.length) return;
+    var window_ = SA.shiftWindow(s.shiftDate, s.shift);
+    var late = !window_ || Date.now() > window_.end.getTime() - 2 * 60 * 60 * 1000;
+    box.classList.toggle('late', late);
+    var title = document.createElement('b');
+    title.textContent = 'Belum dicek shift ini (' + left.length + ')';
+    box.appendChild(title);
+    var list = document.createElement('ul');
+    left.forEach(function (p) {
+      var item = document.createElement('li');
+      item.textContent = p.name;
+      if (p.rawan) {
+        var tag = document.createElement('span');
+        tag.className = 'tag-rawan';
+        tag.textContent = 'Titik rawan';
+        item.appendChild(tag);
+      }
+      list.appendChild(item);
+    });
+    box.appendChild(list);
   }
 
   $('p-edit').addEventListener('click', function () { openPatrolSetup(); });
@@ -1285,13 +1319,13 @@
       shift: s.shift, shiftDate: s.shiftDate,
       officers: s.officers.slice(), tni: s.tni, vehicle: s.vehicle,
       reporter: s.officers[0] || '',
-      // guard tour
-      area: '', check: '',
+      // guard tour: a point on the patrol's list, or a typed area
+      point: '', typing: false, area: '', facility: P.FACILITY_STATES[0], check: '',
       weather: P.weather[0], road: P.road[0], traffic: P.NIHIL, crash: P.NIHIL,
       gangguanSummary: {}, patrolResult: 'none', patrolFinding: '',
       fieldInterview: s.fieldInterview || P.FIELD_INTERVIEW,
       // end of shift
-      kmStart: s.kmStart || '', kmEnd: '', facilities: {}, tours: [], findingList: [],
+      kmStart: s.kmStart || '', kmEnd: '', points: [], tours: [], findingList: [],
       nextOfficers: [], nextTni: '',
       // incident (5W1H), as Security's
       incidentType: '', otherText: '', answers: { bilamana: 'Pukul ' + hhmm(now) + ' WIB' }, tindakan: '',
@@ -1318,6 +1352,65 @@
   /** The areas typed on this phone before, offered while the list is missing. */
   var patrolAreas = [];
 
+  /**
+   * The patrol's checkpoints, each with when it was checked this shift; the
+   * last row types a point the list does not have. Nothing is picked for the
+   * crew: the point is on the photo and in the report.
+   */
+  function renderPatrolPoints() {
+    var d = state.draft;
+    var points = SA.patrolRecords.points(d.patrolId, state.sessionRecords);
+    var left = points.filter(function (p) { return !p.time; }).length;
+    $('r-p-points-label').textContent = points.length
+      ? 'Titik — ' + (points.length - left) + ' dari ' + points.length + ' sudah dicek shift ini'
+      : 'Titik';
+    var box = $('r-p-points');
+    box.innerHTML = '';
+    var typing = d.point === '' && d.typing;
+    points.forEach(function (p) {
+      var row = document.createElement('button');
+      row.type = 'button';
+      row.setAttribute('aria-pressed', String(d.point === p.name));
+      var name = document.createElement('span');
+      name.textContent = p.name;
+      if (p.rawan) {
+        var tag = document.createElement('span');
+        tag.className = 'tag-rawan';
+        tag.textContent = 'Titik rawan';
+        name.appendChild(tag);
+      }
+      var when = document.createElement('small');
+      when.className = p.time ? 'done' : '';
+      when.textContent = p.time ? '✓ ' + p.time + (p.facility === 'Tidak Aktif' ? ' · Tidak Aktif' : '') : 'belum';
+      row.appendChild(name);
+      row.appendChild(when);
+      row.addEventListener('click', function () { pickPatrolPoint(p.name); });
+      box.appendChild(row);
+    });
+    var other = document.createElement('button');
+    other.type = 'button';
+    other.setAttribute('aria-pressed', String(typing || !points.length));
+    var label = document.createElement('span');
+    label.className = 'other';
+    label.textContent = 'Lainnya — ketik sendiri';
+    other.appendChild(label);
+    other.addEventListener('click', function () { pickPatrolPoint(null); });
+    box.appendChild(other);
+    $('r-p-area-field').classList.toggle('hidden', !(typing || !points.length));
+    $('r-p-facility-field').classList.toggle('hidden', d.point === '');
+  }
+
+  /** A point from the list (its name is the area), or null to type one. */
+  function pickPatrolPoint(name) {
+    var d = state.draft;
+    d.point = name || '';
+    d.typing = !name;
+    d.area = name || String($('r-p-area').value).trim();
+    renderPatrolPoints();
+    if (!name) $('r-p-area').focus();
+    updateReport();
+  }
+
   function renderPatrolFields() {
     var d = state.draft;
     d.gangguanSummary = gangguanSummary();
@@ -1327,13 +1420,15 @@
     $('r-p-crash').value = d.crash;
     $('r-p-finding').value = '';
     $('r-p-interview').value = d.fieldInterview;
-    var known = (P.areas[d.patrolId] || []).concat(patrolAreas);
     $('r-p-areas').innerHTML = '';
-    SA.sheets.unique(known).forEach(function (area) {
+    SA.sheets.unique(patrolAreas).forEach(function (area) {
       var option = document.createElement('option');
       option.value = area;
       $('r-p-areas').appendChild(option);
     });
+    renderPatrolPoints();
+    renderChoice($('r-p-facility'), P.FACILITY_STATES.map(function (v) { return { value: v, text: v }; }),
+      d.facility, function (value) { state.draft.facility = value; updateReport(); });
     renderChoice($('r-p-weather'), P.weather.map(function (w) { return { value: w, text: w }; }), d.weather,
       function (value) { state.draft.weather = value; updateReport(); });
     renderChoice($('r-p-road'), P.road.map(function (w) { return { value: w, text: w }; }), d.road,
@@ -1352,7 +1447,7 @@
     $('r-p-finding-field').classList.add('hidden');
   }
 
-  wireText('r-p-area', 'area');
+  wireText('r-p-area', 'area');   // only shown under "Lainnya" 
   wireText('r-p-check', 'check');
   wireText('r-p-traffic', 'traffic');
   wireText('r-p-crash', 'crash');
@@ -1361,7 +1456,7 @@
 
   /** What the crew typed is offered next time: the area, the field interview. */
   function rememberPatrol(record) {
-    if (record.area && patrolAreas.indexOf(record.area) === -1) {
+    if (record.area && !record.point && patrolAreas.indexOf(record.area) === -1) {
       patrolAreas = patrolAreas.concat([record.area]).slice(-60);
       SA.db.setPref('patrolAreas', patrolAreas);
     }
@@ -1375,8 +1470,10 @@
   /** End of shift: this shift's checkpoints and findings, frozen at saving. */
   function patrolShiftSummary(d) {
     d.tours = state.sessionRecords.filter(function (r) { return r.kind === 'patrol'; }).map(function (r) {
-      return { time: String(r.time || '').slice(0, 5), area: r.area || '', check: r.check || '' };
+      return { time: String(r.time || '').slice(0, 5), area: r.area || '', check: r.check || '',
+        facility: r.facility || '' };
     });
+    d.points = SA.patrolRecords.points(d.patrolId, state.sessionRecords);
     d.findingList = state.sessionRecords.filter(function (r) { return SA.findings.is(r); }).map(function (r) {
       return { time: String(r.time || '').slice(0, 5), label: SA.patrolRecords.label(r), status: SA.findings.status(r) };
     });
@@ -1405,20 +1502,21 @@
     renderPendNext();
     $('r-pend-km-start').value = d.kmStart;
     $('r-pend-km-end').value = '';
-    var box = $('r-pend-facilities');
+    // The checklist, from this shift's guard tours. Unchecked points are
+    // named in the report; sending is never blocked by them (Billy).
+    var left = d.points.filter(function (p) { return !p.time; });
+    $('r-pend-points-note').textContent = left.length
+      ? left.length + ' dari ' + d.points.length + ' titik belum dicek shift ini — tertulis di laporan. ' +
+        'Laporan tetap bisa dikirim.'
+      : '';
+    var box = $('r-pend-points');
     box.innerHTML = '';
-    P.facilities.forEach(function (name) {
-      if (!d.facilities[name]) d.facilities[name] = P.FACILITY_STATES[0];
+    if (!d.points.length) box.textContent = 'Patrol ini belum punya daftar titik.';
+    d.points.forEach(function (p) {
       var row = document.createElement('div');
-      row.className = 'asset-row';
-      var label = document.createElement('span');
-      label.textContent = name;
-      row.appendChild(label);
-      var chips = document.createElement('div');
-      chips.className = 'chips';
-      row.appendChild(chips);
-      renderChoice(chips, P.FACILITY_STATES.map(function (v) { return { value: v, text: v }; }),
-        d.facilities[name], function (value) { state.draft.facilities[name] = value; updateReport(); });
+      row.className = !p.time ? 'missing' : p.facility === 'Tidak Aktif' ? 'missing' : 'ok';
+      row.textContent = p.name + (p.rawan ? ' (titik rawan)' : '') + ' — ' +
+        (p.time ? '✓ ' + p.time + (p.facility ? ' · ' + p.facility : '') : 'belum dicek');
       box.appendChild(row);
     });
     var summary = $('r-pend-summary');
@@ -2287,7 +2385,7 @@
     if (draft.kind === 'close' && !draft.closeTime) missing.push('Pukul');
     // Patrol: the area and what was checked are on the photo.
     if (draft.kind === 'patrol') {
-      if (!String(draft.area).trim()) missing.push('Area');
+      if (!draft.point && !String(draft.area).trim()) missing.push('Titik');
       if (!String(draft.check).trim()) missing.push('yang dicek');
     }
     return missing;
@@ -2841,7 +2939,9 @@
       } else if (draft.kind === 'check') {
         record.hour = draft.hour;
       } else if (draft.kind === 'patrol') {
-        record.area = String(draft.area).trim();
+        record.point = draft.point;
+        record.area = draft.point || String(draft.area).trim();
+        record.facility = draft.point ? draft.facility : '';
         record.check = String(draft.check).trim();
         record.weather = draft.weather;
         record.road = draft.road;
@@ -2856,7 +2956,7 @@
         patrolShiftSummary(draft);
         record.kmStart = String(draft.kmStart).trim();
         record.kmEnd = String(draft.kmEnd).trim();
-        record.facilities = Object.assign({}, draft.facilities);
+        record.points = draft.points;
         record.tours = draft.tours;
         record.findingList = draft.findingList;
         record.nextOfficers = draft.nextOfficers.slice();
@@ -3406,7 +3506,7 @@
   /* BUILD and CACHE_VERSION in sw.js are a PAIR -- bump both on every upload.
      The marker prints both; when they differ, the new version has downloaded
      but the app has not been restarted. */
-  var BUILD = 'v26';
+  var BUILD = 'v28';
   var CACHE_PREFIX = 'superapp-laporan-';
 
   function showVersion() {

@@ -325,6 +325,8 @@
       <svg width="28" height="28" aria-hidden="true"><use href="#i-route"/></svg>
       <span><b>Laporan guard tour</b><small id="go-patrol-sub"></small></span>
     </button>
+    <!-- The patrol's checkpoints not yet checked this shift: a notice, never a block. -->
+    <div id="p-points" class="points-left hidden"></div>
     <div class="action-pair">
       <button id="go-p-incident" class="action danger">
         <svg width="24" height="24" aria-hidden="true"><use href="#i-alert"/></svg>
@@ -337,7 +339,7 @@
     </div>
     <button id="go-pend" class="action plain wide-plain">
       <svg width="24" height="24" aria-hidden="true"><use href="#i-clipboard"/></svg>
-      <span><b>Laporan akhir shift</b><small id="go-pend-sub">KM akhir, fasilitas</small></span>
+      <span><b>Laporan akhir shift</b><small id="go-pend-sub">KM akhir, titik belum dicek</small></span>
     </button>
 
     <div id="p-gps" class="gps-pill waiting">
@@ -619,14 +621,22 @@
       <button id="r-o-reset" class="danger-link" type="button">Reset foto dan isian</button>
     </div>
 
-    <!-- Patrol: one guard-tour checkpoint. Area typed until the list arrives;
-         the check replaces "Nihil". -->
+    <!-- Patrol: one guard-tour checkpoint, picked from the patrol's list
+         (or typed under Lainnya); the check replaces "Nihil". -->
     <div id="r-patrol" class="hidden">
-      <label class="field">
-        <span>Area</span>
+      <div class="field">
+        <span id="r-p-points-label">Titik</span>
+        <div id="r-p-points" class="point-list" role="group" aria-labelledby="r-p-points-label"></div>
+      </div>
+      <label id="r-p-area-field" class="field hidden">
+        <span>Titik lain — ketik sendiri</span>
         <input id="r-p-area" type="text" autocomplete="off" list="r-p-areas" placeholder="mis. Balai Raja Pinggir">
         <datalist id="r-p-areas"></datalist>
       </label>
+      <div id="r-p-facility-field" class="hidden">
+        <p class="eyebrow">Kondisi fasilitas</p>
+        <div id="r-p-facility" class="chips wrap" style="margin-bottom:12px"></div>
+      </div>
       <label class="field">
         <span>C. Guard tour — yang dicek</span>
         <textarea id="r-p-check" rows="2" placeholder="mis. Pengecekan Vent Cocks dan Warning Sign KP 47+900"></textarea>
@@ -668,8 +678,9 @@
         <input id="r-pend-km-end" type="text" inputmode="numeric" autocomplete="off">
       </label>
       <p id="r-pend-distance" class="note-preview"></p>
-      <p class="eyebrow">Fasilitas (contoh — daftar menyusul)</p>
-      <div id="r-pend-facilities" class="asset-list"></div>
+      <p class="eyebrow">Fasilitas — titik pengecekan shift ini</p>
+      <p id="r-pend-points-note" class="warn" style="margin:0 0 8px"></p>
+      <div id="r-pend-points" class="summary" style="margin-bottom:16px"></div>
       <p class="eyebrow">Guard tour dan temuan shift ini</p>
       <div id="r-pend-summary" class="summary"></div>
       <!-- Who takes over: required (Billy, 2026-10-02). -->
