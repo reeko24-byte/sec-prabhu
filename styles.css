@@ -847,6 +847,7 @@ input:focus, select:focus, textarea:focus {
   color: var(--amber-ink); background: var(--amber-soft);
   border-color: var(--amber-line); border-left-color: var(--amber-line);
 }
+.points-left.late .tag-rawan { background: var(--surface); border: 1px solid var(--amber-line); }
 .points-left b { display: block; margin-bottom: 4px; }
 .points-left ul { margin: 0; padding-left: 18px; }
 .points-left li { padding: 2px 0; }

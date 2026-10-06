@@ -1222,7 +1222,8 @@
 
   /* ── Patrol: the shift ──────────────────────────────────────────────── */
 
-  function renderPatrolMain() {
+  /** `light`: the minute tick -- skips counting every record for Export. */
+  function renderPatrolMain(light) {
     var s = state.sessions.patrol;
     if (!s) return;
     var shift = SA.shiftById(s.shift);
@@ -1261,9 +1262,9 @@
       renderPointsLeft(left, s);
       var ended = records.filter(function (r) { return r.kind === 'pend'; }).length;
       $('go-pend-sub').textContent = ended ? 'Sudah dikirim' : 'KM akhir, titik belum dicek';
-      return SA.db.all();
+      return light ? null : SA.db.all();
     }).then(function (all) {
-      renderCount(all, 'patrol', 'p-count', 'p-go-export');
+      if (all) renderCount(all, 'patrol', 'p-count', 'p-go-export');
     });
   }
 
@@ -1320,7 +1321,7 @@
       officers: s.officers.slice(), tni: s.tni, vehicle: s.vehicle,
       reporter: s.officers[0] || '',
       // guard tour: a point on the patrol's list, or a typed area
-      point: '', typing: false, area: '', facility: P.FACILITY_STATES[0], check: '',
+      point: '', typing: false, area: '', facility: '', check: '',
       weather: P.weather[0], road: P.road[0], traffic: P.NIHIL, crash: P.NIHIL,
       gangguanSummary: {}, patrolResult: 'none', patrolFinding: '',
       fieldInterview: s.fieldInterview || P.FIELD_INTERVIEW,
@@ -1398,11 +1399,15 @@
     box.appendChild(other);
     $('r-p-area-field').classList.toggle('hidden', !(typing || !points.length));
     $('r-p-facility-field').classList.toggle('hidden', d.point === '');
+    // Nothing picked for the crew: Aktif or Tidak Aktif is a tap at each point.
+    renderChoice($('r-p-facility'), P.FACILITY_STATES.map(function (v) { return { value: v, text: v }; }),
+      d.facility, function (value) { state.draft.facility = value; updateReport(); });
   }
 
   /** A point from the list (its name is the area), or null to type one. */
   function pickPatrolPoint(name) {
     var d = state.draft;
+    if ((name || '') !== d.point) d.facility = '';   // another point: look again
     d.point = name || '';
     d.typing = !name;
     d.area = name || String($('r-p-area').value).trim();
@@ -1421,14 +1426,15 @@
     $('r-p-finding').value = '';
     $('r-p-interview').value = d.fieldInterview;
     $('r-p-areas').innerHTML = '';
-    SA.sheets.unique(patrolAreas).forEach(function (area) {
+    var listed = SA.patrolPoints(d.patrolId).map(function (p) { return p.name.toLowerCase(); });
+    SA.sheets.unique(patrolAreas).filter(function (area) {
+      return listed.indexOf(String(area).toLowerCase()) === -1;
+    }).forEach(function (area) {
       var option = document.createElement('option');
       option.value = area;
       $('r-p-areas').appendChild(option);
     });
     renderPatrolPoints();
-    renderChoice($('r-p-facility'), P.FACILITY_STATES.map(function (v) { return { value: v, text: v }; }),
-      d.facility, function (value) { state.draft.facility = value; updateReport(); });
     renderChoice($('r-p-weather'), P.weather.map(function (w) { return { value: w, text: w }; }), d.weather,
       function (value) { state.draft.weather = value; updateReport(); });
     renderChoice($('r-p-road'), P.road.map(function (w) { return { value: w, text: w }; }), d.road,
@@ -1447,7 +1453,17 @@
     $('r-p-finding-field').classList.add('hidden');
   }
 
-  wireText('r-p-area', 'area');   // only shown under "Lainnya" 
+  // Only shown under "Lainnya". A name that is on the list becomes that point
+  // (so its condition is asked), instead of a typed area that happens to match.
+  wireText('r-p-area', 'area', function (value) {
+    var key = String(value).trim().toLowerCase();
+    var match = SA.patrolPoints(state.draft.patrolId).filter(function (p) {
+      return p.name.toLowerCase() === key;
+    })[0];
+    if (!match) return;
+    $('r-p-area').value = '';
+    pickPatrolPoint(match.name);
+  });
   wireText('r-p-check', 'check');
   wireText('r-p-traffic', 'traffic');
   wireText('r-p-crash', 'crash');
@@ -1519,11 +1535,15 @@
         (p.time ? '✓ ' + p.time + (p.facility ? ' · ' + p.facility : '') : 'belum dicek');
       box.appendChild(row);
     });
+    // Below it, only what the checklist does not show: points typed under
+    // "Lainnya", and the findings.
+    var listed = d.points.map(function (p) { return p.name.toLowerCase(); });
     var summary = $('r-pend-summary');
     summary.innerHTML = '';
-    var rows = d.tours.map(function (t) { return t.time + ' · ' + (t.area || '-'); })
+    var rows = d.tours.filter(function (t) { return listed.indexOf(String(t.area).toLowerCase()) === -1; })
+      .map(function (t) { return t.time + ' · ' + (t.area || '-'); })
       .concat(d.findingList.map(function (f) { return f.time + ' · ' + f.label + ' (' + f.status + ')'; }));
-    if (!rows.length) summary.textContent = 'Belum ada guard tour atau temuan shift ini.';
+    if (!rows.length) summary.textContent = 'Tidak ada titik lain atau temuan shift ini.';
     rows.forEach(function (text) {
       var row = document.createElement('div');
       row.textContent = text;
@@ -2410,6 +2430,7 @@
     if (draft.kind === 'patrol' && draft.patrolResult === 'found' && !String(draft.patrolFinding).trim()) {
       missing.push('keterangan temuan');
     }
+    if (draft.kind === 'patrol' && draft.point && !draft.facility) missing.push('kondisi fasilitas');
     if (draft.kind === 'office' && !/^\d+$/.test(String(draft.visitors))) missing.push('jumlah tamu');
     if (draft.kind === 'pend') {
       if (!draft.nextOfficers.length) missing.push('shift lanjut');
@@ -2551,6 +2572,15 @@
       where: function (r) { return SA.patrolRecords.teamLabel(r); },
       prefKey: 'patrolSession',
       valid: function (s) { return !!(s && s.patrolId); },
+      // A shift saved before a patrol's segments changed (v28: Patrol 6 and 8
+      // had swapped zones) takes the patrol's current segments and area.
+      refresh: function (s) {
+        var u = SA.patrolUnit(s.patrolId);
+        if (!u || (u.segments === s.segments && u.area === s.zone)) return false;
+        s.segments = u.segments;
+        s.zone = u.area;
+        return true;
+      },
       sessionBadge: function (s) { return SA.patrolBadge(s.patrolId); },
       // Like Security: a shift past its end only warns.
       fresh: function () { return true; },
@@ -2942,6 +2972,8 @@
         record.point = draft.point;
         record.area = draft.point || String(draft.area).trim();
         record.facility = draft.point ? draft.facility : '';
+        // Frozen, so a later change to the list never rewrites a sent report.
+        record.rawan = SA.patrolRecords.rawanOf(record);
         record.check = String(draft.check).trim();
         record.weather = draft.weather;
         record.road = draft.road;
@@ -3506,7 +3538,7 @@
   /* BUILD and CACHE_VERSION in sw.js are a PAIR -- bump both on every upload.
      The marker prints both; when they differ, the new version has downloaded
      but the app has not been restarted. */
-  var BUILD = 'v28';
+  var BUILD = 'v29';
   var CACHE_PREFIX = 'superapp-laporan-';
 
   function showVersion() {
@@ -3570,6 +3602,7 @@
             session.post = SA.canonicalPost(session.post);
             SA.db.setPref(module.prefKey, session);
           }
+          if (module.refresh && module.refresh(session)) SA.db.setPref(module.prefKey, session);
           state.sessions[team] = session;
           SA.photo.preload(module.sessionBadge(session));
         });
@@ -3595,9 +3628,12 @@
     // The due line goes stale as the clock moves; refresh it while visible.
     setInterval(function () {
       if (state.session && $('screen-main').classList.contains('active')) renderMain(true);
+      if (state.sessions.patrol && $('screen-p-main').classList.contains('active')) renderPatrolMain(true);
     }, 60000);
     document.addEventListener('visibilitychange', function () {
-      if (!document.hidden && state.session && $('screen-main').classList.contains('active')) renderMain();
+      if (document.hidden) return;
+      if (state.session && $('screen-main').classList.contains('active')) renderMain();
+      if (state.sessions.patrol && $('screen-p-main').classList.contains('active')) renderPatrolMain();
     });
 
     showVersion();

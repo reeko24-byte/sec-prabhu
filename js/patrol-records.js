@@ -8,6 +8,7 @@
  *   patrol (one guard-tour checkpoint):
  *     point (a name on the patrol's list, '' when typed), area (= point, or typed),
  *     facility ('Aktif'|'Tidak Aktif' for a listed point, else ''),
+ *     rawan (true at a titik rawan; frozen at saving, v29),
  *     check, weather, road, traffic, crash, gangguanSummary {type: text},
  *     patrolResult ('none'|'found'), patrolFinding, followUp, status, fieldInterview
  *   pend (end of shift):
@@ -60,8 +61,9 @@
       .concat(SA.secCaption.numbered(record.officers, 'TNI', record.tni, '   '));
   }
 
-  /** Whether a guard tour was at a titik rawan on its patrol's list. */
+  /** Whether a guard tour was at a titik rawan: as saved (v29), else from the list. */
   function rawanOf(record) {
+    if (typeof record.rawan === 'boolean') return record.rawan;
     var key = trim(record.point || record.area).toLowerCase();
     return SA.patrolPoints(record.patrolId).some(function (p) { return p.rawan && p.name.toLowerCase() === key; });
   }
@@ -326,13 +328,19 @@
         var checked = function (p) { return !!p.time; };
         var unchecked = function (p) { return !p.time; };
         var off = function (p) { return p.time && p.facility === 'Tidak Aktif'; };
+        // Reports saved before v27 keep their placeholder facility columns.
+        var legacy = SA.sheets.unique([].concat.apply([], records.filter(function (r) {
+          return r.kind === 'pend' && !Array.isArray(r.points);
+        }).map(function (r) { return Object.keys(r.facilities || {}); })));
         return [
           col('Titik Daftar', 11, 'center', count(function () { return true; })),
           col('Titik Dicek', 11, 'center', count(checked)),
           col('Belum Dicek', 11, 'center', count(unchecked)),
           col('Daftar Belum Dicek', 44, 'text', names(unchecked)),
           col('Fasilitas Tidak Aktif', 30, 'text', names(off))
-        ];
+        ].concat(legacy.map(function (name) {
+          return col(name, 12, 'center', function (r) { return (r.facilities || {})[name] || ''; });
+        }));
       }
       function build(name, kind, cols, extra) {
         return SA.sheets.build(name, of(kind), base.concat(cols).concat(crew),

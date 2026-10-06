@@ -4,7 +4,7 @@ One PWA for four teams: **Security Officer**, **Patrol**, **Walkthrough**, **Sec
 Works on Android (Chrome) and iPhone (Safari), offline, no backend. Each report
 goes to WhatsApp as photos + caption in one tap; the Excel is a separate export.
 
-**Status (v28, 2026-10-05)**
+**Status (v29, 2026-10-06)**
 
 | Team | State | Reports |
 |---|---|---|
@@ -27,12 +27,12 @@ Exif reader, .xlsx writer, share handling, version marker). The other apps in
 This folder is **not** a git repo. Upload the whole folder to GitHub Pages by
 hand. On **every** upload, bump both of these together — they are a pair:
 
-- `CACHE_VERSION` in `sw.js` (now `superapp-laporan-v28`)
-- `BUILD` in `js/app.js` (now `v28`)
+- `CACHE_VERSION` in `sw.js` (now `superapp-laporan-v29`)
+- `BUILD` in `js/app.js` (now `v29`)
 
 If files change and `sw.js` does not, phones that already have the app keep the
 old files forever. The line at the foot of each main screen prints
-`kode v28 · cache v28`; if the two differ, the new version downloaded but the app
+`kode v29 · cache v29`; if the two differ, the new version downloaded but the app
 has not been restarted. A changed home-screen icon usually only appears after the
 app is removed and added to the Home Screen again.
 
@@ -269,7 +269,8 @@ North does not follow the numbers (Billy, corrected 2026-10-05):
 
 The crew and segments come with the zone; the vehicle and the badge stay with
 the patrol number. (v21–v27 had Patrol 6 = ZONA 7 and Patrol 8 = ZONA 5; the
-checkpoint lists showed the swap, fixed in v28.)
+checkpoint lists showed the swap, fixed in v28.) A shift saved before the fix
+takes the patrol's current segments when the app starts (v29).
 
 The start screen shows which sheet zone a patrol is ("ZONA 8 di Database
 Personil").
@@ -307,11 +308,14 @@ Personil").
      list** (`SA.PATROL.checkpoints` in `js/patrol-options.js` — facilities and
      titik rawan, 5 to 23 per patrol). Each row shows whether it was checked
      this shift (✓ time) or *belum*; a titik rawan carries a tag. A listed
-     point asks **Kondisi fasilitas: Aktif / Tidak Aktif** (in C as
-     "Kondisi fasilitas : …"; AREA gets "(titik rawan)"). The last row,
+     point asks **Kondisi fasilitas: Aktif / Tidak Aktif** — nothing picked
+     beforehand, so the crew taps one at every point (required to save, v29);
+     picking another point clears it. In C as "Kondisi fasilitas : …"; AREA
+     gets "(titik rawan)", frozen on the record (`rawan`, v29). The last row,
      *Lainnya — ketik sendiri*, types a point that is not on the list; typed
-     points are offered again next time (`patrolAreas` on the phone). Nothing
-     is picked for the crew.
+     points are offered again next time (`patrolAreas` on the phone). Typing a
+     name that **is** on the list switches to that point (so its condition is
+     asked).
    - G: what the crew last sent is offered on the next report.
    - Photos 1–4 suggested, never required.
 3. **Laporan kejadian (Gangguan)** — one per disturbance, sent at once, 5W1H
@@ -347,11 +351,14 @@ Recivee, Vantchock, Menggala Boster, Sesudsh) and tags written one way
 (`04-SBV-001 A`, `KP 3+400`). A guard tour counts for a point by the point
 picked, or by a typed name that matches it. The **main screen** lists the
 points not yet checked this shift under the guard-tour button ("Belum dicek
-shift ini (k)"), quiet at first and amber in the shift's last two hours; the
-button says "N dari M titik dicek". Excel: Guard Tour gains *Titik Rawan* and
+shift ini (k)"), quiet at first and amber in the shift's last two hours (the
+screen refreshes every minute and when the phone wakes, v29); the button says
+"N dari M titik dicek". On the end-of-shift form the checklist comes first;
+below it only what it does not show — typed points and findings. Excel: Guard Tour gains *Titik Rawan* and
 *Kondisi Fasilitas*; Akhir Shift has *Titik Daftar*, *Titik Dicek*, *Belum
 Dicek* (numbers) and *Daftar Belum Dicek*, *Fasilitas Tidak Aktif* (names) in
-place of the placeholder Fasilitas 1–3 columns.
+place of the placeholder Fasilitas 1–3 columns (still exported for reports
+saved before v27).
 Only this phone's guard tours count (one crew, one car).
 **Badge:** Billy's "TEAM Patrol N" artwork (`assets/badges/patrol-N.png`) top
 right of every photo, and the band reads **SECURITY PATROL - PATROL N**. Photo
@@ -763,6 +770,18 @@ send; pre-v24 Patrol reports re-send without an empty G; the keep-until-Simpan
 mechanism is general (`keep`); the office report uses Security's To/Cc/Hal
 header (`SA.secCaption.header`).
 
+### Sixth review (v29)
+
+Ten findings on v27–v28, all fixed: a saved Patrol 6/8 shift takes the
+corrected segments at start-up (`refresh` in the module); the Patrol main
+screen follows the clock like Security's; the titik rawan flag is frozen on
+the guard tour; Kondisi fasilitas starts unpicked and is required; a typed
+name on the list becomes that point; pre-v27 end-of-shift reports keep their
+Fasilitas columns in the Excel; the rawan tag stays visible on the amber
+notice; the end-of-shift form no longer lists the tours twice. In the office
+tool, a shift without an end-of-shift report has its checklist worked out from
+its guard tours; the unused `areas` field is gone.
+
 ---
 
 ## Open items
@@ -820,4 +839,5 @@ shift.
 | v25 | Security Perkantoran (SECWAN): visitor counter, end-of-shift report kept on the phone until Simpan |
 | v26 | Fixes from the fifth code review: kept drafts made general, offered on the next day, cheap to save; corrections survive later taps |
 | v27 | Patrol checkpoint list per patrol: guard tour picks a point (Aktif / Tidak Aktif), main screen and akhir shift name the points not checked — a notice, not a block |
+| v29 | Fixes from the sixth code review: saved Patrol sessions take corrected segments, condition must be tapped, rawan frozen, main screen refreshes, old Excel columns kept |
 | v28 | Patrol 6 = ZONA 5 (SEG 8, 9, 7, Sigit Surya's crew), Patrol 8 = ZONA 7 (SEG 10/12, Fengki Hutasoit's crew) — were swapped |
