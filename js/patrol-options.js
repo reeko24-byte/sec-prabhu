@@ -105,10 +105,8 @@
         'SBV 002 Segment 6 KP 11+850',
         'Tie In TP 021 Simpang Pemburu Jl. Lintas Sumatra',
         'Batang HO',
-        'KP 6+500 Jl. Arjuna Segment 6, 11B',
-        'KP 6+000 Jl. Arjuna Segment 6, 11B',
-        'KP 18+000 Jl. Arjuna Segment 6',
-        'KP 5+000 Jl. Arjuna Segment 11B',
+        // One stop for the four KPs on Jl. Arjuna (Billy, 2026-10-08).
+        'KP 6+500, 6+000, 18+000, 5+000 Jl. Arjuna Segment 6, 11B',
         'KP 27+000 Jl. Lintas Sumatra Segment 6'
       ],
       'PATROL 6': [

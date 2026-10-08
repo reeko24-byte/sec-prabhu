@@ -3538,7 +3538,7 @@
   /* BUILD and CACHE_VERSION in sw.js are a PAIR -- bump both on every upload.
      The marker prints both; when they differ, the new version has downloaded
      but the app has not been restarted. */
-  var BUILD = 'v29';
+  var BUILD = 'v30';
   var CACHE_PREFIX = 'superapp-laporan-';
 
   function showVersion() {
