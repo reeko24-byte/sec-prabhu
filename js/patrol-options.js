@@ -166,7 +166,7 @@
     /* Each patrol's vehicle, in Patrol order (Billy, 2026-10-02). Picked by
        default for that patrol; another one, or a typed plate, when swapped. */
     vehicles: ['BM 8036 QI', 'BM 8034 QI', 'BM 8035 QI', 'BM 8033 QI',
-      'BM 8031 QI', 'BM 8541 SJ', 'BM 8032 QI', 'BM 8248 QD'],
+      'BM 8031 QI', 'BM 8032 QI', 'BM 8541 SJ', 'BM 8248 QD'],
 
     /* A checkpoint's condition, picked on its guard tour. */
     FACILITY_STATES: ['Aktif', 'Tidak Aktif'],
