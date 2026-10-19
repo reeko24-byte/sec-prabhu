@@ -3096,6 +3096,10 @@
 
     $('send-caption').textContent = sending.caption;
     $('send-share').disabled = sending.mode === 'none';
+    // The two-part fallback, when the photos-and-caption share is offered.
+    var split = sending.mode === 'text' || sending.mode === 'files';
+    $('send-alt').classList.toggle('hidden', !split);
+    $('send-photos-only').classList.toggle('hidden', sending.mode !== 'text');
 
     var pasting = sending.mode === 'files';
     var steps = $('send-steps');
@@ -3138,32 +3142,61 @@
   $('send-back').addEventListener('click', function () { goMain(); });
   $('send-next').addEventListener('click', function () { openReport('wtkp'); });
 
+  /* Send one report: photos with the caption, or -- the fallback (v36), when
+     WhatsApp says "Tidak dapat mengirim pesan kosong" -- the photos alone
+     (caption copied, to paste) and the text as its own message. */
+  function sendReport(payload, done) {
+    var record = state.sending.record;
+    share(payload, {
+      status: 'send-status', env: 'send-env', done: done,
+      mark: function () { return SA.db.markSent([record.id], new Date().toISOString()); },
+      failed: function (error) { return 'Gagal mengirim: ' + describe(error) + '. Salin caption lalu kirim manual.'; }
+    });
+  }
+  function sendPhotos(done) {
+    copyCaption(state.sending.caption, false);
+    sendReport({ files: state.sending.files }, done);
+  }
+  function sendText(done) {
+    sendReport({ text: state.sending.caption }, done);
+  }
+
   $('send-share').addEventListener('click', function () {
     var sending = state.sending;
     if (!sending || sending.mode === 'none') return;
-    var payload = sending.mode === 'text' ? { files: sending.files, text: sending.caption }
-      : sending.mode === 'files' ? { files: sending.files }
-      : { text: sending.caption };
-    if (sending.mode === 'files') copyCaption(sending.caption, false);
+    if (sending.mode === 'files') sendPhotos('Terkirim.');
+    else if (sending.mode === 'textonly') sendText('Terkirim.');
+    else sendReport({ files: sending.files, text: sending.caption }, 'Terkirim.');
+  });
+  $('send-photos-only').addEventListener('click', function () {
+    if (state.sending && state.sending.files.length) {
+      sendPhotos('Foto terkirim. Caption sudah disalin — tempel di WhatsApp kalau belum.');
+    }
+  });
+  $('send-text-only').addEventListener('click', function () {
+    if (state.sending) sendText('Teks terkirim. Kirim fotonya juga dengan “Kirim foto saja”.');
+  });
 
+  /* One share at a time, on any screen: a share menu still open would swallow
+     the next tap. `opts`: status and env line ids, mark() after sharing, the
+     done text, failed(error) text. */
+  function share(payload, opts) {
     if (sharePending) {
-      $('send-status').textContent = 'Menu berbagi sebelumnya belum tertutup. Tutup aplikasi lalu buka lagi.';
-      showEnvironment('send-env');
+      $(opts.status).textContent = 'Menu berbagi sebelumnya belum tertutup. Tutup aplikasi lalu buka lagi.';
+      showEnvironment(opts.env);
       return;
     }
     sharePending = true;
     navigator.share(payload).then(function () {
       sharePending = false;
-      SA.db.markSent([sending.record.id], new Date().toISOString()).then(function () {
-        $('send-status').textContent = 'Terkirim.';
-      });
+      opts.mark().then(function () { $(opts.status).textContent = opts.done; });
     }).catch(function (error) {
       sharePending = false;
       if (error && error.name === 'AbortError') return;
-      $('send-status').textContent = 'Gagal mengirim: ' + describe(error) + '. Salin caption lalu kirim manual.';
-      showEnvironment('send-env');
+      $(opts.status).textContent = opts.failed(error);
+      showEnvironment(opts.env);
     });
-  });
+  }
 
   function copyCaption(text, announce) {
     if (!text) return;
@@ -3465,16 +3498,14 @@
       showEnvironment('export-env');
       return;
     }
-    navigator.share({ files: [state.built.file] }).then(function () {
-      markExported().then(function () {
-        $('export-status').textContent = 'File berisi ' + state.built.count + ' laporan terkirim.';
-      });
-    }).catch(function (error) {
-      if (error && error.name === 'AbortError') return;
-      $('export-status').textContent = fileShareLikelyBlocked() && error && error.name === 'NotAllowedError'
-        ? 'Chrome di Android tidak mengizinkan file Excel dibagikan. Pakai Simpan ke Files, lalu WhatsApp › Lampirkan › Dokumen.'
-        : 'Gagal mengirim: ' + describe(error);
-      showEnvironment('export-env');
+    share({ files: [state.built.file] }, {
+      status: 'export-status', env: 'export-env', mark: markExported,
+      done: 'File berisi ' + state.built.count + ' laporan terkirim.',
+      failed: function (error) {
+        return fileShareLikelyBlocked() && error && error.name === 'NotAllowedError'
+          ? 'Chrome di Android tidak mengizinkan file Excel dibagikan. Pakai Simpan ke Files, lalu WhatsApp › Lampirkan › Dokumen.'
+          : 'Gagal mengirim: ' + describe(error);
+      }
     });
   });
 
@@ -3538,12 +3569,13 @@
   /* BUILD and CACHE_VERSION in sw.js are a PAIR -- bump both on every upload.
      The marker prints both; when they differ, the new version has downloaded
      but the app has not been restarted. */
-  var BUILD = 'v34';
+  var BUILD = 'v37';
   var CACHE_PREFIX = 'superapp-laporan-';
 
   function showVersion() {
     var running = 'kode ' + BUILD;
     function put(text) {
+      if (whereLine) text += ' · ' + whereLine;
       $('app-version').textContent = text;
       $('app-version-team').textContent = text;
       $('wt-version').textContent = text;
@@ -3565,16 +3597,56 @@
     }).catch(function () { put(running); });
   }
 
+  /* Where this copy of the app runs, on every main screen's version line (v36).
+     A guard's reports live in ONE copy of the app's storage: on iPhone the
+     home-screen icon and Safari are two copies, on Android Chrome and Samsung
+     Internet are. "Hours missing at the end of the shift" (Billy, 2026-10-18)
+     is settled by a screenshot of this line on the two occasions. */
+  var whereLine = '';
+
+  function isStandalone() {
+    return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  }
+  function isIos() {
+    return /iPhone|iPad|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  }
+  function browserName() {
+    var a = navigator.userAgent;
+    if (/SamsungBrowser/.test(a)) return 'Samsung Internet';
+    if (/; wv\)/.test(a)) return 'WebView (dalam aplikasi lain)';
+    if (/EdgA|EdgiOS|Edg\//.test(a)) return 'Edge';
+    if (/Firefox|FxiOS/.test(a)) return 'Firefox';
+    if (/OPR\/|Opera/.test(a)) return 'Opera';
+    if (/CriOS|Chrome\//.test(a)) return 'Chrome';
+    if (/Safari\//.test(a)) return 'Safari';
+    return 'browser lain';
+  }
+
+  var whereBase = null;    // how the app was opened and in which browser: fixed for the run
+
+  function refreshWhere() {
+    if (whereBase === null) {
+      whereBase = (isStandalone() ? 'ikon layar utama' : 'tab browser') + ' · ' + browserName();
+      $('where-warn').classList.toggle('hidden', !(isIos() && !isStandalone()));
+    }
+    var where = whereBase;
+    return SA.db.count().then(function (n) {
+      whereLine = where + ' · ' + n + ' laporan di HP';
+    }).catch(function () {
+      whereLine = where;
+    }).then(showVersion);
+  }
+
   function showEnvironment(lineId) {
     var agent = navigator.userAgent;
-    var standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
-    var ios = agent.match(/OS (\d+)[_.](\d+)/);
+    var ios = agent.match(/(?:iPhone|iPad|iPod).* OS (\d+)[_.](\d+)/);
     var android = agent.match(/Android (\d+(?:\.\d+)?)/);
-    var platform = /iPhone|iPad|iPod/.test(agent) ? (ios ? 'iOS ' + ios[1] + '.' + ios[2] : 'iOS')
+    var platform = isIos() ? (ios ? 'iOS ' + ios[1] + '.' + ios[2] : 'iPadOS')
       : android ? 'Android ' + android[1] : (navigator.platform || 'unknown');
     var line = $(lineId);
     line.textContent = [
-      standalone ? 'home screen' : 'browser tab',
+      isStandalone() ? 'home screen' : 'browser tab',
       platform,
       'share ' + (navigator.share ? 'yes' : 'no'),
       'canShare ' + (navigator.canShare ? 'yes' : 'no'),
@@ -3636,7 +3708,8 @@
       if (state.sessions.patrol && $('screen-p-main').classList.contains('active')) renderPatrolMain();
     });
 
-    showVersion();
+    refreshWhere();                       // also prints the version line
+    SA.db.onChange(refreshWhere);         // the report count follows every add and delete
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').then(function (registration) {
         registration.update();

@@ -155,8 +155,8 @@ button:disabled { cursor: default; }
 .field + .hint { margin-top: -8px; }
 .status { font-size: 14px; color: var(--ink-2); margin-top: 14px; min-height: 20px; }
 .version {
-  font-size: 11px;
-  color: var(--ink-3);
+  font-size: 12px;
+  color: var(--ink-2);   /* it carries the diagnostic line (v36): readable, 4.5:1+ */
   text-align: center;
   margin: 28px 0 0;
   font-variant-numeric: tabular-nums;
@@ -765,6 +765,28 @@ input:focus, select:focus, textarea:focus {
   color: var(--on-primary);
   font-size: 13px;
 }
+/* iPhone in Safari: open from the icon instead (v36). */
+.where-warn {
+  margin: 0;
+  padding: 10px 16px;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--amber-ink);
+  background: var(--amber-soft);
+  border-bottom: 1px solid var(--amber-line);
+}
+
+/* The send screen's fallback: photos and text in two shares. */
+.send-alt {
+  margin: 14px 0 0;
+  padding: 12px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-sm);
+}
+.send-alt p { margin: 0 0 8px; font-size: 14px; color: var(--ink-2); }
+.send-alt-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.send-alt-row .secondary { margin-top: 0; }
+
 .tip {
   margin: 16px 0 0;
   padding: 10px 12px;

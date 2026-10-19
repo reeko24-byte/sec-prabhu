@@ -20,6 +20,10 @@
 </head>
 <body>
 
+<!-- iPhone in Safari: the home-screen icon keeps its reports apart (v36). -->
+<p id="where-warn" class="where-warn hidden" role="note">Buka Laporan Tim dari <b>ikon di layar utama</b>.
+  Laporan yang dibuat di Safari tersimpan terpisah dari ikon, dan tidak terlihat di sana.</p>
+
 <!-- One icon set, one stroke weight (Lucide-style, 2px, round caps). -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <defs>
@@ -764,6 +768,15 @@
     <button id="send-share" class="primary"><svg width="20" height="20" aria-hidden="true"><use href="#i-send"/></svg>Kirim ke WhatsApp</button>
     <button id="send-copy" class="secondary">Salin caption</button>
     <p id="send-note" class="hint"></p>
+    <!-- When WhatsApp refuses the photos-and-caption share ("pesan kosong"), the
+         report still gets out in two parts (v36). -->
+    <div id="send-alt" class="send-alt hidden">
+      <p>WhatsApp menolak atau laporan tidak muncul? Kirim terpisah:</p>
+      <div class="send-alt-row">
+        <button id="send-photos-only" class="secondary">Kirim foto saja</button>
+        <button id="send-text-only" class="secondary">Kirim teks saja</button>
+      </div>
+    </div>
     <div id="send-steps" class="steps"></div>
     <!-- After the shift report: the next shift starts with the names that were
          just handed over, so the incoming guards do not re-pick them. -->

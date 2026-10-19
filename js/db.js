@@ -77,22 +77,31 @@
     });
   }
 
+  /* Told whenever reports are added or removed (the version line's count). */
+  var listeners = [];
+  function changed(result) {
+    listeners.forEach(function (fn) { fn(); });
+    return result;
+  }
+
   SA.db = {
+    onChange: function (fn) { listeners.push(fn); },
+
     add: function (record) {
       return tx(RECORDS, 'readwrite', function (store, set) {
         var request = store.add(record);
         request.onsuccess = function () { record.id = request.result; set(record); };
-      });
+      }).then(changed);
     },
 
     remove: function (id) {
-      return tx(RECORDS, 'readwrite', function (store) { store.delete(id); });
+      return tx(RECORDS, 'readwrite', function (store) { store.delete(id); }).then(changed);
     },
 
     removeMany: function (ids) {
       return tx(RECORDS, 'readwrite', function (store) {
         ids.forEach(function (id) { store.delete(id); });
-      });
+      }).then(changed);
     },
 
     /** Every record, oldest first. */
@@ -102,6 +111,14 @@
         request.onsuccess = function () {
           set(request.result.sort(function (a, b) { return a.id - b.id; }));
         };
+      });
+    },
+
+    /** How many reports this copy of the app holds (the version line says it). */
+    count: function () {
+      return tx(RECORDS, 'readonly', function (store, set) {
+        var request = store.count();
+        request.onsuccess = function () { set(request.result); };
       });
     },
 

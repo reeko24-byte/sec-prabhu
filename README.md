@@ -4,7 +4,7 @@ One PWA for four teams: **Security Officer**, **Patrol**, **Walkthrough**, **Sec
 Works on Android (Chrome) and iPhone (Safari), offline, no backend. Each report
 goes to WhatsApp as photos + caption in one tap; the Excel is a separate export.
 
-**Status (v30, 2026-10-08)**
+**Status (v37, 2026-10-19)**
 
 | Team | State | Reports |
 |---|---|---|
@@ -27,12 +27,12 @@ Exif reader, .xlsx writer, share handling, version marker). The other apps in
 This folder is **not** a git repo. Upload the whole folder to GitHub Pages by
 hand. On **every** upload, bump both of these together — they are a pair:
 
-- `CACHE_VERSION` in `sw.js` (now `superapp-laporan-v30`)
-- `BUILD` in `js/app.js` (now `v30`)
+- `CACHE_VERSION` in `sw.js` (now `superapp-laporan-v37`)
+- `BUILD` in `js/app.js` (now `v37`)
 
 If files change and `sw.js` does not, phones that already have the app keep the
 old files forever. The line at the foot of each main screen prints
-`kode v30 · cache v30`; if the two differ, the new version downloaded but the app
+`kode v37 · cache v37`; if the two differ, the new version downloaded but the app
 has not been restarted. A changed home-screen icon usually only appears after the
 app is removed and added to the Home Screen again.
 
@@ -782,6 +782,19 @@ notice; the end-of-shift form no longer lists the tours twice. In the office
 tool, a shift without an end-of-shift report has its checklist worked out from
 its guard tours; the unused `areas` field is gone.
 
+### Field bugs, 2026-10-18 (v36 diagnostics)
+
+1. *Hourly checks show "!" at the end of the shift and the Excel finds no
+   reports*: nothing in the app deletes them; the phone was looking at another
+   copy of the app's storage (iPhone: Safari vs the home-screen icon; Android:
+   Chrome vs Samsung Internet). The version line on every main screen now says
+   which copy is open and how many reports it holds -- a screenshot from the
+   two moments settles it. Waiting for the guards' answers.
+2. *"Tidak dapat mengirim pesan kosong" sending a check*: WhatsApp's own
+   message; the app cannot see it. Suspected: the top-row contact shortcut of
+   Android's share menu. **Kirim foto saja** + **Kirim teks saja** get the
+   report out either way.
+
 ---
 
 ## Open items
@@ -839,6 +852,8 @@ shift.
 | v25 | Security Perkantoran (SECWAN): visitor counter, end-of-shift report kept on the phone until Simpan |
 | v26 | Fixes from the fifth code review: kept drafts made general, offered on the next day, cheap to save; corrections survive later taps |
 | v27 | Patrol checkpoint list per patrol: guard tour picks a point (Aktif / Tidak Aktif), main screen and akhir shift name the points not checked — a notice, not a block |
+| v37 | Fixes from the seventh review: one share routine (send and Excel export share the "menu still open" guard), the report count follows every add/delete, version line readable (12 px, ink-2) |
+| v36 | Diagnostics for two field bugs (2026-10-18): the version line says how the app was opened (ikon layar utama / tab browser), the browser and how many reports the phone holds; iPhone in Safari warns that its reports are separate from the icon's; the send screen offers **Kirim foto saja** / **Kirim teks saja** when WhatsApp says "Tidak dapat mengirim pesan kosong" |
 | v30 | Patrol 5: the four Jl. Arjuna KPs are one checkpoint ("KP 6+500, 6+000, 18+000, 5+000 Jl. Arjuna Segment 6, 11B"), 12 points |
 | v29 | Fixes from the sixth code review: saved Patrol sessions take corrected segments, condition must be tapped, rawan frozen, main screen refreshes, old Excel columns kept |
 | v28 | Patrol 6 = ZONA 5 (SEG 8, 9, 7, Sigit Surya's crew), Patrol 8 = ZONA 7 (SEG 10/12, Fengki Hutasoit's crew) — were swapped |
