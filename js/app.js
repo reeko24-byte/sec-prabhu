@@ -1592,7 +1592,7 @@
       radius: W.LDS_RADIUS,
       result: 'none',
       finding: '',
-      assets: {},
+      assets: {}, assetMore: {},
       buildings: {},
       followUp: '',
       status: 'Open',
@@ -2205,67 +2205,99 @@
   /* WT: what the line checker found at this KP, for Pertagas's B.II counts.
      Tapping the chosen state again clears it -- every tag is optional. */
 
+  /** A − n + counter (44 px buttons); `set(next)` stores the new count. */
+  function stepper(label, n, set) {
+    var box = document.createElement('div');
+    box.className = 'stepper';
+    [['−', -1], [String(n), 0], ['+', 1]].forEach(function (part) {
+      var el = document.createElement(part[1] ? 'button' : 'b');
+      el.textContent = part[0];
+      if (part[1]) {
+        el.type = 'button';
+        el.className = 'step-btn';
+        el.setAttribute('aria-label', (part[1] > 0 ? 'Tambah ' : 'Kurangi ') + label);
+        el.disabled = part[1] < 0 && n === 0;
+        el.addEventListener('click', function () {
+          set(Math.max(0, n + part[1]));
+          renderWtAssets();
+          updateReport();
+          // The lists are drawn again: put focus back on the same button (or
+          // on + when − just went to 0), so keyboards and TalkBack keep their place.
+          var mine = el.getAttribute('aria-label');
+          var again = document.querySelector('.step-btn[aria-label="' + mine + '"]:not(:disabled)') ||
+            document.querySelector('.step-btn[aria-label="Tambah ' + label + '"]');
+          if (again) again.focus();
+        });
+      }
+      box.appendChild(el);
+    });
+    return box;
+  }
+
+  function countRow(label, aria, n, set) {
+    var row = document.createElement('div');
+    row.className = 'asset-row';
+    var name = document.createElement('span');
+    name.textContent = label;
+    row.appendChild(name);
+    row.appendChild(stepper(aria, n, set));
+    return row;
+  }
+
+  /* Assets: a count per condition -- two warning signs at one KP, one of them
+     broken (v38, Billy 2026-10-19). Buildings: one count each. */
   function renderWtAssets() {
     var d = state.draft;
     var box = $('r-wt-assets');
     box.innerHTML = '';
     W.assets.forEach(function (asset) {
-      var row = document.createElement('div');
-      row.className = 'asset-row';
-      var name = document.createElement('span');
-      name.textContent = asset.label;
-      row.appendChild(name);
-      var chips = document.createElement('div');
-      chips.className = 'chips';
-      W.ASSET_STATES.forEach(function (value) {
-        var chip = document.createElement('button');
-        chip.type = 'button';
-        chip.className = 'chip';
-        chip.textContent = value;
-        chip.setAttribute('aria-pressed', String(d.assets[asset.key] === value));
-        chip.addEventListener('click', function () {
-          if (state.draft.assets[asset.key] === value) delete state.draft.assets[asset.key];
-          else state.draft.assets[asset.key] = value;
-          renderWtAssets();
-          updateReport();
-        });
-        chips.appendChild(chip);
+      var counts = d.assets[asset.key] || {};
+      var total = W.ASSET_STATES.reduce(function (sum, st) { return sum + (counts[st] || 0); }, 0);
+      var group = document.createElement('div');
+      group.className = 'asset-group';
+      var head = document.createElement('div');
+      head.className = 'asset-head';
+      head.textContent = asset.label;
+      var sum = document.createElement('small');
+      sum.textContent = total ? total + ' di titik ini' : 'tidak ada';
+      head.appendChild(sum);
+      group.appendChild(head);
+      // Baik always; Rusak and Hilang once asked for, or once counted -- most
+      // KPs have one or two assets in good condition (a shorter form).
+      var more = d.assetMore[asset.key] || W.ASSET_STATES.slice(1).some(function (st) { return counts[st]; });
+      W.ASSET_STATES.forEach(function (st, i) {
+        if (i > 0 && !more) return;
+        group.appendChild(countRow(st, asset.label + ' ' + st, counts[st] || 0, function (next) {
+          var c = state.draft.assets[asset.key] = state.draft.assets[asset.key] || {};
+          if (next) c[st] = next; else delete c[st];
+          if (!Object.keys(c).length) delete state.draft.assets[asset.key];
+        }));
       });
-      row.appendChild(chips);
-      box.appendChild(row);
+      if (!more) {
+        var ask = document.createElement('button');
+        ask.type = 'button';
+        ask.className = 'link asset-more';
+        ask.textContent = '+ Rusak / Hilang';
+        ask.setAttribute('aria-label', 'Tambah hitungan Rusak atau Hilang untuk ' + asset.label);
+        ask.addEventListener('click', function () {
+          state.draft.assetMore[asset.key] = true;
+          renderWtAssets();
+          var first = document.querySelector('.step-btn[aria-label="Tambah ' + asset.label + ' Rusak"]');
+          if (first) first.focus();
+        });
+        group.appendChild(ask);
+      }
+      box.appendChild(group);
     });
 
     var counts = $('r-wt-buildings');
     counts.innerHTML = '';
     W.buildings.forEach(function (building) {
-      var n = Number(d.buildings[building.key]) || 0;
-      var row = document.createElement('div');
-      row.className = 'asset-row';
-      var name = document.createElement('span');
-      name.textContent = building.label;
-      row.appendChild(name);
-      var stepper = document.createElement('div');
-      stepper.className = 'stepper';
-      [['−', -1], [String(n), 0], ['+', 1]].forEach(function (part) {
-        var el = document.createElement(part[1] ? 'button' : 'b');
-        el.textContent = part[0];
-        if (part[1]) {
-          el.type = 'button';
-          el.className = 'step-btn';
-          el.setAttribute('aria-label', (part[1] > 0 ? 'Tambah ' : 'Kurangi ') + building.label);
-          el.disabled = part[1] < 0 && n === 0;
-          el.addEventListener('click', function () {
-            var next = Math.max(0, n + part[1]);
-            if (next) state.draft.buildings[building.key] = next;
-            else delete state.draft.buildings[building.key];
-            renderWtAssets();
-            updateReport();
-          });
-        }
-        stepper.appendChild(el);
-      });
-      row.appendChild(stepper);
-      counts.appendChild(row);
+      counts.appendChild(countRow(building.label, building.label, Number(d.buildings[building.key]) || 0,
+        function (next) {
+          if (next) state.draft.buildings[building.key] = next;
+          else delete state.draft.buildings[building.key];
+        }));
     });
   }
 
@@ -3019,7 +3051,7 @@
       }
 
       if (draft.kind === 'wtkp') {
-        record.assets = Object.assign({}, draft.assets);
+        record.assets = SA.wtAssetCounts(draft);    // counts per condition, the zeros left out
         record.buildings = Object.assign({}, draft.buildings);
       }
       // A finding keeps what was done and whether it is finished.
@@ -3569,7 +3601,8 @@
   /* BUILD and CACHE_VERSION in sw.js are a PAIR -- bump both on every upload.
      The marker prints both; when they differ, the new version has downloaded
      but the app has not been restarted. */
-  var BUILD = 'v37';
+  var BUILD = 'v39';
+  SA.BUILD = BUILD;                        // stamped on every export (SA.sheets.exported)
   var CACHE_PREFIX = 'superapp-laporan-';
 
   function showVersion() {

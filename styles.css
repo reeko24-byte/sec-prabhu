@@ -876,6 +876,16 @@ input:focus, select:focus, textarea:focus {
 
 /* WT asset tags and building counts: a name, then its chips or a stepper. */
 .asset-list { margin-bottom: 16px; }
+/* WT assets (v38): the asset, its total, then a counter per condition. */
+.asset-group { padding: 4px 0 6px; border-bottom: 1px solid var(--line-strong); }
+.asset-group:last-child { border-bottom: 0; }
+.asset-head {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+  padding: 8px 0 2px; font-weight: 700; font-size: 15px;
+}
+.asset-head small { font-weight: 500; font-size: 13px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.asset-group .asset-row { padding-left: 12px; }
+.asset-more { min-height: 44px; padding: 0 12px; margin-left: 2px; font-size: 14px; }
 .asset-row {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
   padding: 6px 0; border-bottom: 1px dashed var(--line); font-size: 14px;

@@ -96,8 +96,9 @@ SA.WT = {
   LDS_RADIUS: '500',
 
   /* What a line checker counts on the ROW (Pertagas's daily report, part B.II;
-     Billy 2026-10-01). Tagged on a KP report when the point has one; the
-     office tool adds them up for the day. All optional. */
+     Billy 2026-10-01). Counted on a KP report per condition -- a KP can have
+     two warning signs, one of them broken (v38, Billy 2026-10-19); the office
+     tool adds them up for the day. All optional. */
   assets: [
     { key: 'patok',      label: 'Patok ROW' },
     { key: 'warning',    label: 'Warning Sign' },
@@ -166,3 +167,22 @@ SA.keycap = function (n) {
 };
 
 window.SA = SA;
+
+/**
+ * A KP report's assets as counts: {patok: {Baik: 2, Rusak: 1}, ...}. Reports
+ * saved before v38 tagged one condition per asset ({patok: 'Baik'}): that is
+ * one of it.
+ */
+SA.wtAssetCounts = function (record) {
+  var out = {};
+  var tags = (record && record.assets) || {};
+  SA.WT.assets.forEach(function (a) {
+    var v = tags[a.key];
+    if (!v) return;
+    if (typeof v === 'string') { out[a.key] = {}; out[a.key][v] = 1; return; }
+    var c = {};
+    SA.WT.ASSET_STATES.forEach(function (st) { if (Number(v[st]) > 0) c[st] = Number(v[st]); });
+    if (Object.keys(c).length) out[a.key] = c;
+  });
+  return out;
+};

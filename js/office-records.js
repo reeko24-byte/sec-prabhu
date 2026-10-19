@@ -95,7 +95,7 @@
         ['Periode', period],
         ['Pos', posts.join(', ') || '-'],
         ['Jumlah', sheet.rows.length + ' laporan'],
-        ['Diexport', SA.dateOf(now) + ' ' + SA.timeOf(now).slice(0, 5)]
+        ['Diexport', SA.sheets.exported(now)]
       ];
       sheet.note = SA.sheets.PHOTO_NOTE;
       return [sheet];

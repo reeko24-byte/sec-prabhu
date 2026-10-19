@@ -6,7 +6,8 @@
  *   sessionId, teamNo, zone, routeId, officers [..], reporter
  *   date, time, timestamp
  *   wtkp: segment, kp ("25+666"), condition, other,
- *         assets {patok: 'Baik'|'Rusak'|'Hilang', ...}, buildings {rumah: 2, ...}
+ *         assets {patok: {Baik: 2, Rusak: 1}, ...}   counts per condition (v38;
+ *                before: {patok: 'Baik'} = one), buildings {rumah: 2, ...}
  *   close: closeTime, followUp, ref {..}      closing an Open finding
  *   findings (Lainnya, LDS found): followUp, status -- see findings.js
  *   lds:  ldsTime, ldsSegment, ldsKp, landmark, radius, result ('none'|'found'), finding
@@ -35,11 +36,13 @@
     return c.label === W.CONDITION_OTHER ? String(record.other || '').trim() : c.note;
   }
 
-  /** "Patok ROW Baik, Warning Sign Rusak" -- only the assets that were tagged. */
+  /** "Patok ROW 1 Baik; Warning Sign 2 Baik, 1 Rusak" -- only what was counted. */
   function assetText(record) {
-    var tags = record.assets || {};
-    return W.assets.filter(function (a) { return tags[a.key]; })
-      .map(function (a) { return a.label + ' ' + tags[a.key]; }).join(', ');
+    var counts = SA.wtAssetCounts(record);
+    return W.assets.filter(function (a) { return counts[a.key]; }).map(function (a) {
+      return a.label + ' ' + W.ASSET_STATES.filter(function (st) { return counts[a.key][st]; })
+        .map(function (st) { return counts[a.key][st] + ' ' + st; }).join(', ');
+    }).join('; ');
   }
 
   /** "Rumah 2, Kebun 1" -- only what was counted. */
@@ -228,9 +231,15 @@
         col('Note', 44, 'text', noteOf),
         col('Tindak Lanjut', 30, 'text', 'followUp'),
         col('Status', 10, 'center', SA.findings.status)
-      ].concat(W.assets.map(function (a) {
-        return col(a.label, 12, 'center', function (r) { return (r.assets || {})[a.key] || ''; });
-      })).concat(W.buildings.map(function (b) {
+      ].concat([].concat.apply([], W.assets.map(function (a) {
+        // One number per cell (Billy): "Warning Sign Baik", "... Rusak", "... Hilang".
+        return W.ASSET_STATES.map(function (st) {
+          return col(a.label + ' ' + st, 9, 'center', function (r) {
+            var c = SA.wtAssetCounts(r)[a.key];
+            return c && c[st] ? String(c[st]) : '';
+          });
+        });
+      }))).concat(W.buildings.map(function (b) {
         return col(b.label, 9, 'center', function (r) {
           var n = Number((r.buildings || {})[b.key]);
           return n > 0 ? String(n) : '';
@@ -270,7 +279,7 @@
           ['Periode', period],
           ['Tim', teams.join(', ') || '-'],
           ['Jumlah', sheet.rows.length + ' laporan'],
-          ['Diexport', SA.dateOf(now) + ' ' + SA.timeOf(now).slice(0, 5)]
+          ['Diexport', SA.sheets.exported(now)]
         ];
         sheet.note = SA.sheets.PHOTO_NOTE;
         return sheet;
