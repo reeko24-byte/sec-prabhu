@@ -98,12 +98,16 @@ SA.WT = {
   /* What a line checker counts on the ROW (Pertagas's daily report, part B.II;
      Billy 2026-10-01). Counted on a KP report per condition -- a KP can have
      two warning signs, one of them broken (v38, Billy 2026-10-19); the office
-     tool adds them up for the day. All optional. */
+     tool adds them up for the day. All optional. Each one counted Rusak or
+     Hilang needs a photo of its condition (Billy, 2026-10-22). `note`: said
+     on the form only. */
   assets: [
     { key: 'patok',      label: 'Patok ROW' },
     { key: 'warning',    label: 'Warning Sign' },
     { key: 'cathodic',   label: 'Cathodic' },
-    { key: 'centerLine', label: 'Center Line' }
+    // Was "Center Line" (Billy renamed it, 2026-10-22); the key is kept, so
+    // reports already on the phones count under the new name.
+    { key: 'centerLine', label: 'Aerial Marker', note: 'KP Sign Payung' }
   ],
   ASSET_STATES: ['Baik', 'Rusak', 'Hilang'],
   buildings: [

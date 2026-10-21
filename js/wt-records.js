@@ -47,6 +47,17 @@
     }).join('; ');
   }
 
+  /** "Warning Sign 1 Rusak; Patok ROW 1 Hilang" -- the photo of a broken or
+      missing asset says what it shows. */
+  function damageText(record) {
+    var counts = SA.wtAssetCounts(record);
+    return W.assets.map(function (a) {
+      var c = counts[a.key] || {};
+      var bad = ['Rusak', 'Hilang'].filter(function (st) { return c[st]; });
+      return bad.length ? a.label + ' ' + bad.map(function (st) { return c[st] + ' ' + st; }).join(', ') : '';
+    }).filter(Boolean).join('; ');
+  }
+
   /** "Rumah 2, Kebun 1" -- only what was counted. */
   function buildingText(record) {
     var counts = record.buildings || {};
@@ -215,6 +226,7 @@
         'Segment ' + SA.wtSegmentText(report.segment) + (seg ? ' · ' + SA.sizeText(seg.size) : ''),
         'KP ' + SA.kpPrint(report.kp),
         c && c.label === W.CONDITION_OTHER ? String(report.other || '').trim().slice(0, 96) : report.condition,
+        damageText(report) ? 'Aset rusak/hilang: ' + damageText(report) : '',
         crew
       ];
     },

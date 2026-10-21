@@ -4,7 +4,7 @@ One PWA for four teams: **Security Officer**, **Patrol**, **Walkthrough**, **Sec
 Works on Android (Chrome) and iPhone (Safari), offline, no backend. Each report
 goes to WhatsApp as photos + caption in one tap; the Excel is a separate export.
 
-**Status (v43, 2026-10-21)**
+**Status (v45, 2026-10-22)**
 
 | Team | State | Reports |
 |---|---|---|
@@ -27,12 +27,12 @@ Exif reader, .xlsx writer, share handling, version marker). The other apps in
 This folder is **not** a git repo. Upload the whole folder to GitHub Pages by
 hand. On **every** upload, bump both of these together — they are a pair:
 
-- `CACHE_VERSION` in `sw.js` (now `superapp-laporan-v43`)
-- `BUILD` in `js/app.js` (now `v43`)
+- `CACHE_VERSION` in `sw.js` (now `superapp-laporan-v45`)
+- `BUILD` in `js/app.js` (now `v45`)
 
 If files change and `sw.js` does not, phones that already have the app keep the
 old files forever. The line at the foot of each main screen prints
-`kode v43 · cache v43`; if the two differ, the new version downloaded but the app
+`kode v45 · cache v45`; if the two differ, the new version downloaded but the app
 has not been restarted. A changed home-screen icon usually only appears after the
 app is removed and added to the Home Screen again.
 
@@ -888,6 +888,8 @@ shift.
 | v25 | Security Perkantoran (SECWAN): visitor counter, end-of-shift report kept on the phone until Simpan |
 | v26 | Fixes from the fifth code review: kept drafts made general, offered on the next day, cheap to save; corrections survive later taps |
 | v27 | Patrol checkpoint list per patrol: guard tour picks a point (Aktif / Tidak Aktif), main screen and akhir shift name the points not checked — a notice, not a block |
+| v45 | WT condition photos per item, not per asset type (Billy): two broken warning signs and a missing patok = 3 + 3 photos; the hint names them ("Patok ROW 1, Warning Sign 2") |
+| v44 | Patrol 5: *CGS 001 - CGS 002 Jl. V HO* removed (9 points). WT: *Center Line* renamed **Aerial Marker** (the form says "(KP Sign Payung)"; same key, so reports already on phones carry over). Each asset counted Rusak or Hilang on a KP needs a photo of its condition: 3 + 1 per such asset, required; every photo's stamp gets "Aset rusak/hilang: Warning Sign 1 Rusak" |
 | v43 | Export file name says whose shift it is: `SECURITY_KBKP21_MALAM_DadangAhmad_<date>_<time>.xlsx` — underscores only between the parts (Billy): the post's short file name (`SA.FILE_POSTS`: MELUR, WHBUMBUNG, STBATANG, METERING, MANGGALABOOSTER, DSP, KBKP21, KBJ; SORA and SPO as they are), the shift(s), the officers' FIRST names run together (two shifts: `SORE-MALAM`; more than 4 names end in `Dll`). Same for SECWAN; Patrol stays `PATROL_3_…`. Patrol 5: guard tours under the old SBV 001 / SBV 002 names count for the merged point (`pointAliases`; the office tool reads it too) Walkthrough unchanged (no shift) |
 | v42 | Fixes from the v41 code review: a wrong KM awal can be redone from Akhir Shift; Tutup temuan tapped before the start opens after it; Ubah to another shift no longer carries the old KM awal; the closed-cases list works on iPhone; Mulai Shift left out of export counts; an incident without a team is Security's |
 | v41 | Tutup temuan moved into Laporan kejadian (Open cases + Kejadian baru); WT Laporan Kejadian; Patrol Mulai Shift with KM awal + speedometer photo (rides with Akhir Shift, KM awal locked, KM akhir required); Justifikasi required per unchecked point; Export waits for Laporan Shift / Akhir Shift of the shift on this phone; WAREHOUSE BUMBUNG; Patrol 5 SBV merge |

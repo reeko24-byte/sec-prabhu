@@ -2334,7 +2334,7 @@
       group.className = 'asset-group';
       var head = document.createElement('div');
       head.className = 'asset-head';
-      head.textContent = asset.label;
+      head.textContent = asset.label + (asset.note ? ' (' + asset.note + ')' : '');
       var sum = document.createElement('small');
       sum.textContent = total ? total + ' di titik ini' : 'tidak ada';
       head.appendChild(sum);
@@ -2553,7 +2553,7 @@
       }).length;
       if (unexplained) missing.push('justifikasi ' + unexplained + ' titik yang belum dicek');
     }
-    var rule = photoRule(draft.kind);
+    var rule = photoRule(draft);
     if (draft.kind !== 'access' && rule.required && state.photos.length < rule.required) {
       missing.push('foto (' + (rule.required - state.photos.length) + ' lagi)');
     }
@@ -2574,15 +2574,35 @@
    *   required  saving waits for at least this many (0 = never required)
    *   cap       the most the form accepts
    * Security's check, incident and shift are suggestions only; Access Control
-   * (3 named slots), a WT KP (exactly 3) and LDS (at least 4) are required.
+   * (3 named slots), a WT KP (exactly 3, plus one per asset Rusak or Hilang)
+   * and LDS (at least 4) are required.
    */
-  function photoRule(kind) {
+  function photoRule(draft) {
+    var kind = draft.kind;
     if (kind === 'access') return { min: 3, max: 3, required: 3, cap: 3 };
     if (kind === 'pstart') return { min: 1, max: 1, required: 1, cap: 2 };   // the speedometer
-    if (kind === 'wtkp') return { min: 3, max: 3, required: 3, cap: 3 };
+    if (kind === 'wtkp') {
+      var n = 3 + damagedCount(damagedAssets(draft));
+      return { min: n, max: n, required: n, cap: n };
+    }
     if (kind === 'lds') return { min: 5, max: 6, required: 4, cap: S.MAX_PHOTOS };
     var hint = S.photoHint[kind];
     return { min: hint.min, max: hint.max, required: 0, cap: S.MAX_PHOTOS };
+  }
+
+  /** WT: the assets counted Rusak or Hilang on this KP, [{label, n}] -- each
+      one of them needs a photo of its condition on top of the KP's three: two
+      broken warning signs, two photos (Billy, 2026-10-22). */
+  function damagedAssets(draft) {
+    var counts = SA.wtAssetCounts(draft);
+    return W.assets.map(function (a) {
+      var c = counts[a.key] || {};
+      return { label: a.label, n: (c.Rusak || 0) + (c.Hilang || 0) };
+    }).filter(function (d) { return d.n; });
+  }
+
+  function damagedCount(damaged) {
+    return damaged.reduce(function (sum, d) { return sum + d.n; }, 0);
   }
 
   /* Per team: how a report is captioned, named, stamped, sealed and exported. */
@@ -2767,13 +2787,16 @@
   function updateReport() {
     var draft = state.draft;
     if (!draft) return;
-    var rule = photoRule(draft.kind);
+    var rule = photoRule(draft);
     var taken = state.photos.length;
     var full = taken >= rule.cap;
     var missing = missingForPhoto();
+    var damaged = draft.kind === 'wtkp' ? damagedAssets(draft) : [];
 
     $('photos-label').textContent = 'Foto · ' + taken;
     $('photos-hint').textContent = !rule.required ? 'disarankan ' + rule.min + '–' + rule.max
+      : damaged.length ? 'wajib 3 + ' + damagedCount(damaged) + ' foto aset rusak/hilang (' +
+        damaged.map(function (d) { return d.label + ' ' + d.n; }).join(', ') + ')'
       : rule.required === rule.max ? 'wajib ' + rule.required
       : 'wajib min. ' + rule.required + ' · disarankan ' + rule.min + '–' + rule.max;
     $('take-photo').disabled = full || missing.length > 0;
@@ -2879,7 +2902,7 @@
       });
       return;
     }
-    var room = photoRule(state.draft.kind).cap - state.photos.length;
+    var room = photoRule(state.draft).cap - state.photos.length;
     if (room <= 0) return;
     var queue = files.slice(0, room);
     toast('Memproses foto…');
@@ -2949,7 +2972,7 @@
               releasePhotoUrls(state.photos.filter(function (p) { return p.slot === slot; }));
               state.photos = state.photos.filter(function (p) { return p.slot !== slot; });
               processed.slot = slot;
-            } else if (state.photos.length >= photoRule(draft.kind).cap) {
+            } else if (state.photos.length >= photoRule(draft).cap) {
               return;
             }
             processed.signature = signature;
@@ -3833,7 +3856,7 @@
   /* BUILD and CACHE_VERSION in sw.js are a PAIR -- bump both on every upload.
      The marker prints both; when they differ, the new version has downloaded
      but the app has not been restarted. */
-  var BUILD = 'v43';
+  var BUILD = 'v45';
   SA.BUILD = BUILD;                        // stamped on every export (SA.sheets.exported)
   var CACHE_PREFIX = 'superapp-laporan-';
 

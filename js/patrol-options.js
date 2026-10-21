@@ -99,7 +99,7 @@
         'Tie In TP 30 Jl. V HO Segment 6, 11A-11B',
         'Tie In CGS 5 HO Jl. V HO Segment 6, 11A-11B',
         'PL PR CGS 10 Jl. V HO Segment 6, 11A-11B',
-        'CGS 001 - CGS 002 Jl. V HO',
+        // CGS 001 - CGS 002 Jl. V HO is no longer checked (Billy, 2026-10-22).
         // One stop for both SBVs; the Simpang Bangko CGS point is no longer checked (Billy, 2026-10-20).
         'SBV 001/002 Segment 6 KP 11+850 Simpang Bangko',
         'Tie In TP 021 Simpang Pemburu Jl. Lintas Sumatra',
