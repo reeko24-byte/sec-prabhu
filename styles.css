@@ -697,6 +697,12 @@ input:focus, select:focus, textarea:focus {
 .summary div:last-child { border-bottom: 0; }
 .summary .ok { color: var(--leaf-ink); }
 .summary .missing { color: var(--amber-ink); font-weight: 600; }
+/* A point not checked: its justifikasi, right under it (v41). */
+.summary .reason {
+  display: block; width: 100%; margin: 6px 0 4px; min-height: 44px; padding: 8px 10px;
+  font: inherit; font-size: 15px; font-weight: 400; color: var(--ink);
+  background: var(--surface); border: 1px solid var(--amber-line); border-radius: var(--radius-sm);
+}
 /* A row that can be marked as the partner's: a full-width tap target. */
 .summary button.tap {
   display: flex; justify-content: space-between; align-items: center; gap: 8px;
@@ -818,6 +824,23 @@ input:focus, select:focus, textarea:focus {
 .card-body .meta { color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .card-actions { display: flex; flex-direction: column; align-items: flex-end; }
 .card-actions .danger-link { width: auto; padding: 8px; margin: 0; }
+.card-actions .strong { font-weight: 800; }
+/* Export: the handover report comes first (v41). */
+.gate {
+  margin: 12px 0; padding: 12px; border-radius: var(--radius-sm);
+  background: var(--amber-soft); color: var(--amber-ink); border: 1px solid var(--amber-line); font-size: 14px;
+}
+.gate.blocking { background: var(--red-soft); color: var(--red); border-color: var(--red); }
+.gate p { margin: 0; }
+.gate .secondary { margin-top: 10px; }
+/* Laporan Kejadian (v41): the new-case button, then the cases still Open. */
+.cases-eyebrow { margin-top: 20px; }
+.cases-closed { margin-top: 18px; }
+.cases-closed summary {
+  min-height: 44px; display: flex; align-items: center; cursor: pointer;
+  font-weight: 600; color: var(--ink-2);
+}
+.cases-closed .list { margin-top: 6px; }
 .empty { color: var(--ink-2); text-align: center; padding: 48px 0; }
 
 .badges { display: flex; gap: 6px; margin-top: 4px; flex-wrap: wrap; }

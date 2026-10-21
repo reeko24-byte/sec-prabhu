@@ -72,7 +72,8 @@ SA.SECURITY = {
   posts: [
     { name: 'SORA',                     zone: 'South Area', badge: 'assets/badges/sec-sora.png' },
     { name: 'SPO',                      zone: 'North Area', badge: 'assets/badges/sec-spo.png' },
-    { name: 'WAREHOUSE',                zone: 'North Area', badge: 'assets/badges/sec-warehouse.png' },
+    // Renamed (Billy, 2026-10-20); the badge still reads "Warehouse" until new artwork comes.
+    { name: 'WAREHOUSE BUMBUNG',        zone: 'North Area', badge: 'assets/badges/sec-warehouse.png' },
     { name: 'AREA MELUR',               zone: 'South Area', badge: 'assets/badges/sec-area-melur.png' },
     { name: 'ST BATANG',                zone: 'North Area', badge: 'assets/badges/sec-st-batang.png' },
     { name: 'DURI SHIPPING PUMP (DSP)', zone: 'South Area', badge: 'assets/badges/sec-dsp.png' },
@@ -87,7 +88,7 @@ SA.SECURITY = {
       'RIDUWAN EFFENDI', 'PUTRA LIONO', 'FARDOL SUKRI', 'MUHAMMAD KHAIROL'],
     'SPO': ['RIO DENI DEMONDO', 'YOSAFAT', 'TAUFIK IRSYAD', 'ADIT SURYA',
       'REZA FARHAN ALHAFIZ', 'ADIT NUGRAHA', 'M IQBAL', 'SAWIRMAN'],
-    'WAREHOUSE': ['YOGI PRAYUDA', 'HASRUL HARITONGAN', 'FAUZAN', 'RENDI',
+    'WAREHOUSE BUMBUNG': ['YOGI PRAYUDA', 'HASRUL HARITONGAN', 'FAUZAN', 'RENDI',
       'BAYU PRASMANA', 'IRAWAN', 'ROBY HIDAYAT', 'RIO PRASASDI'],
     'AREA MELUR': ['M. DZAKKY RIVANDI', 'GERI HIDAYAT', 'FADLY SURYA SAPUTRA',
       'MUHAMMAD RIKI', 'MAULANA WAHYUDI', 'YONDA RAFANA', 'RAFILINDO',
@@ -187,16 +188,36 @@ SA.OFFICE = {
   SITUATION: 'Laporan standby, situasi area sementara aman terkendali, temuan nihil.'
 };
 
+/* Patrol and Walkthrough -- both out on the pipeline -- share one list of
+   incidents (Billy, 2026-10-20); Security Officer has its own. A record
+   without a team is Security's, as everywhere else (saved before v11). */
+function onPipeline(team) { return (team || 'security') !== 'security' && !!SA.PATROL; }
+SA.incidentTypesOf = function (team) {
+  return onPipeline(team) ? SA.PATROL.gangguan : SA.SECURITY.incidentTypes;
+};
 /** The incident type whose details are typed: Security's "Other", Patrol's "Dll". */
 SA.otherTypeOf = function (team) {
-  return team === 'patrol' && SA.PATROL ? SA.PATROL.OTHER : SA.SECURITY.OTHER;
+  return onPipeline(team) ? SA.PATROL.OTHER : SA.SECURITY.OTHER;
 };
 
 /* Old post names still found on phones (a saved shift, older records). */
-SA.POST_ALIASES = { 'MENGGALA BOOSTER': 'MANGGALA BOOSTER' };
+SA.POST_ALIASES = { 'MENGGALA BOOSTER': 'MANGGALA BOOSTER', 'WAREHOUSE': 'WAREHOUSE BUMBUNG' };
 
 /** A post's current name: "MENGGALA BOOSTER" -> "MANGGALA BOOSTER". */
 SA.canonicalPost = function (name) { return SA.POST_ALIASES[name] || name; };
+
+/* The post in an export's FILE NAME only (Billy, 2026-10-21) -- the report
+   and the Excel keep the full name. A post not here is written as one word. */
+SA.FILE_POSTS = {
+  'AREA MELUR': 'MELUR',
+  'WAREHOUSE BUMBUNG': 'WHBUMBUNG',
+  'ST BATANG': 'STBATANG',
+  'DUMAI METERING': 'METERING',
+  'MANGGALA BOOSTER': 'MANGGALABOOSTER',
+  'DURI SHIPPING PUMP (DSP)': 'DSP',
+  'KOTA BATAK KP 21': 'KBKP21',
+  'KOTA BATAK JUNCTION': 'KBJ'
+};
 
 SA.postByName = function (name) {
   var current = SA.canonicalPost(name);

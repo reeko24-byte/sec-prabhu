@@ -4,13 +4,13 @@ One PWA for four teams: **Security Officer**, **Patrol**, **Walkthrough**, **Sec
 Works on Android (Chrome) and iPhone (Safari), offline, no backend. Each report
 goes to WhatsApp as photos + caption in one tap; the Excel is a separate export.
 
-**Status (v39, 2026-10-20)**
+**Status (v43, 2026-10-21)**
 
 | Team | State | Reports |
 |---|---|---|
 | Security Officer | **built** | Pengecekan (hourly), Laporan Kejadian, Access Control, Body Check, Laporan Shift |
-| Walkthrough | **built** | Laporan KP, Laporan LDS |
-| Patrol | **built** (checkpoint list per patrol, v27) | Guard tour, Laporan Kejadian, LDS, Akhir Shift |
+| Walkthrough | **built** | Laporan KP, Laporan LDS, Laporan Kejadian (v41) |
+| Patrol | **built** (checkpoint list per patrol, v27) | Mulai Shift (KM awal + photo, v41), Guard tour, Laporan Kejadian, LDS, Akhir Shift |
 | Security Perkantoran | **built** (v25) | Visitor counter all day, Laporan Harian at the end of the shift |
 | Office | **built** — `D:\Users\reeko\laporan-tools\rekap_harian.py` | Rekap harian per zona (South / North) from the exports |
 
@@ -27,12 +27,12 @@ Exif reader, .xlsx writer, share handling, version marker). The other apps in
 This folder is **not** a git repo. Upload the whole folder to GitHub Pages by
 hand. On **every** upload, bump both of these together — they are a pair:
 
-- `CACHE_VERSION` in `sw.js` (now `superapp-laporan-v39`)
-- `BUILD` in `js/app.js` (now `v39`)
+- `CACHE_VERSION` in `sw.js` (now `superapp-laporan-v43`)
+- `BUILD` in `js/app.js` (now `v43`)
 
 If files change and `sw.js` does not, phones that already have the app keep the
 old files forever. The line at the foot of each main screen prints
-`kode v39 · cache v39`; if the two differ, the new version downloaded but the app
+`kode v43 · cache v43`; if the two differ, the new version downloaded but the app
 has not been restarted. A changed home-screen icon usually only appears after the
 app is removed and added to the Home Screen again.
 
@@ -497,7 +497,7 @@ phones' Excel exports by **`rekap_harian.py`** in `D:\Users\reeko\laporan-tools`
 teams is in `laporan-tools\contoh\2026-10-02`). What the phones collect for it:
 
 - **Zones.** South Area: SORA, AREA MELUR, KOTA BATAK JUNCTION, KOTA BATAK KP
-  21, DSP. North Area: SPO, WAREHOUSE, ST BATANG, MANGGALA BOOSTER, DUMAI
+  21, DSP. North Area: SPO, WAREHOUSE BUMBUNG (was WAREHOUSE, v41), ST BATANG, MANGGALA BOOSTER, DUMAI
   METERING. WT groups already had theirs. The summary's header names the zone's
   two **ARCO** (Area Coordinators, office hours) instead of Pertagas's Komandan
   Regu and CMS: North — Dadang Kurnia, Deni Maulana; South — Dino Julivan, Yudi
@@ -507,8 +507,12 @@ teams is in `laporan-tools\contoh\2026-10-02`). What the phones collect for it:
   **Tindak lanjut** (required — an incident's is its Tindakan) and a **Status**,
   *Open* (default) or *Close*, both printed in the WhatsApp text (`Status :
   Open`). An LDS with nothing found counts as closed in the Excel.
-- **Tutup temuan.** In Riwayat an Open finding shows *TEMUAN OPEN* and a **Tutup
-  temuan** button. It opens a short report (Pukul, Tindak lanjut, photos 1–2
+- **Tutup temuan.** Since v41 it lives in **Laporan kejadian** (every team that
+  has findings, WT included): tapping it lists the cases still Open — an
+  incident, a body check find, a KP *Lainnya*, an LDS find, a guard-tour find —
+  each with **Tutup temuan**, above a **Kejadian baru** button; cases closed in
+  the last 7 days are folded below. Riwayat still shows the *TEMUAN OPEN* badge
+  but no longer the button. Tutup temuan It opens a short report (Pukul, Tindak lanjut, photos 1–2
   suggested) that sends **UPDATE TEMUAN \<POS / TIM WT N\>** — Temuan,
   Keterangan, Dilaporkan, Ditutup, Tindak lanjut, `Status : Close` — and marks
   the original closed (`closedAt`). The update is filed **where the finding
@@ -524,6 +528,38 @@ teams is in `laporan-tools\contoh\2026-10-02`). What the phones collect for it:
   Pabrik, Kebun, Kantor Pemerintah*. The text gets `Aset : …` and `Bangunan ROW
   : …` lines only when something was tagged, so an ordinary KP report keeps the
   approved five lines. The tool adds them up per day.
+
+## v41 changes (Billy, 2026-10-20)
+
+- **Laporan Kejadian on WT.** The same form as Patrol: Illegal Tapping,
+  Pencurian, Penyetopan, Demo, Perkelahian, Dll, then 5W1H and Tindakan. Text
+  `LAPORAN KEJADIAN TEAM WT n`; the WT Excel gets a **Kejadian** sheet (before
+  Update Temuan). WT's *Update Temuan* sheet is filled by Tutup temuan closing a
+  KP *Lainnya*, an LDS find or (now) a kejadian.
+- **Patrol starts with KM awal.** After *Mulai shift* the app opens **Mulai
+  Shift — KM Awal**: the speedometer reading (digits) and one speedometer photo,
+  both required. Until it is saved every other Patrol report redirects there.
+  It is not sent on its own: Laporan Akhir Shift opens with that photo already in
+  it and KM awal filled and locked; KM akhir is required. A shift started before
+  v41 counts as started. The setup screen's KM field is hidden. A wrong KM
+  awal (v42): Akhir Shift shows **KM awal salah? Ulangi foto KM awal** — a new
+  Mulai Shift (new KM, new photo) that returns to Akhir Shift; only until an
+  Akhir Shift is saved. Mulai Shift goes into no sheet: it is left out of the
+  export counts but marked exported with the rest, so clearing removes it.
+- **Justifikasi.** In Laporan Akhir Shift each point not checked has a
+  *Justifikasi* box, **required** — save says "Isi dulu: justifikasi N titik yang
+  belum dicek". The text prints `1. <point> — Justifikasi: <reason>`; the Excel
+  has a *Justifikasi Belum Dicek* column (`point: reason; …`).
+- **Export waits for the handover report.** Security (Laporan Shift) and Patrol
+  (Laporan Akhir Shift): while the shift running on **this phone** has reports
+  but no handover report, *Buat file Excel* is disabled with a button to fill it.
+  An earlier shift without one is only named (it can no longer get one). A shift
+  with only its Mulai Shift record has nothing to export, so it does not block.
+- **Names.** WAREHOUSE → **WAREHOUSE BUMBUNG** (a shift saved under the old name
+  carries on under the new one; old exports are renamed when read). The badge
+  still reads "Warehouse" until Billy sends new artwork. Patrol 5: *CGS 001 -
+  CGS 002 Jl. Simpang Bangko* removed, the two SBVs merged into *SBV 001/002
+  Segment 6 KP 11+850 Simpang Bangko* (10 points).
 
 ## Shared by every team
 
@@ -852,6 +888,10 @@ shift.
 | v25 | Security Perkantoran (SECWAN): visitor counter, end-of-shift report kept on the phone until Simpan |
 | v26 | Fixes from the fifth code review: kept drafts made general, offered on the next day, cheap to save; corrections survive later taps |
 | v27 | Patrol checkpoint list per patrol: guard tour picks a point (Aktif / Tidak Aktif), main screen and akhir shift name the points not checked — a notice, not a block |
+| v43 | Export file name says whose shift it is: `SECURITY_KBKP21_MALAM_DadangAhmad_<date>_<time>.xlsx` — underscores only between the parts (Billy): the post's short file name (`SA.FILE_POSTS`: MELUR, WHBUMBUNG, STBATANG, METERING, MANGGALABOOSTER, DSP, KBKP21, KBJ; SORA and SPO as they are), the shift(s), the officers' FIRST names run together (two shifts: `SORE-MALAM`; more than 4 names end in `Dll`). Same for SECWAN; Patrol stays `PATROL_3_…`. Patrol 5: guard tours under the old SBV 001 / SBV 002 names count for the merged point (`pointAliases`; the office tool reads it too) Walkthrough unchanged (no shift) |
+| v42 | Fixes from the v41 code review: a wrong KM awal can be redone from Akhir Shift; Tutup temuan tapped before the start opens after it; Ubah to another shift no longer carries the old KM awal; the closed-cases list works on iPhone; Mulai Shift left out of export counts; an incident without a team is Security's |
+| v41 | Tutup temuan moved into Laporan kejadian (Open cases + Kejadian baru); WT Laporan Kejadian; Patrol Mulai Shift with KM awal + speedometer photo (rides with Akhir Shift, KM awal locked, KM akhir required); Justifikasi required per unchecked point; Export waits for Laporan Shift / Akhir Shift of the shift on this phone; WAREHOUSE BUMBUNG; Patrol 5 SBV merge |
+| v40 | Walkthrough roster updated (Billy, 2026-10-20): every placeholder replaced with a name |
 | v39 | Every Excel export says which app made it ("Diexport : … · app v39"; the office tool warns when a file is newer than it knows). WT asset form shorter: Baik always, "+ Rusak / Hilang" opens the other two; focus stays on the counter tapped |
 | v38 | Walkthrough: assets **counted per condition** (Baik / Rusak / Hilang counters per asset; a KP can hold 2 warning signs, 1 broken); caption "Warning Sign 2 Baik, 1 Rusak"; Excel one number per cell ("Warning Sign Baik" …); reports before v38 read as one each |
 | v37 | Fixes from the seventh review: one share routine (send and Excel export share the "menu still open" guard), the report count follows every add/delete, version line readable (12 px, ink-2) |

@@ -233,10 +233,16 @@
       <svg width="28" height="28" aria-hidden="true"><use href="#i-steps"/></svg>
       <span><b>Laporan KP</b><small id="go-wtkp-sub"></small></span>
     </button>
-    <button id="go-lds" class="action danger wide-danger">
-      <svg width="24" height="24" aria-hidden="true"><use href="#i-alert"/></svg>
-      <span><b>Laporan LDS</b><small id="go-lds-sub"></small></span>
-    </button>
+    <div class="action-pair">
+      <button id="go-wt-incident" class="action danger">
+        <svg width="24" height="24" aria-hidden="true"><use href="#i-alert"/></svg>
+        <span><b>Laporan kejadian</b><small>Baru, atau tutup yang Open</small></span>
+      </button>
+      <button id="go-lds" class="action plain">
+        <svg width="24" height="24" aria-hidden="true"><use href="#i-alert"/></svg>
+        <span><b>Laporan LDS</b><small id="go-lds-sub"></small></span>
+      </button>
+    </div>
 
     <div id="wt-gps" class="gps-pill waiting">
       <span class="dot"></span>
@@ -289,10 +295,12 @@
         <input id="p-vehicle-own" type="text" autocomplete="off" placeholder="mis. TOYOTA HILUX BM 8035 QI">
       </label>
       <p class="hint">Terisi kendaraan patrol ini — ganti bila hari ini memakai kendaraan lain.</p>
-      <label class="field">
+      <!-- KM awal is entered with its speedometer photo right after Mulai shift (v41). -->
+      <label class="field hidden">
         <span>KM awal (speedometer)</span>
         <input id="p-km" type="text" inputmode="numeric" autocomplete="off" placeholder="mis. 125430">
       </label>
+      <p class="hint">Setelah Mulai shift: isi KM awal dan foto speedometer — shift baru berjalan setelah itu.</p>
     </div>
 
     <div class="section">
@@ -325,6 +333,11 @@
     </div>
     <p id="p-over" class="warn hidden"></p>
 
+    <!-- Shown until the shift's KM awal and speedometer photo are in (v41). -->
+    <button id="go-pstart" class="action main hidden">
+      <svg width="28" height="28" aria-hidden="true"><use href="#i-camera"/></svg>
+      <span><b>Mulai shift: foto KM awal</b><small>Isi KM awal dan foto speedometer dulu</small></span>
+    </button>
     <button id="go-patrol" class="action main">
       <svg width="28" height="28" aria-hidden="true"><use href="#i-route"/></svg>
       <span><b>Laporan guard tour</b><small id="go-patrol-sub"></small></span>
@@ -671,12 +684,23 @@
       </label>
     </div>
 
+    <!-- Patrol: the start of a shift -- KM awal and its speedometer photo (v41). -->
+    <div id="r-pstart" class="hidden">
+      <label class="field">
+        <span>KM awal (speedometer)</span>
+        <input id="r-pstart-km" type="text" inputmode="numeric" autocomplete="off" placeholder="mis. 125430">
+      </label>
+      <p class="hint">Foto speedometer wajib. Foto ini ikut terkirim bersama Laporan Akhir Shift — tidak dikirim sekarang.</p>
+    </div>
+
     <!-- Patrol: end of shift. -->
     <div id="r-pend" class="hidden">
       <label class="field">
         <span>KM awal</span>
         <input id="r-pend-km-start" type="text" inputmode="numeric" autocomplete="off">
       </label>
+      <!-- KM awal is locked to its speedometer photo; a typo is fixed by a new start (v41). -->
+      <button id="r-pend-redo-start" class="link hidden" type="button">KM awal salah? Ulangi foto KM awal</button>
       <label class="field">
         <span>KM akhir (speedometer)</span>
         <input id="r-pend-km-end" type="text" inputmode="numeric" autocomplete="off">
@@ -799,6 +823,26 @@
   </div>
 </section>
 
+<!-- Laporan Kejadian: a new case, or close one still Open (v41) -->
+<section id="screen-cases" class="screen">
+  <header class="bar">
+    <button id="cases-back" class="link">Kembali</button>
+    <span class="who">Laporan Kejadian</span>
+  </header>
+  <div class="pad">
+    <button id="cases-new" class="action danger wide-danger">
+      <svg width="24" height="24" aria-hidden="true"><use href="#i-alert"/></svg>
+      <span><b>Kejadian baru</b><small>Laporan 5W1H — kirim segera</small></span>
+    </button>
+    <p id="cases-open-title" class="eyebrow cases-eyebrow">Masih Open</p>
+    <div id="cases-open" class="list"></div>
+    <details id="cases-closed-wrap" class="cases-closed hidden">
+      <summary id="cases-closed-title"></summary>
+      <div id="cases-closed" class="list"></div>
+    </details>
+  </div>
+</section>
+
 <!-- ── 7. Excel export ────────────────────────────────────────────────── -->
 <section id="screen-export" class="screen">
   <header class="bar">
@@ -809,6 +853,11 @@
     <p id="export-summary" class="lead"></p>
     <p id="export-size" class="hint"></p>
     <p id="export-warn" class="warn hidden"></p>
+    <!-- Security and Patrol: the shift's handover report comes first (v41). -->
+    <div id="export-gate" class="gate hidden" role="alert">
+      <p id="export-gate-text"></p>
+      <button id="export-gate-go" class="secondary hidden" type="button"></button>
+    </div>
     <button id="export-include" class="link hidden"></button>
     <button id="export-build" class="primary">Buat file Excel</button>
     <div id="export-ready" class="hidden">

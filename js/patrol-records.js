@@ -2,7 +2,9 @@
  * and the Excel sheets (Billy, 2026-10-01).
  *
  * A Patrol record looks like:
- *   team 'patrol', kind 'patrol' | 'pend' | 'incident' | 'lds' | 'close'
+ *   team 'patrol', kind 'patrol' | 'pend' | 'pstart' | 'incident' | 'lds' | 'close'
+ *   pstart (v41): kmStart and the speedometer photo -- not sent; the shift's
+ *     Laporan Akhir Shift carries its photo
  *   sessionId, patrolId ('PATROL 5'), zone ('North Area'), segments ('SEG 6, 11B, 11A'),
  *   shift, shiftDate, officers [..], tni, vehicle, reporter, date, time, timestamp
  *   patrol (one guard-tour checkpoint):
@@ -13,7 +15,8 @@
  *     patrolResult ('none'|'found'), patrolFinding, followUp, status, fieldInterview
  *   pend (end of shift):
  *     kmStart, kmEnd,
- *     points [{name, rawan, time, facility}]   the list, time '' = not checked (v27)
+ *     points [{name, rawan, time, facility, reason}]   the list, time '' = not
+ *              checked (v27), reason = its justifikasi (v41, required)
  *     facilities {name: 'Aktif'|'Tidak Aktif'}  before v27 (placeholder list)
  *     tours [{time, area, check, facility}], findingList [{time, label, status}],
  *     nextOfficers [..], nextTni        the incoming crew (required)
@@ -81,14 +84,15 @@
     /**
      * The shift's checklist: every point on the patrol's list with the time
      * and condition of its latest guard tour, time '' when not checked. A
-     * tour counts by its `point`, or by a typed area that is the point's name.
+     * tour counts by its `point`, or by a typed area that is the point's name
+     * -- either one also under a former name (SA.PATROL.pointAliases).
      */
     points: function (patrolId, tours) {
       return SA.patrolPoints(patrolId).map(function (p) {
         var key = p.name.toLowerCase();
         var hit = null;
         (tours || []).forEach(function (r) {
-          if (r.kind !== 'patrol' || trim(r.point || r.area).toLowerCase() !== key) return;
+          if (r.kind !== 'patrol' || SA.patrolPointName(r.point || r.area).toLowerCase() !== key) return;
           if (!hit || String(r.timestamp || '') >= String(hit.timestamp || '')) hit = r;
         });
         return { name: p.name, rawan: p.rawan, time: hit ? String(hit.time || '').slice(0, 5) : '',
@@ -106,6 +110,11 @@
       }
       if (record.kind === 'incident') return SA.patrolRecords.incident(record);
       if (record.kind === 'pend') return SA.patrolRecords.end(record);
+      if (record.kind === 'pstart') {
+        return head('MULAI SHIFT PATROLI SECURITY PT PRABHU', record).concat(personnel(record))
+          .concat(['', 'B. KENDARAAN : ' + (trim(record.vehicle) || '-'), 'C. KM AWAL : ' + (trim(record.kmStart) || '-'),
+            '', P.CLOSING]).join('\n');
+      }
       return SA.patrolRecords.tour(record);
     },
 
@@ -182,7 +191,8 @@
           off.forEach(function (p, i) { lines.push('     ' + (i + 1) + '. ' + p.name); });
           lines.push('   - Belum dicek : ' + (left.length ? '' : P.NIHIL));
           left.forEach(function (p, i) {
-            lines.push('     ' + (i + 1) + '. ' + p.name + (p.rawan ? ' (titik rawan)' : ''));
+            lines.push('     ' + (i + 1) + '. ' + p.name + (p.rawan ? ' (titik rawan)' : '') +
+              (trim(p.reason) ? ' — Justifikasi: ' + trim(p.reason) : ''));
           });
         }
       } else {
@@ -245,6 +255,7 @@
     label: function (record) {
       if (record.kind === 'patrol') return 'Guard Tour · ' + (trim(record.area) || '-');
       if (record.kind === 'pend') return 'Akhir Shift ' + record.shift;
+      if (record.kind === 'pstart') return 'Mulai Shift ' + record.shift + ' · KM ' + (record.kmStart || '-');
       if (record.kind === 'incident') return 'Kejadian · ' + SA.secCaption.incidentName(record);
       if (record.kind === 'lds') return 'LDS · Seg ' + record.ldsSegment + ' KP ' + SA.kpPrint(record.ldsKp);
       if (record.kind === 'close') return 'Tutup Temuan · ' + ((record.ref || {}).label || '');
@@ -261,6 +272,10 @@
       if (report.kind === 'patrol') {
         return ['GUARD TOUR · ' + (trim(report.area).toUpperCase() || '-'), where,
           trim(report.check).slice(0, 96), crew];
+      }
+      if (report.kind === 'pstart') {
+        return ['MULAI SHIFT PATROLI · ' + (trim(report.vehicle) || ''), where,
+          'KM awal ' + (trim(report.kmStart) || '-'), crew];
       }
       if (report.kind === 'pend') {
         return ['AKHIR SHIFT PATROLI · ' + (trim(report.vehicle) || ''), where,
@@ -282,6 +297,7 @@
     sealFacts: function (report, timestamp, fix) {
       var detail = report.kind === 'patrol' ? trim(report.area) + ' ' + trim(report.check)
         : report.kind === 'pend' ? trim(report.kmStart) + '-' + trim(report.kmEnd)
+        : report.kind === 'pstart' ? 'start ' + trim(report.kmStart)
         : report.kind === 'incident' ? SA.secCaption.incidentName(report)
         : report.kind === 'lds' ? [report.ldsSegment, report.ldsKp, report.ldsTime, report.result].join(' ')
         : report.kind === 'close' ? report.closeTime + ' ' + ((report.ref || {}).label || '') : '';
@@ -337,6 +353,11 @@
           col('Titik Dicek', 11, 'center', count(checked)),
           col('Belum Dicek', 11, 'center', count(unchecked)),
           col('Daftar Belum Dicek', 44, 'text', names(unchecked)),
+          col('Justifikasi Belum Dicek', 50, 'text', function (r) {
+            return (r.points || []).filter(unchecked).map(function (p) {
+              return p.name + ': ' + (trim(p.reason) || '-');
+            }).join('; ');
+          }),
           col('Fasilitas Tidak Aktif', 30, 'text', names(off))
         ].concat(legacy.map(function (name) {
           return col(name, 12, 'center', function (r) { return (r.facilities || {})[name] || ''; });

@@ -100,9 +100,8 @@
         'Tie In CGS 5 HO Jl. V HO Segment 6, 11A-11B',
         'PL PR CGS 10 Jl. V HO Segment 6, 11A-11B',
         'CGS 001 - CGS 002 Jl. V HO',
-        'CGS 001 - CGS 002 Jl. Simpang Bangko',
-        'SBV 001 Segment 6 KP 11+850',
-        'SBV 002 Segment 6 KP 11+850',
+        // One stop for both SBVs; the Simpang Bangko CGS point is no longer checked (Billy, 2026-10-20).
+        'SBV 001/002 Segment 6 KP 11+850 Simpang Bangko',
         'Tie In TP 021 Simpang Pemburu Jl. Lintas Sumatra',
         'Batang HO',
         // One stop for the four KPs on Jl. Arjuna (Billy, 2026-10-08).
@@ -163,6 +162,13 @@
       ]
     },
 
+    /* Points renamed or merged: a guard tour sent under the old name counts
+       for the point now on the list (the office tool reads this too). */
+    pointAliases: {
+      'SBV 001 Segment 6 KP 11+850': 'SBV 001/002 Segment 6 KP 11+850 Simpang Bangko',
+      'SBV 002 Segment 6 KP 11+850': 'SBV 001/002 Segment 6 KP 11+850 Simpang Bangko'
+    },
+
     /* Each patrol's vehicle, in Patrol order (Billy, 2026-10-02). Picked by
        default for that patrol; another one, or a typed plate, when swapped. */
     vehicles: ['BM 8036 QI', 'BM 8034 QI', 'BM 8035 QI', 'BM 8033 QI',
@@ -197,6 +203,15 @@
     var found = null;
     SA.PATROL.units.forEach(function (u) { if (u.id === id) found = u; });
     return found;
+  };
+
+  /** A guard tour's point under its current name: "SBV 001 Segment 6 KP 11+850"
+      -> the merged SBV 001/002 point. Other names come back as given. */
+  SA.patrolPointName = function (name) {
+    var text = String(name || '').trim().toLowerCase();
+    var aliases = SA.PATROL.pointAliases;
+    var old = Object.keys(aliases).filter(function (k) { return k.toLowerCase() === text; })[0];
+    return old ? aliases[old] : String(name || '').trim();
   };
 
   /** A patrol's checkpoints as [{name, rawan}], in list order. */

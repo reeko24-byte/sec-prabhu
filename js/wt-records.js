@@ -2,7 +2,7 @@
  * binds, and the Excel sheets.
  *
  * A Walkthrough record looks like:
- *   team 'walkthrough', kind 'wtkp' | 'lds'
+ *   team 'walkthrough', kind 'wtkp' | 'lds' | 'incident' | 'close'
  *   sessionId, teamNo, zone, routeId, officers [..], reporter
  *   date, time, timestamp
  *   wtkp: segment, kp ("25+666"), condition, other,
@@ -11,6 +11,8 @@
  *   close: closeTime, followUp, ref {..}      closing an Open finding
  *   findings (Lainnya, LDS found): followUp, status -- see findings.js
  *   lds:  ldsTime, ldsSegment, ldsKp, landmark, radius, result ('none'|'found'), finding
+ *   incident (v41): incidentType (Patrol's list), otherText, answers {5W1H},
+ *         tindakan, status -- a finding, closed later with Tutup temuan
  *   photos [..]
  *
  * The LDS report is written for any team ("Tim WT 5" here, "Tim Patrol 3" when
@@ -132,6 +134,7 @@
 
     caption: function (record) {
       if (record.kind === 'lds') return SA.lds.caption(record, SA.wtRecords.teamLabel(record));
+      if (record.kind === 'incident') return SA.wtRecords.incident(record);
       if (record.kind === 'close') {
         return SA.findings.closeCaption(record,
           ['UPDATE TEMUAN ' + SA.wtRecords.teamLabel(record).toUpperCase(), ''],
@@ -162,7 +165,23 @@
         .join('\n');
     },
 
+    /** Laporan Kejadian (v41): 5W1H like Patrol's, under the WT team's heading. */
+    incident: function (record) {
+      var Q = SA.SECURITY.questions;
+      var line = SA.aligner(['Location', 'Kejadian', 'Tindakan', 'Status'].concat(Q.map(function (q) { return q.label; })));
+      var answers = record.answers || {};
+      var lines = ['LAPORAN KEJADIAN TEAM WT ' + record.teamNo]
+        .concat(ticks(record.officers))
+        .concat(['', line('Location', record.zone || '-'), line('Kejadian', SA.secCaption.incidentName(record)), '']);
+      Q.forEach(function (q) { lines = lines.concat(SA.secCaption.block(line, q.label, answers[q.key])); });
+      lines.push('');
+      lines = lines.concat(SA.secCaption.block(line, 'Tindakan', record.tindakan));
+      lines.push(line('Status', SA.findings.status(record)));
+      return lines.join('\n');
+    },
+
     label: function (record) {
+      if (record.kind === 'incident') return 'Kejadian · ' + SA.secCaption.incidentName(record);
       if (record.kind === 'lds') return 'LDS · Seg ' + record.ldsSegment + ' KP ' + SA.kpPrint(record.ldsKp);
       if (record.kind === 'close') return 'Tutup Temuan · ' + ((record.ref || {}).label || '');
       return 'KP ' + SA.kpPrint(record.kp) + ' · Seg ' + record.segment;
@@ -174,6 +193,10 @@
       if (report.kind === 'close') {
         return ['UPDATE TEMUAN · Tim WT ' + report.teamNo + ' · Pukul ' + (report.closeTime || '') + ' WIB',
           'Menutup: ' + ((report.ref || {}).label || ''), crew];
+      }
+      if (report.kind === 'incident') {
+        return ['LAPORAN KEJADIAN · Tim WT ' + report.teamNo + ' · ' + (report.zone || ''),
+          SA.secCaption.incidentName(report), crew];
       }
       if (report.kind === 'lds') {
         var landmark = String(report.landmark || '').trim();
@@ -201,6 +224,7 @@
       var where = report.kind === 'lds'
         ? [report.ldsSegment, report.ldsKp, report.ldsTime, report.result]
         : report.kind === 'close' ? [report.closeTime, (report.ref || {}).label || '', '', '']
+        : report.kind === 'incident' ? [SA.secCaption.incidentName(report), '', '', '']
         : [report.segment, report.kp, report.condition, ''];
       return ['WT2', timestamp, report.kind, 'T' + report.teamNo].concat(where).concat([
         (report.officers || []).join('+'),
@@ -271,8 +295,27 @@
         col('Waktu Simpan', 19, 'center', 'timestamp')
       ]), { label: SA.wtRecords.label, freeze: 3 });
 
-      var titles = { 'Laporan KP': 'LAPORAN KP', LDS: 'LAPORAN LDS', 'Update Temuan': 'UPDATE TEMUAN' };
-      return [kpSheet, ldsSheet, closeSheet].map(function (sheet) {
+      // Laporan Kejadian (v41), the same columns as Patrol's Kejadian sheet.
+      var incidentSheet = SA.sheets.build('Kejadian', records.filter(function (r) { return r.kind === 'incident'; }), [
+        col('Tanggal', 12, 'center', 'date'),
+        col('Waktu', 10, 'center', 'time'),
+        col('Tim', 7, 'center', 'teamNo'),
+        col('Location', 12, 'center', 'zone'),
+        col('Kejadian', 16, 'center', 'incidentType'),
+        col('Keterangan Dll', 22, 'text', 'otherText')
+      ].concat(SA.SECURITY.questions.map(function (q) {
+        return col(q.label, 24, 'text', function (r) { return (r.answers || {})[q.key] || ''; });
+      })).concat([
+        col('Tindakan', 30, 'text', 'tindakan'),
+        col('Status', 10, 'center', SA.findings.status),
+        col('Petugas', 34, 'text', names),
+        col('Pelapor', 20, 'text', 'reporter'),
+        col('Waktu Simpan', 19, 'center', 'timestamp')
+      ]), { label: SA.wtRecords.label, freeze: 3 });
+
+      var titles = { 'Laporan KP': 'LAPORAN KP', LDS: 'LAPORAN LDS', Kejadian: 'LAPORAN KEJADIAN',
+        'Update Temuan': 'UPDATE TEMUAN' };
+      return [kpSheet, ldsSheet, incidentSheet, closeSheet].map(function (sheet) {
         sheet.title = theme.title + ' — ' + titles[sheet.name];
         sheet.subtitle = 'PT Prabhu · ' + (teams.join(', ') || '-');
         sheet.meta = [
