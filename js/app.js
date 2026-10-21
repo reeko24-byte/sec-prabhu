@@ -3733,8 +3733,8 @@
      underscores only between the parts -- the post's short name, the shift,
      the officers' first names run together. The shifts and officers are those
      of the reports in the file, in the order sent; a file holding two shifts
-     says "SORE-MALAM". Walkthrough reports have no shift, so its files keep
-     their name. */
+     says "SORE-MALAM". Walkthrough has no shift, only the names:
+     WT_TIM8_ArdiansyahMuafaRama_<date>_<time> (Billy, 2026-10-22). */
   var NAMES_IN_FILENAME = 4;
 
   /** "KOTA BATAK KP 21" -> "KBKP21" (SA.FILE_POSTS), else the name as one word. */
@@ -3745,14 +3745,13 @@
 
   function shiftAndNames(records) {
     var shifts = SA.sheets.unique(records.map(function (r) { return r.shift; }));
-    if (!shifts.length) return '';
     var names = SA.sheets.unique([].concat.apply([], records.map(function (r) { return r.officers || []; })));
     var parts = names.slice(0, NAMES_IN_FILENAME).map(function (name) {
       var first = String(name).toLowerCase().split(/[^a-z0-9]+/).filter(Boolean)[0] || '';
       return first.charAt(0).toUpperCase() + first.slice(1);
     }).filter(Boolean);
     if (names.length > NAMES_IN_FILENAME) parts.push('Dll');
-    return '_' + shifts.join('-') + (parts.length ? '_' + parts.join('') : '');
+    return (shifts.length ? '_' + shifts.join('-') : '') + (parts.length ? '_' + parts.join('') : '');
   }
 
   function arrangeExportButtons() {
@@ -3856,7 +3855,7 @@
   /* BUILD and CACHE_VERSION in sw.js are a PAIR -- bump both on every upload.
      The marker prints both; when they differ, the new version has downloaded
      but the app has not been restarted. */
-  var BUILD = 'v45';
+  var BUILD = 'v46';
   SA.BUILD = BUILD;                        // stamped on every export (SA.sheets.exported)
   var CACHE_PREFIX = 'superapp-laporan-';
 
