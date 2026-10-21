@@ -4,7 +4,7 @@ One PWA for four teams: **Security Officer**, **Patrol**, **Walkthrough**, **Sec
 Works on Android (Chrome) and iPhone (Safari), offline, no backend. Each report
 goes to WhatsApp as photos + caption in one tap; the Excel is a separate export.
 
-**Status (v46, 2026-10-22)**
+**Status (v47, 2026-10-22)**
 
 | Team | State | Reports |
 |---|---|---|
@@ -27,12 +27,12 @@ Exif reader, .xlsx writer, share handling, version marker). The other apps in
 This folder is **not** a git repo. Upload the whole folder to GitHub Pages by
 hand. On **every** upload, bump both of these together — they are a pair:
 
-- `CACHE_VERSION` in `sw.js` (now `superapp-laporan-v46`)
-- `BUILD` in `js/app.js` (now `v46`)
+- `CACHE_VERSION` in `sw.js` (now `superapp-laporan-v47`)
+- `BUILD` in `js/app.js` (now `v47`)
 
 If files change and `sw.js` does not, phones that already have the app keep the
 old files forever. The line at the foot of each main screen prints
-`kode v46 · cache v46`; if the two differ, the new version downloaded but the app
+`kode v47 · cache v47`; if the two differ, the new version downloaded but the app
 has not been restarted. A changed home-screen icon usually only appears after the
 app is removed and added to the Home Screen again.
 
@@ -555,6 +555,10 @@ teams is in `laporan-tools\contoh\2026-10-02`). What the phones collect for it:
   but no handover report, *Buat file Excel* is disabled with a button to fill it.
   An earlier shift without one is only named (it can no longer get one). A shift
   with only its Mulai Shift record has nothing to export, so it does not block.
+  **Export shift sebelumnya saja** (v47, Billy 2026-10-22): while the running
+  shift blocks, this button exports only the earlier shifts' reports (a crew
+  that forgot to export) -- the running shift's stay unexported for its own
+  export after its handover report. *Sertakan juga laporan shift ini* goes back.
 - **Names.** WAREHOUSE → **WAREHOUSE BUMBUNG** (a shift saved under the old name
   carries on under the new one; old exports are renamed when read). The badge
   still reads "Warehouse" until Billy sends new artwork. Patrol 5: *CGS 001 -
@@ -888,6 +892,7 @@ shift.
 | v25 | Security Perkantoran (SECWAN): visitor counter, end-of-shift report kept on the phone until Simpan |
 | v26 | Fixes from the fifth code review: kept drafts made general, offered on the next day, cheap to save; corrections survive later taps |
 | v27 | Patrol checkpoint list per patrol: guard tour picks a point (Aktif / Tidak Aktif), main screen and akhir shift name the points not checked — a notice, not a block |
+| v47 | Export: **Export shift sebelumnya saja** while the running shift has no handover report yet -- a missed export of the previous crew can go out at once, without waiting for this shift's end |
 | v46 | Walkthrough export file name carries the crew's first names too, without a shift: `WT_TIM9_AriDennyMuhammad_<date>_<time>.xlsx` (Billy) |
 | v45 | WT condition photos per item, not per asset type (Billy): two broken warning signs and a missing patok = 3 + 3 photos; the hint names them ("Patok ROW 1, Warning Sign 2") |
 | v44 | Patrol 5: *CGS 001 - CGS 002 Jl. V HO* removed (9 points). WT: *Center Line* renamed **Aerial Marker** (the form says "(KP Sign Payung)"; same key, so reports already on phones carry over). Each asset counted Rusak or Hilang on a KP needs a photo of its condition: 3 + 1 per such asset, required; every photo's stamp gets "Aset rusak/hilang: Warning Sign 1 Rusak" |

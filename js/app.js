@@ -39,7 +39,8 @@
     sending: null,
     built: null,
     chosen: [],
-    includeExported: false
+    includeExported: false,
+    olderOnly: false        // Export: only the shifts before the one running on this phone
   };
 
   /* Every team's current session lives in state.sessions[team]. These two
@@ -3575,6 +3576,7 @@
   function openExport() {
     state.built = null;
     state.includeExported = false;
+    state.olderOnly = false;
     $('export-ready').classList.add('hidden');
     $('export-build').classList.remove('hidden');
     $('export-status').textContent = '';
@@ -3590,14 +3592,19 @@
       var mine = all.filter(function (r) { return (r.team || 'security') === team; });
       var fresh = mine.filter(function (r) { return !r.exportedAt; });
       var doneCount = mine.length - fresh.length;
-      state.chosen = state.includeExported ? mine : fresh;
+      var session = currentSession();
+      var pool = state.includeExported ? mine : fresh;
+      var earlier = pool.filter(function (r) { return !session || r.sessionId !== session.id; });
+      state.chosen = state.olderOnly ? earlier : pool;
       var chosen = state.chosen.filter(inExcel);   // what the sheets will hold
 
       var counts = {};
       chosen.forEach(function (r) { counts[r.kind] = (counts[r.kind] || 0) + 1; });
       $('export-summary').textContent = chosen.length === 0
         ? (doneCount ? 'Semua laporan sudah diexport.' : 'Belum ada laporan untuk diexport.')
-        : moduleOf(team).summary(counts, chosen.length);
+        : moduleOf(team).summary(counts, chosen.length) +
+          (state.olderOnly ? ' Laporan shift ini tidak ikut — diexport nanti, setelah ' +
+            HANDOVER[team][1] + '.' : '');
 
       var include = $('export-include');
       include.classList.toggle('hidden', doneCount === 0);
@@ -3625,8 +3632,21 @@
       $('export-gate-go').classList.toggle('hidden', !gate.block);
       $('export-gate-go').textContent = gate.block ? 'Isi ' + gate.name + ' sekarang' : '';
       $('export-build').disabled = chosen.length === 0 || gate.block;
+
+      // The shift running blocks, but an earlier one (a crew that forgot to
+      // export) can go now without it (Billy, 2026-10-22).
+      var older = earlier.filter(inExcel).length;
+      var offer = state.olderOnly || (gate.block && older > 0);
+      $('export-older').className = (state.olderOnly ? 'link' : 'secondary') + (offer ? '' : ' hidden');
+      $('export-older').textContent = state.olderOnly ? 'Sertakan juga laporan shift ini'
+        : 'Export shift sebelumnya saja (' + older + ' laporan)';
     });
   }
+
+  $('export-older').addEventListener('click', function () {
+    state.olderOnly = !state.olderOnly;
+    renderExport();
+  });
 
   /* Security and Patrol export only after the shift's handover report --
      Laporan Shift / Laporan Akhir Shift -- is saved ON THIS PHONE (Billy,
@@ -3855,7 +3875,7 @@
   /* BUILD and CACHE_VERSION in sw.js are a PAIR -- bump both on every upload.
      The marker prints both; when they differ, the new version has downloaded
      but the app has not been restarted. */
-  var BUILD = 'v46';
+  var BUILD = 'v47';
   SA.BUILD = BUILD;                        // stamped on every export (SA.sheets.exported)
   var CACHE_PREFIX = 'superapp-laporan-';
 
