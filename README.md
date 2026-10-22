@@ -4,7 +4,7 @@ One PWA for four teams: **Security Officer**, **Patrol**, **Walkthrough**, **Sec
 Works on Android (Chrome) and iPhone (Safari), offline, no backend. Each report
 goes to WhatsApp as photos + caption in one tap; the Excel is a separate export.
 
-**Status (v51, 2026-10-22)**
+**Status (v54, 2026-10-23)**
 
 | Team | State | Reports |
 |---|---|---|
@@ -27,12 +27,12 @@ Exif reader, .xlsx writer, share handling, version marker). The other apps in
 This folder is **not** a git repo. Upload the whole folder to GitHub Pages by
 hand. On **every** upload, bump both of these together — they are a pair:
 
-- `CACHE_VERSION` in `sw.js` (now `superapp-laporan-v51`)
-- `BUILD` in `js/app.js` (now `v51`)
+- `CACHE_VERSION` in `sw.js` (now `superapp-laporan-v54`)
+- `BUILD` in `js/app.js` (now `v54`)
 
 If files change and `sw.js` does not, phones that already have the app keep the
 old files forever. The line at the foot of each main screen prints
-`kode v51 · cache v51`; if the two differ, the new version downloaded but the app
+`kode v54 · cache v54`; if the two differ, the new version downloaded but the app
 has not been restarted. A changed home-screen icon usually only appears after the
 app is removed and added to the Home Screen again.
 
@@ -892,6 +892,9 @@ shift.
 | v25 | Security Perkantoran (SECWAN): visitor counter, end-of-shift report kept on the phone until Simpan |
 | v26 | Fixes from the fifth code review: kept drafts made general, offered on the next day, cheap to save; corrections survive later taps |
 | v27 | Patrol checkpoint list per patrol: guard tour picks a point (Aktif / Tidak Aktif), main screen and akhir shift name the points not checked — a notice, not a block |
+| v54 | Every caption's colons line up in WhatsApp: `SA.aligner` pads labels to the same WIDTH in Roboto (WhatsApp's Android font; measured character widths + letter-pair kerning in `options.js`), not the same number of letters. Measured: all 32 label groups within 3.1 px (were up to 28.6 px, about 7 spaces). WT KP uses the same aligner (wide gap kept). Patrol Mulai Shift: blank line between sections B and C |
+| v53 | WT caption: no blank line before the Bangunan ROW separator either |
+| v52 | WT caption: each list straight under its heading (no blank line after *Asset:* or *Bangunan ROW*) |
 | v51 | WT caption uses short asset names (Billy): Boundary, WS Kecil, WS Besar, Cathodic, Sign Obvitnas, KP Sign, Aerial Marker -- the form, photo stamp and Excel keep the full names |
 | v50 | WT Laporan KP caption in Billy's new format: LAPORAN TEAM WT n, 👷‍♂️ crew, Zone / Segmen / Size pipa / Kp (colons lined up by measured spaces for Roboto), Note sentence "Izin lapor pak, Team WT n melakukan penyisiran di segment s KP k." + Aman sentence or the finding with Tindak Lanjut and Status Temuan, numbered Asset and Bangunan ROW lists (counted only; left out when none). Aman gets an optional **Catatan tambahan** for routine work the group should see (not a finding); Excel column *Catatan Tambahan* |
 | v49 | WT form hints (form only, names unchanged): Obvitnas Sign (Merah), KP Sign (Rambu No KP) |

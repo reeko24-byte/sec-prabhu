@@ -339,13 +339,58 @@ SA.fileSafe = function (name) {
   return String(name).trim().replace(/[^A-Za-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'Laporan';
 };
 
-/** Pads each label to the longest in its group, so the colons line up. */
-SA.aligner = function (labels) {
-  var width = labels.reduce(function (w, label) { return Math.max(w, label.length); }, 0);
+/* How wide WhatsApp draws each character (Roboto, its font on Android, at 100
+   px; measured 2026-10-23): the letters are not equally wide, so padding a
+   label to the same NUMBER of letters left every caption's colons uneven by up
+   to seven spaces (Billy). Printable ASCII from the space on, then the letter
+   pairs Roboto draws closer ("AT" in PATROL and TANGGAL). An iPhone's font is
+   close, not the same: there the colons land within about a space. */
+var CHAR_WIDTHS = [24.8, 25.8, 32, 61.6, 56.2, 73.2, 62.2, 17.5, 34.2, 34.8, 43.1, 56.7, 19.7, 27.6, 26.4, 41.3,
+  56.2, 56.2, 56.2, 56.2, 56.2, 56.2, 56.2, 56.2, 56.2, 56.2, 24.2, 21.1, 50.8, 54.9, 52.3, 47.3, 89.8, 65.2,
+  62.3, 65.1, 65.6, 56.8, 55.3, 68.1, 71.3, 27.2, 55.2, 62.7, 53.9, 87.3, 71.3, 68.8, 63.1, 68.8, 61.6, 59.4,
+  59.7, 64.8, 63.7, 88.7, 62.7, 60.1, 59.9, 26.5, 41.1, 26.5, 41.8, 45.1, 30.9, 54.4, 56.2, 52.3, 56.4, 53,
+  34.8, 56.2, 55.1, 24.3, 23.9, 50.7, 24.3, 87.7, 55.2, 57, 56.2, 56.8, 33.9, 51.6, 32.7, 55.1, 48.4, 75.1,
+  49.6, 47.3, 49.6, 33.8, 24.4, 33.8, 68];
+var PAIR_KERNING = {};
+('AT-6 AV-4 AW-3 AY-5 Av-2 Aw-2 Ay-2 BY-3 DY-2 D.-5 FA-8 FJ-13 Fa-2 F.-11 KC-2 KG-2 KO-2 KQ-2 Kv-2 Kw-3 Ky-2 ' +
+  'LC-3 LG-3 LO-3 LQ-3 LT-13 LU-3 LV-9 LW-7 LY-12 Lu-2 Lv-6 Lw-4 Ly-6 OY-2 O.-5 PA-7 PJ-10 PX-2 P.-16 QT-2 QY-2 ' +
+  'RT-4 RY-2 TA-4 TJ-12 Ta-6 Tc-5 Td-5 Te-5 Tg-5 Tm-5 Tn-5 To-5 Tp-5 Tq-5 Tr-4 Ts-6 Tu-5 Tv-4 Tw-3 Tx-4 Ty-4 ' +
+  'Tz-3 T.-11 VA-4 Va-2 Vc-2 Vd-2 Ve-2 Vg-2 Vo-2 Vq-2 V.-11 WA-2 Wa-2 Wc-2 Wd-2 We-2 Wg-2 Wo-2 Wq-2 W.-6 Xv-2 ' +
+  'Xy-2 YA-5 YJ-5 YU-5 Ya-4 Yc-3 Yd-3 Ye-3 Yg-3 Ym-2 Yn-2 Yo-3 Yp-2 Yq-3 Yr-2 Ys-3 Yu-2 Y.-10 fi-4 fl-2 ra-2 ' +
+  'rt2 r.-6 v.-5 w.-6 y.-5 //-11').split(' ').forEach(function (p) { PAIR_KERNING[p.slice(0, 2)] = Number(p.slice(2)); });
+
+/** How wide `text` shows in WhatsApp, in Roboto units (100 px type). */
+SA.textWidth = function (text) {
+  var width = 0;
+  for (var i = 0; i < text.length; i++) {
+    var code = text.charCodeAt(i);
+    width += code >= 32 && code < 127 ? CHAR_WIDTHS[code - 32] : CHAR_WIDTHS[78];   // other: as wide as "n"
+    if (i) width += PAIR_KERNING[text.slice(i - 1, i + 1)] || 0;
+  }
+  return width;
+};
+
+/**
+ * Pads each label with spaces to the same WIDTH, so the colons line up in
+ * WhatsApp ("Hari/Tgl  :" and "Shift      :"): the end is put where the spaces
+ * leave the labels closest together, within half a space. `extra`: spaces
+ * after the widest label (WT's KP report keeps a wide gap).
+ */
+SA.aligner = function (labels, extra) {
+  var space = CHAR_WIDTHS[0];
+  var widths = labels.map(SA.textWidth);
+  var widest = Math.max.apply(null, widths) + (extra || 0) * space;
+  var best = null;
+  for (var step = 0; step < 8; step++) {          // try the end at eighths of a space
+    var end = widest + step * space / 8;
+    var spaces = widths.map(function (w) { return Math.round((end - w) / space); });
+    var at = widths.map(function (w, i) { return w + spaces[i] * space; });
+    var spread = Math.max.apply(null, at) - Math.min.apply(null, at);
+    if (!best || spread < best.spread) best = { spread: spread, end: end };
+  }
   function padded(label) {
-    var out = label;
-    while (out.length < width) out += ' ';
-    return out;
+    var n = Math.max(0, Math.round((best.end - SA.textWidth(label)) / space));
+    return label + new Array(n + 1).join(' ');
   }
   var line = function (label, value) {
     return padded(label) + ' : ' + (value == null || value === '' ? '-' : value);

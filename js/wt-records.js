@@ -67,14 +67,9 @@
       .map(function (b, i) { return (i + 1) + '. ' + b.label + ' : ' + counts[b.key]; });
   }
 
-  /* The KP report's field lines. WhatsApp's letters are not equally wide, so
-     the spaces after each label were measured, not counted: in Roboto (Android)
-     the colons line up within 2 px; an iPhone's font is within a space
-     (Billy, 2026-10-22). */
-  var KP_FIELD_SPACES = { 'Zone': 12, 'Segmen': 6, 'Size pipa': 5, 'Kp': 16 };
-  function kpField(label, value) {
-    return label + new Array(KP_FIELD_SPACES[label] + 1).join(' ') + ': ' + value;
-  }
+  /* The KP report's field lines, lined up by width like every caption
+     (SA.aligner), with the wide gap of Billy's template (2026-10-22). */
+  var kpField = SA.aligner(['Zone', 'Segmen', 'Size pipa', 'Kp'], 4);
   var RULE = '___________';
 
   function zoneOfSegment(id, fallback) {
@@ -193,9 +188,10 @@
         if (String(record.extraNote || '').trim()) lines.push('', extra.charAt(0).toUpperCase() + extra.slice(1));
       }
       var assets = assetLines(record);
-      if (assets.length) lines = lines.concat([RULE, 'Asset:', '']).concat(assets).concat(['']);
+      // Each list straight under its heading (Billy, 2026-10-23)
+      if (assets.length) lines = lines.concat([RULE, 'Asset:']).concat(assets);
       var buildings = buildingLines(record);
-      if (buildings.length) lines = lines.concat([RULE, 'Bangunan ROW', '']).concat(buildings);
+      if (buildings.length) lines = lines.concat([RULE, 'Bangunan ROW']).concat(buildings);
       return lines.join('\n').replace(/\n+$/, '');
     },
 

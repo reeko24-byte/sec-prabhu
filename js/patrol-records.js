@@ -112,7 +112,8 @@
       if (record.kind === 'pend') return SA.patrolRecords.end(record);
       if (record.kind === 'pstart') {
         return head('MULAI SHIFT PATROLI SECURITY PT PRABHU', record).concat(personnel(record))
-          .concat(['', 'B. KENDARAAN : ' + (trim(record.vehicle) || '-'), 'C. KM AWAL : ' + (trim(record.kmStart) || '-'),
+          // A blank line between sections, as in the guard tour's report
+          .concat(['', 'B. KENDARAAN : ' + (trim(record.vehicle) || '-'), '', 'C. KM AWAL : ' + (trim(record.kmStart) || '-'),
             '', P.CLOSING]).join('\n');
       }
       return SA.patrolRecords.tour(record);
