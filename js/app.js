@@ -1648,6 +1648,7 @@
       kp: '',
       condition: W.conditions[0].label,
       other: '',
+      extraNote: '',          // Aman, with a line for the group (v50)
       ldsTime: hhmm(now),
       ldsSegment: route.segments[0],
       ldsKp: '',
@@ -1711,6 +1712,7 @@
     fillSegmentSelect($('r-wt-seg'), d.routeId, d.segment);
     $('r-wt-kp').value = d.kp;
     $('r-wt-other').value = '';
+    $('r-wt-extra').value = '';
     renderChoice($('r-wt-cond'), W.conditions.map(function (c) {
       return { value: c.label, text: c.label === W.CONDITION_OTHER ? 'Lainnya — tulis sendiri' : c.label };
     }), d.condition, function (value) {
@@ -1727,6 +1729,8 @@
     var d = state.draft;
     var other = d.condition === W.CONDITION_OTHER;
     $('r-wt-other-field').classList.toggle('hidden', !other);
+    // Aman can still carry a line for the group: routine work, not a finding (Billy, 2026-10-22).
+    $('r-wt-extra-field').classList.toggle('hidden', other);
     var c = W.conditions.filter(function (x) { return x.label === d.condition; })[0];
     $('r-wt-note').textContent = other ? '' : (c ? c.note : '');
   }
@@ -1775,6 +1779,7 @@
     });
   }
   wireText('r-wt-other', 'other');
+  wireText('r-wt-extra', 'extraNote');
   wireText('r-lds-landmark', 'landmark');
   wireText('r-lds-finding', 'finding');
   // The radius: digits only, and never silently replaced by the default.
@@ -3087,6 +3092,7 @@
         record.kp = draft.kp;
         record.condition = draft.condition;
         record.other = draft.condition === SA.WT.CONDITION_OTHER ? String(draft.other).trim() : '';
+        record.extraNote = draft.condition === SA.WT.CONDITION_OTHER ? '' : String(draft.extraNote).trim();
       } else if (draft.kind === 'lds') {
         record.ldsTime = draft.ldsTime;
         record.ldsSegment = draft.ldsSegment;
@@ -3875,7 +3881,7 @@
   /* BUILD and CACHE_VERSION in sw.js are a PAIR -- bump both on every upload.
      The marker prints both; when they differ, the new version has downloaded
      but the app has not been restarted. */
-  var BUILD = 'v47';
+  var BUILD = 'v51';
   SA.BUILD = BUILD;                        // stamped on every export (SA.sheets.exported)
   var CACHE_PREFIX = 'superapp-laporan-';
 

@@ -4,7 +4,7 @@ One PWA for four teams: **Security Officer**, **Patrol**, **Walkthrough**, **Sec
 Works on Android (Chrome) and iPhone (Safari), offline, no backend. Each report
 goes to WhatsApp as photos + caption in one tap; the Excel is a separate export.
 
-**Status (v47, 2026-10-22)**
+**Status (v51, 2026-10-22)**
 
 | Team | State | Reports |
 |---|---|---|
@@ -27,12 +27,12 @@ Exif reader, .xlsx writer, share handling, version marker). The other apps in
 This folder is **not** a git repo. Upload the whole folder to GitHub Pages by
 hand. On **every** upload, bump both of these together — they are a pair:
 
-- `CACHE_VERSION` in `sw.js` (now `superapp-laporan-v47`)
-- `BUILD` in `js/app.js` (now `v47`)
+- `CACHE_VERSION` in `sw.js` (now `superapp-laporan-v51`)
+- `BUILD` in `js/app.js` (now `v51`)
 
 If files change and `sw.js` does not, phones that already have the app keep the
 old files forever. The line at the foot of each main screen prints
-`kode v47 · cache v47`; if the two differ, the new version downloaded but the app
+`kode v51 · cache v51`; if the two differ, the new version downloaded but the app
 has not been restarted. A changed home-screen icon usually only appears after the
 app is removed and added to the Home Screen again.
 
@@ -892,6 +892,10 @@ shift.
 | v25 | Security Perkantoran (SECWAN): visitor counter, end-of-shift report kept on the phone until Simpan |
 | v26 | Fixes from the fifth code review: kept drafts made general, offered on the next day, cheap to save; corrections survive later taps |
 | v27 | Patrol checkpoint list per patrol: guard tour picks a point (Aktif / Tidak Aktif), main screen and akhir shift name the points not checked — a notice, not a block |
+| v51 | WT caption uses short asset names (Billy): Boundary, WS Kecil, WS Besar, Cathodic, Sign Obvitnas, KP Sign, Aerial Marker -- the form, photo stamp and Excel keep the full names |
+| v50 | WT Laporan KP caption in Billy's new format: LAPORAN TEAM WT n, 👷‍♂️ crew, Zone / Segmen / Size pipa / Kp (colons lined up by measured spaces for Roboto), Note sentence "Izin lapor pak, Team WT n melakukan penyisiran di segment s KP k." + Aman sentence or the finding with Tindak Lanjut and Status Temuan, numbered Asset and Bangunan ROW lists (counted only; left out when none). Aman gets an optional **Catatan tambahan** for routine work the group should see (not a finding); Excel column *Catatan Tambahan* |
+| v49 | WT form hints (form only, names unchanged): Obvitnas Sign (Merah), KP Sign (Rambu No KP) |
+| v48 | WT assets = ARROW's asset types without the fixed facilities (SBV, Launcher, Receiver, Tie-In, Pump Booster): Boundary KP (was Patok ROW), Warning Sign Kecil (was Warning Sign), Warning Sign Besar, Cathodic, Obvitnas Sign, KP Sign, Aerial Marker (KP Sign Payung). Renamed types keep their keys, so reports already on phones count under the new names |
 | v47 | Export: **Export shift sebelumnya saja** while the running shift has no handover report yet -- a missed export of the previous crew can go out at once, without waiting for this shift's end |
 | v46 | Walkthrough export file name carries the crew's first names too, without a shift: `WT_TIM9_AriDennyMuhammad_<date>_<time>.xlsx` (Billy) |
 | v45 | WT condition photos per item, not per asset type (Billy): two broken warning signs and a missing patok = 3 + 3 photos; the hint names them ("Patok ROW 1, Warning Sign 2") |

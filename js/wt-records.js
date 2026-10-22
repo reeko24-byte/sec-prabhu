@@ -5,7 +5,7 @@
  *   team 'walkthrough', kind 'wtkp' | 'lds' | 'incident' | 'close'
  *   sessionId, teamNo, zone, routeId, officers [..], reporter
  *   date, time, timestamp
- *   wtkp: segment, kp ("25+666"), condition, other,
+ *   wtkp: segment, kp ("25+666"), condition, other, extraNote (v50: Aman, a line for the group),
  *         assets {patok: {Baik: 2, Rusak: 1}, ...}   counts per condition (v38;
  *                before: {patok: 'Baik'} = one), buildings {rumah: 2, ...}
  *   close: closeTime, followUp, ref {..}      closing an Open finding
@@ -38,16 +38,18 @@
     return c.label === W.CONDITION_OTHER ? String(record.other || '').trim() : c.note;
   }
 
-  /** "Patok ROW 1 Baik; Warning Sign 2 Baik, 1 Rusak" -- only what was counted. */
-  function assetText(record) {
+  /** ["1. Boundary : 2 Baik, 0 Rusak, 1 Hilang", ...] -- only the assets counted,
+      by their short caption names (Billy, 2026-10-22). */
+  function assetLines(record) {
     var counts = SA.wtAssetCounts(record);
-    return W.assets.filter(function (a) { return counts[a.key]; }).map(function (a) {
-      return a.label + ' ' + W.ASSET_STATES.filter(function (st) { return counts[a.key][st]; })
-        .map(function (st) { return counts[a.key][st] + ' ' + st; }).join(', ');
-    }).join('; ');
+    return W.assets.filter(function (a) { return counts[a.key]; }).map(function (a, i) {
+      return (i + 1) + '. ' + (a.short || a.label) + ' : ' + W.ASSET_STATES.map(function (st) {
+        return (counts[a.key][st] || 0) + ' ' + st;
+      }).join(', ');
+    });
   }
 
-  /** "Warning Sign 1 Rusak; Patok ROW 1 Hilang" -- the photo of a broken or
+  /** "Warning Sign Kecil 1 Rusak; Boundary KP 1 Hilang" -- the photo of a broken or
       missing asset says what it shows. */
   function damageText(record) {
     var counts = SA.wtAssetCounts(record);
@@ -58,12 +60,22 @@
     }).filter(Boolean).join('; ');
   }
 
-  /** "Rumah 2, Kebun 1" -- only what was counted. */
-  function buildingText(record) {
+  /** ["1. Rumah : 2", ...] -- only what was counted. */
+  function buildingLines(record) {
     var counts = record.buildings || {};
     return W.buildings.filter(function (b) { return Number(counts[b.key]) > 0; })
-      .map(function (b) { return b.label + ' ' + counts[b.key]; }).join(', ');
+      .map(function (b, i) { return (i + 1) + '. ' + b.label + ' : ' + counts[b.key]; });
   }
+
+  /* The KP report's field lines. WhatsApp's letters are not equally wide, so
+     the spaces after each label were measured, not counted: in Roboto (Android)
+     the colons line up within 2 px; an iPhone's font is within a space
+     (Billy, 2026-10-22). */
+  var KP_FIELD_SPACES = { 'Zone': 12, 'Segmen': 6, 'Size pipa': 5, 'Kp': 16 };
+  function kpField(label, value) {
+    return label + new Array(KP_FIELD_SPACES[label] + 1).join(' ') + ': ' + value;
+  }
+  var RULE = '___________';
 
   function zoneOfSegment(id, fallback) {
     var seg = SA.wtSegment(id);
@@ -151,29 +163,40 @@
           ['UPDATE TEMUAN ' + SA.wtRecords.teamLabel(record).toUpperCase(), ''],
           ticks(record.officers));
       }
+      return SA.wtRecords.kpCaption(record);
+    },
+
+    /* The KP report as the group reads it (Billy, 2026-10-22): the crew, the
+       place, the Note sentence -- with the finding, its follow-up and status
+       when "Lainnya", or the crew's extra line when Aman -- then the assets and
+       buildings counted, each section left out when nothing was counted. */
+    kpCaption: function (record) {
       var seg = SA.wtSegment(record.segment);
-      /* The approved five lines, then -- only when there is something to say --
-         the finding's follow-up and status, and the tagged assets (v18). */
-      var extra = [];
+      var kp = String(record.kp || '').trim() || '-';
+      var team = 'Team WT ' + record.teamNo;
+      var said = 'Izin lapor pak, ' + team + ' melakukan penyisiran di segment ' + record.segment + ' KP ' + kp + '.';
+      var lines = ['LAPORAN TEAM WT ' + record.teamNo]
+        .concat((record.officers || []).map(function (n) { return '👷‍♂️  ' + n; }))
+        .concat(['',
+          kpField('Zone', zoneOfSegment(record.segment, record.zone)),
+          kpField('Segmen', seg ? seg.id + ' (' + seg.name + ')' : record.segment),
+          kpField('Size pipa', seg ? SA.sizeText(seg.size) : '-'),
+          kpField('Kp', kp),
+          RULE, 'Note :']);
       if (SA.findings.is(record)) {
-        extra.push(['Tindak Lanjut', String(record.followUp || '').trim()]);
-        extra.push(['Status', SA.findings.status(record)]);
+        lines.push(said + ' Ditemukan indikasi temuan: ' + SA.sentence(record.other));
+        lines.push('', 'Tindak Lanjut:', SA.sentence(record.followUp), '', 'Status Temuan : ' + SA.findings.status(record));
+      } else {
+        lines.push(said + ' ' + noteOf(record));
+        var extra = SA.sentence(record.extraNote);
+        // As the crew typed it, with a capital to start the line
+        if (String(record.extraNote || '').trim()) lines.push('', extra.charAt(0).toUpperCase() + extra.slice(1));
       }
-      if (assetText(record)) extra.push(['Aset', assetText(record)]);
-      if (buildingText(record)) extra.push(['Bangunan ROW', buildingText(record)]);
-      var line = SA.aligner(['Location', 'Segment', 'KP', 'Size Pipe', 'Note']
-        .concat(extra.map(function (e) { return e[0]; })));
-      return ['LAPORAN TEAM WT']
-        .concat(ticks(record.officers))
-        .concat([
-          line('Location', zoneOfSegment(record.segment, record.zone)),
-          line('Segment', SA.wtSegmentText(record.segment)),
-          line('KP', SA.kpPrint(record.kp)),
-          line('Size Pipe', seg ? SA.sizeText(seg.size) : ''),
-          line('Note', noteOf(record))
-        ])
-        .concat(extra.map(function (e) { return line(e[0], e[1]); }))
-        .join('\n');
+      var assets = assetLines(record);
+      if (assets.length) lines = lines.concat([RULE, 'Asset:', '']).concat(assets).concat(['']);
+      var buildings = buildingLines(record);
+      if (buildings.length) lines = lines.concat([RULE, 'Bangunan ROW', '']).concat(buildings);
+      return lines.join('\n').replace(/\n+$/, '');
     },
 
     /** Laporan Kejadian (v41): 5W1H like Patrol's, under the WT team's heading. */
@@ -265,6 +288,7 @@
         col('Size Pipe', 11, 'center', function (r) { var s = SA.wtSegment(r.segment); return s ? SA.sizeText(s.size) : ''; }),
         col('Kondisi', 22, 'text', 'condition'),
         col('Note', 44, 'text', noteOf),
+        col('Catatan Tambahan', 36, 'text', 'extraNote'),       // Aman, a line for the group (v50)
         col('Tindak Lanjut', 30, 'text', 'followUp'),
         col('Status', 10, 'center', SA.findings.status)
       ].concat([].concat.apply([], W.assets.map(function (a) {

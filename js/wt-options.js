@@ -87,7 +87,7 @@ SA.WT = {
   /* The Note line: the chip is short, the report gets the sentence. */
   conditions: [
     { label: 'Area ROW Terpantau Aman',
-      note: 'Area ROW saat ini terpantau aman dan tidak ada indikasi yg mencurigakan.' },
+      note: 'Area ROW saat ini terpantau aman dan tidak ada indikasi hal yg mencurigakan.' },
     { label: 'Lainnya', note: '' }
   ],
   CONDITION_OTHER: 'Lainnya',
@@ -100,14 +100,20 @@ SA.WT = {
      two warning signs, one of them broken (v38, Billy 2026-10-19); the office
      tool adds them up for the day. All optional. Each one counted Rusak or
      Hilang needs a photo of its condition (Billy, 2026-10-22). `note`: said
-     on the form only. */
+     on the form only. `short`: the name in the WhatsApp caption (v51).
+     The same types as ARROW's (AssetOptions.kt) without the fixed facilities
+     -- SBV, Launcher, Receiver, Tie-In, Pump Booster (Billy, 2026-10-22). A
+     renamed type keeps its key, so reports already on the phones count under
+     the new name: Patok ROW is ARROW's Boundary, Warning Sign its Warning Sign
+     Small, Center Line its KP Sign Payung (still called Aerial Marker here). */
   assets: [
-    { key: 'patok',      label: 'Patok ROW' },
-    { key: 'warning',    label: 'Warning Sign' },
-    { key: 'cathodic',   label: 'Cathodic' },
-    // Was "Center Line" (Billy renamed it, 2026-10-22); the key is kept, so
-    // reports already on the phones count under the new name.
-    { key: 'centerLine', label: 'Aerial Marker', note: 'KP Sign Payung' }
+    { key: 'patok',        label: 'Boundary KP',        short: 'Boundary' },
+    { key: 'warning',      label: 'Warning Sign Kecil', short: 'WS Kecil' },
+    { key: 'warningLarge', label: 'Warning Sign Besar', short: 'WS Besar' },
+    { key: 'cathodic',     label: 'Cathodic',           short: 'Cathodic' },
+    { key: 'obvitnas',     label: 'Obvitnas Sign',      short: 'Sign Obvitnas', note: 'Merah' },
+    { key: 'kpSign',       label: 'KP Sign',            short: 'KP Sign', note: 'Rambu No KP' },
+    { key: 'centerLine',   label: 'Aerial Marker',      short: 'Aerial Marker', note: 'KP Sign Payung' }
   ],
   ASSET_STATES: ['Baik', 'Rusak', 'Hilang'],
   buildings: [
