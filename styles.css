@@ -782,6 +782,14 @@ input:focus, select:focus, textarea:focus {
   border-bottom: 1px solid var(--amber-line);
 }
 
+/* Danger: data that may be lost (v55). */
+.warn.danger, .where-warn.danger {
+  color: var(--red);
+  background: var(--red-soft);
+  border-color: var(--red);
+}
+.where-open { display: inline-block; margin-left: 6px; font-weight: 700; color: var(--red); text-decoration: underline; }
+
 /* The send screen's fallback: photos and text in two shares. */
 .send-alt {
   margin: 14px 0 0;

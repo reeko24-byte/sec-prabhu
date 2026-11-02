@@ -914,3 +914,27 @@ shift.
 | v30 | Patrol 5: the four Jl. Arjuna KPs are one checkpoint ("KP 6+500, 6+000, 18+000, 5+000 Jl. Arjuna Segment 6, 11B"), 12 points |
 | v29 | Fixes from the sixth code review: saved Patrol sessions take corrected segments, condition must be tapped, rawan frozen, main screen refreshes, old Excel columns kept |
 | v28 | Patrol 6 = ZONA 5 (SEG 8, 9, 7, Sigit Surya's crew), Patrol 8 = ZONA 7 (SEG 10/12, Fengki Hutasoit's crew) — were swapped |
+
+## v55 (2026-11-02) — data that goes missing from a phone
+
+Field case: DSP, PAGI 2 Nov, a guard's hourly checks reached WhatsApp but were gone from
+his phone by the end of the shift (he pressed neither Hapus nor Ubah; one Chrome tab), and
+the hours were then marked as his partner's. The app saves before it sends, so the reports
+existed; the likeliest cause is the phone wiping the site's storage (Chrome under storage
+pressure, or a cleaner app). v55 makes this visible and harder to cover up:
+
+- **Data log**: the version line and every export now say *data HP sejak …* when this copy's
+  storage started empty (a first install, or a wipe -- the time jumps after one) and
+  *N dihapus (7 hari)*; each deletion is logged with the button that did it (prefs
+  `dataSince`, `deleteLog`).
+- **Hapus** on a report not yet in an Excel warns twice ("BELUM ada di Excel … hilang").
+- **No check of one's own in the shift**: a red warning at the shift report's section A
+  and on the check form, and a question before an hour is marked as the partner's
+  (once per shift report).
+- **Opened inside another app** (WhatsApp's own browser, any WebView): a red banner with
+  *Buka di Chrome*.
+- **MALAM from 20:00** on both start screens takes tomorrow's date, and says so; another
+  shift puts today's back; a date typed by hand stays. (11 Patrol end reports in October
+  were filed under the evening's date.)
+
+Changed: js/app.js, js/sheets.js, index.html, styles.css, sw.js (BUILD = CACHE_VERSION = v55).

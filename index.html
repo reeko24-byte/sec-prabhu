@@ -24,6 +24,11 @@
 <p id="where-warn" class="where-warn hidden" role="note">Buka Laporan Tim dari <b>ikon di layar utama</b>.
   Laporan yang dibuat di Safari tersimpan terpisah dari ikon, dan tidak terlihat di sana.</p>
 
+<!-- Inside WhatsApp or another app: its reports live apart from Chrome (v55). -->
+<p id="webview-warn" class="where-warn danger hidden" role="alert">Laporan Tim terbuka <b>di dalam aplikasi lain</b>
+  (mis. WhatsApp). Laporan yang dibuat di sini tersimpan terpisah dari Chrome dan bisa hilang.
+  <a id="webview-open" class="where-open" href="#">Buka di Chrome</a></p>
+
 <!-- One icon set, one stroke weight (Lucide-style, 2px, round caps). -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <defs>
@@ -98,6 +103,7 @@
         <span>Tanggal shift</span>
         <input id="s-date" type="date">
       </label>
+      <p id="s-date-note" class="warn hidden"></p>
       <p class="hint">Shift Malam dimulai 00:00 — tanggalnya adalah hari saat shift dimulai.</p>
     </div>
 
@@ -310,6 +316,7 @@
         <span>Tanggal shift</span>
         <input id="p-date" type="date">
       </label>
+      <p id="p-date-note" class="warn hidden"></p>
     </div>
 
     <button id="p-start" class="primary" disabled>Mulai shift</button>
@@ -472,6 +479,7 @@
       <!-- Two guards, two phones: an hour the partner sent from theirs. -->
       <div id="r-partner" class="partner-box hidden">
         <p id="r-partner-text"></p>
+        <p id="r-partner-warn" class="warn danger hidden"></p>
         <div id="r-partner-actions" class="partner-actions"></div>
       </div>
       <button id="r-to-incident" class="subtle-link">
@@ -601,6 +609,9 @@
     <div id="r-shift" class="hidden">
       <div class="field">
         <span>A. Pengecekan — dari laporan per jam</span>
+        <p id="r-own-warn" class="warn danger hidden">Belum ada satu pun pengecekan dari HP ini untuk shift ini.
+          Kalau Anda yang mengirim pengecekan, laporannya tidak ada di HP ini (dibuka dari aplikasi lain, atau data HP
+          terhapus): <b>jangan tandai dikirim rekan</b> — kirim foto laporan ke Data Analyst.</p>
         <p id="r-partner-hint" class="hint hidden">Dikirim rekan dari HP-nya? Ketuk jamnya (atau jenis kejadian di B) untuk menandai.</p>
         <div id="r-checks" class="summary"></div>
       </div>

@@ -268,10 +268,33 @@
       chip.appendChild(small);
       chip.addEventListener('click', function () {
         state.setup.shift = shift.id;
+        malamDate(state.setup);
         renderSetup();
       });
       shifts.appendChild(chip);
     });
+  }
+
+  /* MALAM runs 00:00-08:00, so its date is the morning's. A crew starting it in
+     the evening and tapping MALAM kept the evening's date: the night of the 27th
+     filed as MALAM 27, its km fitting only after SORE 27 (11 Patrol reports in
+     October). From 20:00, MALAM takes tomorrow's date; another shift puts it back. */
+  function malamDate(setup) {
+    var now = new Date();
+    var today = SA.dateOf(now);
+    var tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    if (setup.shift === 'MALAM' && now.getHours() >= 20 && setup.date === today) {
+      setup.date = SA.dateOf(tomorrow);
+      setup.malamAhead = true;
+    } else if (setup.shift !== 'MALAM' && setup.malamAhead) {
+      setup.date = today;
+      setup.malamAhead = false;
+    }
+  }
+  function malamNote(setup) {
+    return setup.malamAhead && setup.shift === 'MALAM'
+      ? 'MALAM dimulai sebelum tengah malam — tanggal shift besok, ' + SA.longDate(SA.parseDate(setup.date)) + '.'
+      : '';
   }
 
   /** Opens the start-of-shift screen, from the session or from a fresh default. */
@@ -316,6 +339,8 @@
 
     if (document.activeElement !== $('s-bko')) $('s-bko').value = setup.bko;
     $('s-date').value = setup.date;
+    $('s-date-note').textContent = malamNote(setup);
+    $('s-date-note').classList.toggle('hidden', !malamNote(setup));
 
     var ready = !!(setup.post && setup.officers.length && setup.shift && setup.date);
     $('s-start').disabled = !ready;
@@ -329,6 +354,7 @@
   $('s-bko').addEventListener('input', function () { state.setup.bko = this.value; });
   $('s-date').addEventListener('change', function () {
     state.setup.date = this.value;
+    state.setup.malamAhead = false;
     renderSetup();
   });
 
@@ -1138,7 +1164,11 @@
       small.textContent = SA.hourText(shift.start) + '–' + SA.hourText(shift.end);
       chip.appendChild(b);
       chip.appendChild(small);
-      chip.addEventListener('click', function () { state.pSetup.shift = shift.id; renderPatrolSetup(); });
+      chip.addEventListener('click', function () {
+        state.pSetup.shift = shift.id;
+        malamDate(state.pSetup);
+        renderPatrolSetup();
+      });
       shifts.appendChild(chip);
     });
   }
@@ -1176,6 +1206,8 @@
       chip.setAttribute('aria-pressed', String(S.shifts[i].id === setup.shift));
     });
     $('p-date').value = setup.date;
+    $('p-date-note').textContent = malamNote(setup);
+    $('p-date-note').classList.toggle('hidden', !malamNote(setup));
 
     var ready = !!(setup.patrolId && setup.officers.length && String(setup.vehicle).trim() && setup.shift && setup.date);
     $('p-start').disabled = !ready;
@@ -1196,7 +1228,11 @@
     this.value = this.value.replace(/\D/g, '').slice(0, 7);
     state.pSetup.km = this.value;
   });
-  $('p-date').addEventListener('change', function () { state.pSetup.date = this.value; renderPatrolSetup(); });
+  $('p-date').addEventListener('change', function () {
+    state.pSetup.date = this.value;
+    state.pSetup.malamAhead = false;
+    renderPatrolSetup();
+  });
   $('p-setup-back').addEventListener('click', function () { buildTeamChips(); show('team'); });
   $('p-main-team').addEventListener('click', function () { buildTeamChips(); show('team'); });
 
@@ -1985,6 +2021,21 @@
     renderPartnerBox();
   }
 
+  /* None of the shift's hours due so far was sent from this phone (v55): the
+     guard who did send them has them somewhere else -- another copy of the app
+     (inside WhatsApp, another browser) or storage the phone wiped. Marking them
+     as the partner's would hide that; so a warning first, and a question. */
+  function noOwnChecks(lines) {
+    return lines.length > 0 && !lines.some(function (c) { return c.done && !c.partner; });
+  }
+  var NO_OWN_TEXT = 'Belum ada satu pun pengecekan dari HP ini untuk shift ini. Kalau Anda yang mengirim ' +
+    'pengecekan, laporannya tidak ada di HP ini (dibuka dari aplikasi lain, atau data HP terhapus): ' +
+    'JANGAN tandai dikirim rekan — kirim foto laporan ke Data Analyst.';
+  function confirmNoOwn(hour, name) {
+    return confirm('Belum ada pengecekan dari HP ini di shift ini.\n\nTandai pukul ' + hour + ' dikirim ' + name +
+      '?\nHanya bila ' + name + ' yang mengirimnya dari HP-nya sendiri.');
+  }
+
   /** "Already sent by my partner from their phone?" -- mark it, no photo. */
   function renderPartnerBox() {
     var draft = state.draft;
@@ -1997,6 +2048,9 @@
     $('r-partner-text').textContent = marked
       ? 'Pukul ' + hour + ' WIB ditandai: dikirim ' + marked + ' dari HP-nya.'
       : 'Pukul ' + hour + ' WIB sudah dikirim rekan dari HP-nya? Tandai saja — tanpa foto.';
+    var noOwn = !Object.keys(hoursDone()).length;
+    $('r-partner-warn').textContent = NO_OWN_TEXT;
+    $('r-partner-warn').classList.toggle('hidden', !(noOwn && !marked));
     var actions = $('r-partner-actions');
     actions.innerHTML = '';
     (marked ? [null] : partners).forEach(function (name) {
@@ -2007,6 +2061,7 @@
       button.addEventListener('click', function () {
         if (name && (state.photos.length || state.processing) &&
             !confirm('Foto di layar ini dibuang. Tandai pukul ' + hour + ' dikirim ' + name + '?')) return;
+        if (name && !Object.keys(hoursDone()).length && !confirmNoOwn(hour, name)) return;
         setPartnerMark('hours', draft.hour, name);
         if (!name) { toast('Tanda pukul ' + hour + ' dibatalkan.'); renderHourSelect(); return; }
         toast('Pukul ' + hour + ' ditandai: dikirim ' + name + '.');
@@ -2134,6 +2189,8 @@
     draft.checkLines = checkLines(draft, now || new Date());
     draft.incidentSummary = incidentSummary();
     $('r-partner-hint').classList.toggle('hidden', !canMark);
+    var noOwn = noOwnChecks(draft.checkLines);
+    $('r-own-warn').classList.toggle('hidden', !(canMark && noOwn));
 
     function row(box, text, className, onTap, action) {
       var el = document.createElement(onTap ? 'button' : 'div');
@@ -2161,7 +2218,12 @@
         (c.done ? '✓' + (c.by ? ' ' + c.by : '') + (c.partner ? ' (rekan)' : '') : '— tidak ada laporan');
       var mine = c.done && !c.partner;
       row(checks, text, c.partner ? 'ok partner' : c.done ? 'ok' : 'missing',
-        canMark && !mine ? function () { setPartnerMark('hours', c.hour, nextPartner(c.by || null)); } : null,
+        canMark && !mine ? function () {
+          var next = nextPartner(c.by || null);
+          if (next && noOwn && !draft.noOwnAck && !confirmNoOwn(SA.hourText(c.hour), next)) return;
+          if (next && noOwn) draft.noOwnAck = true;     // asked once per report
+          setPartnerMark('hours', c.hour, next);
+        } : null,
         c.partner ? 'ubah' : 'dikirim rekan?');
     });
 
@@ -3499,8 +3561,15 @@
         body.appendChild(recordCard(record, [
           ['Kirim', 'link', function () { openSend(record); }],
           ['Hapus', 'danger-link', function () {
-            if (!confirm('Hapus ' + moduleOf(record.team).label(record) + '?')) return;
-            SA.db.remove(record.id).then(function () { renderList(); toast('Dihapus.'); });
+            var label = moduleOf(record.team).label(record);
+            // Not in a spreadsheet yet: deleting it loses it for good -- say so, twice (v55)
+            if (!record.exportedAt) {
+              if (!confirm('PERHATIAN: ' + label + ' BELUM ada di Excel.\n\nKalau dihapus, laporan ini hilang dari HP ' +
+                  'dan tidak bisa diexport lagi.\n\nTetap hapus?')) return;
+              if (!confirm('Yakin? ' + label + ' akan hilang dan tidak masuk rekap.')) return;
+            } else if (!confirm('Hapus ' + label + '?')) return;
+            logDeletion([record], 'Hapus').then(function () { return SA.db.remove(record.id); })
+              .then(function () { renderList(); toast('Dihapus.'); refreshWhere(); });
           }]
         ]));
       });
@@ -3868,8 +3937,11 @@
       }
       if (!confirm('Hapus ' + done.length + ' laporan yang sudah diexport dan dikirim dari HP?' +
           (kept ? ' (' + kept + ' laporan shift ini / belum dikirim tetap disimpan.)' : ''))) return;
-      return SA.db.removeMany(done.map(function (r) { return r.id; })).then(function () {
+      return logDeletion(done, 'Hapus yang sudah diexport').then(function () {
+        return SA.db.removeMany(done.map(function (r) { return r.id; }));
+      }).then(function () {
         state.built = null;
+        refreshWhere();
         toast(done.length + ' laporan dihapus.');
         goMain();
       });
@@ -3881,7 +3953,7 @@
   /* BUILD and CACHE_VERSION in sw.js are a PAIR -- bump both on every upload.
      The marker prints both; when they differ, the new version has downloaded
      but the app has not been restarted. */
-  var BUILD = 'v54';
+  var BUILD = 'v55';
   SA.BUILD = BUILD;                        // stamped on every export (SA.sheets.exported)
   var CACHE_PREFIX = 'superapp-laporan-';
 
@@ -3938,14 +4010,67 @@
 
   var whereBase = null;    // how the app was opened and in which browser: fixed for the run
 
+  /* The phone's data log (v55, Billy 2026-11-02 -- DSP checks gone from a phone
+     without anyone pressing Hapus). Two facts, on the version line and in every
+     export: since when this copy's storage exists (a browser or cleaner app
+     wiping it makes that time jump -- the log itself goes with the wipe), and
+     every report deleted here, with how. */
+  var dataSince = null;     // {at, fresh}: fresh = the storage was empty when it was first seen
+  var DELETE_LOG_MAX = 300;
+
+  function ensureDataSince() {
+    return SA.db.getPref('dataSince', null).then(function (known) {
+      if (known) { dataSince = known; return; }
+      return SA.db.count().then(function (n) {
+        // Empty storage: a first install, or a wipe. With reports in it: the update to v55.
+        dataSince = { at: SA.timestampOf(new Date()).slice(0, 16), fresh: n === 0 };
+        return SA.db.setPref('dataSince', dataSince);
+      });
+    }).catch(function () {});
+  }
+
+  /** Writes down what is about to be deleted, and by which button. */
+  function logDeletion(records, how) {
+    return SA.db.getPref('deleteLog', []).then(function (log) {
+      log = (log || []).concat(records.map(function (r) {
+        return { at: SA.timestampOf(new Date()).slice(0, 16), how: how, label: moduleOf(r.team).label(r),
+                 team: r.team || 'security', date: r.shiftDate || r.date, exported: !!r.exportedAt, sent: !!r.sentAt };
+      })).slice(-DELETE_LOG_MAX);
+      return SA.db.setPref('deleteLog', log);
+    }).catch(function () {});
+  }
+
+  /** 'data HP sejak 2026-11-02 15:20 · 3 dihapus (7 hari)' -- empty when there is nothing to say. */
+  function dataNote() {
+    return SA.db.getPref('deleteLog', []).then(function (log) {
+      var week = Date.now() - 7 * 24 * 60 * 60 * 1000;
+      var recent = (log || []).filter(function (e) { return SA.parseDate(e.at.slice(0, 10)).getTime() >= week; });
+      var parts = [];
+      if (dataSince && dataSince.fresh) parts.push('data HP sejak ' + dataSince.at);
+      if (recent.length) parts.push(recent.length + ' dihapus (7 hari)');
+      return parts.join(' · ');
+    }).catch(function () { return ''; });
+  }
+
   function refreshWhere() {
     if (whereBase === null) {
       whereBase = (isStandalone() ? 'ikon layar utama' : 'tab browser') + ' · ' + browserName();
       $('where-warn').classList.toggle('hidden', !(isIos() && !isStandalone()));
+      // Inside WhatsApp or another app (v55): its reports live apart from Chrome's
+      var inApp = browserName().indexOf('WebView') === 0;
+      $('webview-warn').classList.toggle('hidden', !inApp);
+      if (inApp) {
+        $('webview-open').href = 'intent://' + location.host + location.pathname + location.search +
+          '#Intent;scheme=https;package=com.android.chrome;end';
+      }
     }
     var where = whereBase;
     return SA.db.count().then(function (n) {
-      whereLine = where + ' · ' + n + ' laporan di HP';
+      var line = where + ' · ' + n + ' laporan di HP';
+      return dataNote().then(function (note) {
+        SA.dataNote = note;                 // stamped on every export too (SA.sheets.exported)
+        whereLine = note ? line + ' · ' + note : line;    // one assignment: refreshes may overlap
+      });
     }).catch(function () {
       whereLine = where;
     }).then(showVersion);
@@ -4021,7 +4146,7 @@
       if (state.sessions.patrol && $('screen-p-main').classList.contains('active')) renderPatrolMain();
     });
 
-    refreshWhere();                       // also prints the version line
+    ensureDataSince().then(refreshWhere);   // also prints the version line
     SA.db.onChange(refreshWhere);         // the report count follows every add and delete
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').then(function (registration) {

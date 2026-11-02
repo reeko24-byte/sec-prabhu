@@ -12,7 +12,8 @@
     /** "2026-10-20 10:05 · app v39": when, and by which version of the app --
         the office tool reads the version to warn when it is older than the file. */
     exported: function (now) {
-      return SA.dateOf(now) + ' ' + SA.timeOf(now).slice(0, 5) + (SA.BUILD ? ' · app ' + SA.BUILD : '');
+      return SA.dateOf(now) + ' ' + SA.timeOf(now).slice(0, 5) + (SA.BUILD ? ' · app ' + SA.BUILD : '') +
+        (SA.dataNote ? ' · ' + SA.dataNote : '');      // the phone's data log (v55)
     },
 
     /** A column: header, width, type ('text' | 'center' | 'number'), and the
