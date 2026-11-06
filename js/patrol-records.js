@@ -11,12 +11,16 @@
  *     point (a name on the patrol's list, '' when typed), area (= point, or typed),
  *     facility ('Aktif'|'Tidak Aktif' for a listed point, else ''),
  *     rawan (true at a titik rawan; frozen at saving, v29),
+ *     pass ('Berangkat'|'Kembali'|'Tambahan'), passNo (1, 2, ..): which check of the
+ *       point this shift (v56, listed points from SA.PATROL.TWO_PASS_FROM; else none),
  *     check, weather, road, traffic, crash, gangguanSummary {type: text},
  *     patrolResult ('none'|'found'), patrolFinding, followUp, status, fieldInterview
  *   pend (end of shift):
  *     kmStart, kmEnd,
- *     points [{name, rawan, time, facility, reason}]   the list, time '' = not
- *              checked (v27), reason = its justifikasi (v41, required)
+ *     points [{name, rawan, time, facility, reason, times, need}]   the list, time '' = not
+ *              checked (v27), reason = its justifikasi (v41, required); times = every
+ *              check's time, need = 2 from TWO_PASS_FROM (v56): a point checked fewer
+ *              times needs its justifikasi too
  *     facilities {name: 'Aktif'|'Tidak Aktif'}  before v27 (placeholder list)
  *     tours [{time, area, check, facility}], findingList [{time, label, status}],
  *     nextOfficers [..], nextTni        the incoming crew (required)
@@ -86,18 +90,52 @@
      * and condition of its latest guard tour, time '' when not checked. A
      * tour counts by its `point`, or by a typed area that is the point's name
      * -- either one also under a former name (SA.PATROL.pointAliases).
+     * From SA.PATROL.TWO_PASS_FROM (v56) each point is checked twice, going out
+     * and coming back: `times` holds every check's time in order, `need` is 2
+     * (else 1), and a point is done when it has that many (SA.patrolRecords.done).
      */
-    points: function (patrolId, tours) {
+    points: function (patrolId, tours, shiftDate) {
+      var day = shiftDate || ((tours || []).filter(function (r) { return r.kind === 'patrol'; })[0] || {}).shiftDate;
+      var need = SA.patrolTwoPass(day) ? SA.PATROL.PASSES.length : 1;
       return SA.patrolPoints(patrolId).map(function (p) {
         var key = p.name.toLowerCase();
-        var hit = null;
-        (tours || []).forEach(function (r) {
-          if (r.kind !== 'patrol' || SA.patrolPointName(r.point || r.area).toLowerCase() !== key) return;
-          if (!hit || String(r.timestamp || '') >= String(hit.timestamp || '')) hit = r;
-        });
+        var hits = (tours || []).filter(function (r) {
+          return r.kind === 'patrol' && SA.patrolPointName(r.point || r.area).toLowerCase() === key;
+        }).sort(function (a, b) { return String(a.timestamp || '') < String(b.timestamp || '') ? -1 : 1; });
+        var hit = hits[hits.length - 1];
         return { name: p.name, rawan: p.rawan, time: hit ? String(hit.time || '').slice(0, 5) : '',
-          facility: hit ? hit.facility || '' : '' };
+          facility: hit ? hit.facility || '' : '', need: need,
+          times: hits.map(function (r) { return String(r.time || '').slice(0, 5); }) };
       });
+    },
+
+    /** Whether a checklist point is done: checked `need` times (an end report before v56: checked once). */
+    done: function (p) {
+      return Array.isArray(p.times) ? p.times.length >= (p.need || 1) : !!p.time;
+    },
+
+    /** Checked, but not as often as needed: once, when going out and coming back are both needed. */
+    once: function (p) {
+      return Array.isArray(p.times) && p.times.length > 0 && p.times.length < (p.need || 1);
+    },
+
+    /**
+     * The pass a new guard tour at a listed point is, from this shift's earlier ones there:
+     * {n: 1, name: 'Berangkat'}, {n: 2, name: 'Kembali'}, then Tambahan. null for a typed point,
+     * or a shift before SA.PATROL.TWO_PASS_FROM.
+     */
+    passFor: function (draft, records) {
+      if (!draft.point || !SA.patrolTwoPass(draft.shiftDate)) return null;
+      var key = SA.patrolPointName(draft.point).toLowerCase();
+      var n = (records || []).filter(function (r) {
+        return r.kind === 'patrol' && r !== draft && SA.patrolPointName(r.point || r.area).toLowerCase() === key;
+      }).length;
+      return { n: n + 1, name: SA.patrolPassName(n) };
+    },
+
+    /** "Kembali (pengecekan ke-2)", '' for a guard tour without a pass. */
+    passText: function (record) {
+      return record.pass ? record.pass + ' (pengecekan ke-' + (record.passNo || 1) + ')' : '';
     },
 
     caption: function (record) {
@@ -128,6 +166,8 @@
         .concat(['', 'B. KENDARAAN : ' + (trim(record.vehicle) || '-'), ''])
         // The check replaces "Nihil" (Billy).
         .concat(['C. GUARD TOUR : ' + (trim(record.check) || P.NIHIL)])
+        // Going out or coming back (v56): which check of the point this is
+        .concat(record.pass ? ['   - Putaran : ' + SA.patrolRecords.passText(record)] : [])
         .concat(trim(record.point) && record.facility ? ['   - Kondisi fasilitas : ' + record.facility] : [])
         .concat([''])
         .concat(['D. CUACA DAN KONDISI JALAN :'])
@@ -175,6 +215,7 @@
         .concat(['', 'D. GUARD TOUR : ' + (tours.length ? tours.length + ' titik' : P.NIHIL)]);
       tours.forEach(function (t) {
         lines.push('   - Pukul ' + t.time + ' WIB · ' + (trim(t.area).toUpperCase() || '-') +
+          (t.pass ? ' · ' + t.pass : '') +
           (t.facility && t.facility !== P.FACILITY_STATES[0] ? ' (' + t.facility + ')' : '') +
           (trim(t.check) ? ' — ' + trim(t.check) : ''));
       });
@@ -183,18 +224,29 @@
         // The patrol's list (Billy, 2026-10-05): what was not checked is said,
         // not hidden -- the report is still sent.
         var pts = record.points;
-        var done = pts.filter(function (p) { return p.time; });
-        var off = done.filter(function (p) { return p.facility === 'Tidak Aktif'; });
+        var R = SA.patrolRecords;
+        var twice = pts.some(function (p) { return (p.need || 1) > 1; });     // v56, from TWO_PASS_FROM
+        var done = pts.filter(R.done);
+        var off = pts.filter(function (p) { return p.time && p.facility === 'Tidak Aktif'; });
         var left = pts.filter(function (p) { return !p.time; });
-        lines.push('E. FASILITAS : ' + (pts.length ? done.length + ' dari ' + pts.length + ' titik dicek' : P.NIHIL));
+        var once = pts.filter(R.once);
+        var reason = function (p) { return trim(p.reason) ? ' — Justifikasi: ' + trim(p.reason) : ''; };
+        lines.push('E. FASILITAS : ' + (pts.length ? done.length + ' dari ' + pts.length + ' titik dicek' +
+          (twice ? ' 2× (berangkat dan kembali)' : '') : P.NIHIL));
         if (pts.length) {
           lines.push('   - Tidak aktif : ' + (off.length ? '' : P.NIHIL));
           off.forEach(function (p, i) { lines.push('     ' + (i + 1) + '. ' + p.name); });
           lines.push('   - Belum dicek : ' + (left.length ? '' : P.NIHIL));
           left.forEach(function (p, i) {
-            lines.push('     ' + (i + 1) + '. ' + p.name + (p.rawan ? ' (titik rawan)' : '') +
-              (trim(p.reason) ? ' — Justifikasi: ' + trim(p.reason) : ''));
+            lines.push('     ' + (i + 1) + '. ' + p.name + (p.rawan ? ' (titik rawan)' : '') + reason(p));
           });
+          if (twice) {
+            lines.push('   - Dicek sekali, belum kembali : ' + (once.length ? '' : P.NIHIL));
+            once.forEach(function (p, i) {
+              lines.push('     ' + (i + 1) + '. ' + p.name + (p.rawan ? ' (titik rawan)' : '') +
+                ' (pukul ' + p.times.join(', ') + ')' + reason(p));
+            });
+          }
         }
       } else {
         // Saved before v27: the placeholder facilities, as they were sent.
@@ -271,7 +323,8 @@
       var where = 'SECURITY PATROL - ' + teamLabel(report).toUpperCase() + ' · ' + (report.zone || '') +
         ' · Shift ' + report.shift;
       if (report.kind === 'patrol') {
-        return ['GUARD TOUR · ' + (trim(report.area).toUpperCase() || '-'), where,
+        return ['GUARD TOUR' + (report.pass ? ' ' + report.pass.toUpperCase() : '') + ' · ' +
+          (trim(report.area).toUpperCase() || '-'), where,
           trim(report.check).slice(0, 96), crew];
       }
       if (report.kind === 'pstart') {
@@ -345,6 +398,11 @@
         var checked = function (p) { return !!p.time; };
         var unchecked = function (p) { return !p.time; };
         var off = function (p) { return p.time && p.facility === 'Tidak Aktif'; };
+        // v56: going out and coming back. Blank for a shift before SA.PATROL.TWO_PASS_FROM; the
+        // columns above keep their meaning (Titik Dicek = checked at least once).
+        var twice = function (r) { return (r.points || []).some(function (p) { return (p.need || 1) > 1; }); };
+        function ifTwice(fn) { return function (r) { return twice(r) ? fn(r) : ''; }; }
+        var once = SA.patrolRecords.once;
         // Reports saved before v27 keep their placeholder facility columns.
         var legacy = SA.sheets.unique([].concat.apply([], records.filter(function (r) {
           return r.kind === 'pend' && !Array.isArray(r.points);
@@ -359,7 +417,15 @@
               return p.name + ': ' + (trim(p.reason) || '-');
             }).join('; ');
           }),
-          col('Fasilitas Tidak Aktif', 30, 'text', names(off))
+          col('Fasilitas Tidak Aktif', 30, 'text', names(off)),
+          col('Titik Dicek 2x', 11, 'center', ifTwice(count(SA.patrolRecords.done))),
+          col('Sekali Saja', 11, 'center', ifTwice(count(once))),
+          col('Daftar Sekali Saja', 44, 'text', ifTwice(names(once))),
+          col('Justifikasi Sekali Saja', 50, 'text', ifTwice(function (r) {
+            return (r.points || []).filter(once).map(function (p) {
+              return p.name + ': ' + (trim(p.reason) || '-');
+            }).join('; ');
+          }))
         ].concat(legacy.map(function (name) {
           return col(name, 12, 'center', function (r) { return (r.facilities || {})[name] || ''; });
         }));
@@ -374,6 +440,7 @@
           col('Lokasi', 22, 'text', 'area'),
           col('Titik Rawan', 10, 'center', function (r) { return rawanOf(r) ? 'Ya' : ''; }),
           col('Kondisi Fasilitas', 14, 'center', 'facility'),
+          col('Putaran', 11, 'center', function (r) { return r.pass || ''; }),     // v56: Berangkat / Kembali
           col('Pengecekan', 36, 'text', 'check'),
           col('Cuaca', 10, 'center', 'weather'),
           col('Jalan', 10, 'center', 'road'),

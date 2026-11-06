@@ -196,7 +196,24 @@
     ].join('\n'),
 
     TITLE: 'LAPORAN MONITORING PATROLI SECURITY PT PRABHU',
-    CLOSING: 'Demikian laporan Patroli Security PT Prabhu.'
+    CLOSING: 'Demikian laporan Patroli Security PT Prabhu.',
+
+    /* Every point twice a shift (Billy's meeting, 2026-11-06): going out and coming back, each its own
+       guard tour with its own photo. For shifts from this date on (Billy, 2026-11-07); before it one
+       check was enough. */
+    TWO_PASS_FROM: '2026-11-12',
+    PASSES: ['Berangkat', 'Kembali'],
+    EXTRA_PASS: 'Tambahan'
+  };
+
+  /** Whether a shift (its date, 'YYYY-MM-DD') needs each point checked twice. */
+  SA.patrolTwoPass = function (shiftDate) {
+    return String(shiftDate || '') >= SA.PATROL.TWO_PASS_FROM;
+  };
+
+  /** The pass of the n-th check (0-based) of a point in a shift: Berangkat, Kembali, then Tambahan. */
+  SA.patrolPassName = function (n) {
+    return SA.PATROL.PASSES[n] || SA.PATROL.EXTRA_PASS;
   };
 
   SA.patrolUnit = function (id) {

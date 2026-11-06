@@ -4,7 +4,7 @@ One PWA for four teams: **Security Officer**, **Patrol**, **Walkthrough**, **Sec
 Works on Android (Chrome) and iPhone (Safari), offline, no backend. Each report
 goes to WhatsApp as photos + caption in one tap; the Excel is a separate export.
 
-**Status (v54, 2026-10-23)**
+**Status (v56, 2026-11-07)**
 
 | Team | State | Reports |
 |---|---|---|
@@ -27,12 +27,12 @@ Exif reader, .xlsx writer, share handling, version marker). The other apps in
 This folder is **not** a git repo. Upload the whole folder to GitHub Pages by
 hand. On **every** upload, bump both of these together — they are a pair:
 
-- `CACHE_VERSION` in `sw.js` (now `superapp-laporan-v54`)
-- `BUILD` in `js/app.js` (now `v54`)
+- `CACHE_VERSION` in `sw.js` (now `superapp-laporan-v56`)
+- `BUILD` in `js/app.js` (now `v56`)
 
 If files change and `sw.js` does not, phones that already have the app keep the
 old files forever. The line at the foot of each main screen prints
-`kode v54 · cache v54`; if the two differ, the new version downloaded but the app
+`kode v56 · cache v56`; if the two differ, the new version downloaded but the app
 has not been restarted. A changed home-screen icon usually only appears after the
 app is removed and added to the Home Screen again.
 
@@ -835,6 +835,23 @@ its guard tours; the unused `areas` field is gone.
    Android's share menu. **Kirim foto saja** + **Kirim teks saja** get the
    report out either way.
 
+### Field bugs, 2026-11-02 (v55 data log)
+
+1. *DSP, PAGI 2 Nov — hourly checks reached WhatsApp, but the guard's export had
+   none and every hour was marked "dikirim rekan"*: the app saves before it
+   opens WhatsApp, so the reports existed on that phone; one Chrome tab (v54),
+   no Hapus, no Ubah, no earlier export (the guard, via Billy). The likeliest
+   cause: the phone wiped the site's storage (Chrome under storage pressure, or
+   a cleaner app; `navigator.storage.persist()` is asked, but a plain tab rarely
+   gets it). Proof for the next time: v55's *data HP sejak* on the version line
+   and in every export jumps when storage is wiped. The office rebuilt the four
+   hours the photos show (`laporan-tools\alat\manual_export_dsp.js`). The same
+   guard's hours were put on him by his partner on 30 Okt with no check in his
+   export — the office tool now flags that pattern (*Periksa data*).
+2. *Patrol MALAM filed under the evening's date* (11 end reports in October):
+   tapping MALAM before midnight kept the evening's date. v55: from 20:00, MALAM
+   takes tomorrow's date and says so.
+
 ---
 
 ## Open items
@@ -850,11 +867,15 @@ one car).
 - Retire `wt-surveillance` once the crews have switched; update `wt_tracker.py`
   for the new Excel layout.
 
-**Office:** `rekap_harian.py` (in `D:\Users\reeko\laporan-tools`) makes the
-daily summary per zone. It already expects two files per post per shift (the
-checks are the union of both phones; duplicates are counted once). Try it on a
-real day's exports once the teams are using the app, and adjust the summary's
-layout with the ARCO.
+**Upload v56** (js/app.js, js/patrol-options.js, js/patrol-records.js, js/options.js, index.html,
+sw.js) **before 12 Nov** — the two checks a shift start that day — and check phones show
+*kode v56 · cache v56*. Tell the Patrol crews: each point twice, going out and coming back, a new
+photo each time. Ask guards whose phones lose data whether a
+cleaner app clears Chrome.
+
+**Office:** `Rekapitulasi Laporan` (in `D:\Users\reeko\laporan-tools`) makes the
+Rekap Harian and each team's daily and monthly reports, and checks the data
+(*Periksa data*). It reads the v55 data log only as text so far.
 
 **Everyone:** a real-phone test (see Testing), including two phones on one
 shift.
@@ -892,6 +913,8 @@ shift.
 | v25 | Security Perkantoran (SECWAN): visitor counter, end-of-shift report kept on the phone until Simpan |
 | v26 | Fixes from the fifth code review: kept drafts made general, offered on the next day, cheap to save; corrections survive later taps |
 | v27 | Patrol checkpoint list per patrol: guard tour picks a point (Aktif / Tidak Aktif), main screen and akhir shift name the points not checked — a notice, not a block |
+| v56 | Patrol checks each point twice a shift from 12 Nov 2026, going out (Berangkat) and coming back (Kembali), each its own guard tour and photo: pass worked out and shown, on the caption, stamp and Excel (*Putaran*); a point checked once needs its justifikasi at Akhir Shift; new Akhir Shift columns *Titik Dicek 2x*, *Sekali Saja*. MANGGALA BOOSTER: BAYU JULIANSAH |
+| v55 | Data that goes missing from a phone (2026-11-02): *data HP sejak* and *N dihapus* on the version line and in every export; Hapus warns twice for a report not yet in an Excel; a red warning, and a question, before hours are marked as the partner's when this phone sent none; a banner with *Buka di Chrome* inside WhatsApp or any WebView; MALAM chosen from 20:00 takes tomorrow's date (Patrol and Security) |
 | v54 | Every caption's colons line up in WhatsApp: `SA.aligner` pads labels to the same WIDTH in Roboto (WhatsApp's Android font; measured character widths + letter-pair kerning in `options.js`), not the same number of letters. Measured: all 32 label groups within 3.1 px (were up to 28.6 px, about 7 spaces). WT KP uses the same aligner (wide gap kept). Patrol Mulai Shift: blank line between sections B and C |
 | v53 | WT caption: no blank line before the Bangunan ROW separator either |
 | v52 | WT caption: each list straight under its heading (no blank line after *Asset:* or *Bangunan ROW*) |
@@ -914,6 +937,43 @@ shift.
 | v30 | Patrol 5: the four Jl. Arjuna KPs are one checkpoint ("KP 6+500, 6+000, 18+000, 5+000 Jl. Arjuna Segment 6, 11B"), 12 points |
 | v29 | Fixes from the sixth code review: saved Patrol sessions take corrected segments, condition must be tapped, rawan frozen, main screen refreshes, old Excel columns kept |
 | v28 | Patrol 6 = ZONA 5 (SEG 8, 9, 7, Sigit Surya's crew), Patrol 8 = ZONA 7 (SEG 10/12, Fengki Hutasoit's crew) — were swapped |
+
+## v56 (2026-11-07) — each checkpoint twice, going out and coming back
+
+From the meeting of 6 Nov (Billy): Patrol checks every point on its list **twice a shift**, once going
+out and once coming back, each with its own guard tour report and its own photo. For shifts dated
+**from 12 November 2026** (`SA.PATROL.TWO_PASS_FROM` in `patrol-options.js`, Billy 2026-11-07); a shift
+before that date works as v55 (one check is enough), whichever version the phone runs.
+
+- **Which pass**: worked out, never asked. The first guard tour at a listed point this shift is
+  *Berangkat*, the second *Kembali*, any later one *Tambahan* (`SA.patrolRecords.passFor`). The form
+  says it before saving ("Laporan ini: pengecekan ke-2 · Kembali"); the record keeps `pass` and `passNo`.
+  A typed point (Lainnya) has no pass.
+- **On the report**: caption C. GUARD TOUR gets "- Putaran : Kembali (pengecekan ke-2)"; the photo's
+  first stamp line "GUARD TOUR KEMBALI · …"; the Excel Guard Tour sheet a column **Putaran**. The seal
+  facts are unchanged (old seals still check).
+- **The checklist**: a point is done with two checks (`SA.patrolRecords.done` / `once`). Main screen
+  "x dari y titik dicek 2×" and "Belum dicek 2× (berangkat dan kembali)", a point checked once
+  "— kembali belum (berangkat 08:20)"; the point list "✓ 08:20 · kembali belum".
+- **Akhir shift**: every point not done needs its justifikasi, as before (a notice, never a block on the
+  guard tours; the end report waits for the reasons): "kenapa tidak dicek saat kembali" for a point
+  checked once. Caption E: "a dari n titik dicek 2× (berangkat dan kembali)", *Belum dicek* and
+  *Dicek sekali, belum kembali* (with the time and the reason); D lists each tour with its pass.
+- **Excel Akhir Shift**: the old columns keep their meaning (*Titik Dicek* = checked at least once, so
+  an older Rekapitulasi reads them as before); new *Titik Dicek 2x*, *Sekali Saja*, *Daftar Sekali Saja*,
+  *Justifikasi Sekali Saja* (blank before 12 Nov). `points[]` frozen in the end report now carry `times`
+  and `need`.
+- The office tool (`laporan-tools`) counts the same way from 12 Nov (`rekap_harian.TWO_PASS_FROM`).
+
+Also: MANGGALA BOOSTER roster *BAYU JULIANSYAH* → **BAYU JULIANSAH** (Billy, 2026-11-07).
+
+Verified: in Node with the app's own code (passes, checklist, captions, stamp, sheets; a shift of
+11 Nov has no pass), the office tool's simulator (`simulasi.js`, 11 and 12 Nov), and in the browser at
+phone size (with the start date moved back on the test page only): Berangkat then Kembali at one point,
+the hint, main screen, point list and Akhir Shift with both kinds of justifikasi. Not on a real phone.
+
+Changed: js/patrol-options.js, js/patrol-records.js, js/app.js, js/options.js, index.html, sw.js
+(BUILD = CACHE_VERSION = v56).
 
 ## v55 (2026-11-02) — data that goes missing from a phone
 

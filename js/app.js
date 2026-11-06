@@ -1308,10 +1308,11 @@
     loadSessionRecords().then(function (records) {
       var tours = records.filter(function (r) { return r.kind === 'patrol'; });
       var last = tours[tours.length - 1];
-      var points = SA.patrolRecords.points(s.patrolId, records);
-      var left = points.filter(function (p) { return !p.time; });
+      var points = SA.patrolRecords.points(s.patrolId, records, s.shiftDate);
+      var left = points.filter(function (p) { return !SA.patrolRecords.done(p); });
+      var twice = SA.patrolTwoPass(s.shiftDate);
       $('go-patrol-sub').textContent = (points.length
-        ? (points.length - left.length) + ' dari ' + points.length + ' titik dicek'
+        ? (points.length - left.length) + ' dari ' + points.length + ' titik dicek' + (twice ? ' 2×' : '')
         : tours.length + ' titik') +
         (last ? ' · terakhir ' + String(last.time).slice(0, 5) : ' · belum ada shift ini');
       renderPointsLeft(left, s);
@@ -1336,12 +1337,13 @@
     var late = !window_ || Date.now() > window_.end.getTime() - 2 * 60 * 60 * 1000;
     box.classList.toggle('late', late);
     var title = document.createElement('b');
-    title.textContent = 'Belum dicek shift ini (' + left.length + ')';
+    title.textContent = (SA.patrolTwoPass(s.shiftDate) ? 'Belum dicek 2× (berangkat dan kembali) shift ini ('
+      : 'Belum dicek shift ini (') + left.length + ')';
     box.appendChild(title);
     var list = document.createElement('ul');
     left.forEach(function (p) {
       var item = document.createElement('li');
-      item.textContent = p.name;
+      item.textContent = p.name + (SA.patrolRecords.once(p) ? ' — kembali belum (berangkat ' + p.times.join(', ') + ')' : '');
       if (p.rawan) {
         var tag = document.createElement('span');
         tag.className = 'tag-rawan';
@@ -1414,11 +1416,18 @@
    */
   function renderPatrolPoints() {
     var d = state.draft;
-    var points = SA.patrolRecords.points(d.patrolId, state.sessionRecords);
-    var left = points.filter(function (p) { return !p.time; }).length;
+    var points = SA.patrolRecords.points(d.patrolId, state.sessionRecords, d.shiftDate);
+    var left = points.filter(function (p) { return !SA.patrolRecords.done(p); }).length;
+    var twice = SA.patrolTwoPass(d.shiftDate);
     $('r-p-points-label').textContent = points.length
-      ? 'Titik — ' + (points.length - left) + ' dari ' + points.length + ' sudah dicek shift ini'
+      ? 'Titik — ' + (points.length - left) + ' dari ' + points.length + ' sudah dicek' +
+        (twice ? ' 2× (berangkat dan kembali)' : '') + ' shift ini'
       : 'Titik';
+    // Which check this report is (v56): the first at a point is Berangkat, the second Kembali.
+    var pass = SA.patrolRecords.passFor(d, state.sessionRecords);
+    $('r-p-pass').textContent = pass ? 'Laporan ini: pengecekan ke-' + pass.n + ' · ' + pass.name +
+      (pass.n === 1 ? ' — titik ini dicek lagi saat kembali, dengan foto baru' : '') : '';
+    $('r-p-pass').classList.toggle('hidden', !pass);
     var box = $('r-p-points');
     box.innerHTML = '';
     var typing = d.point === '' && d.typing;
@@ -1435,8 +1444,10 @@
         name.appendChild(tag);
       }
       var when = document.createElement('small');
-      when.className = p.time ? 'done' : '';
-      when.textContent = p.time ? '✓ ' + p.time + (p.facility === 'Tidak Aktif' ? ' · Tidak Aktif' : '') : 'belum';
+      when.className = SA.patrolRecords.done(p) ? 'done' : '';
+      when.textContent = p.time ? p.times.map(function (t) { return '✓ ' + t; }).join(' · ') +
+        (SA.patrolRecords.once(p) ? ' · kembali belum' : '') +
+        (p.facility === 'Tidak Aktif' ? ' · Tidak Aktif' : '') : 'belum';
       row.appendChild(name);
       row.appendChild(when);
       row.addEventListener('click', function () { pickPatrolPoint(p.name); });
@@ -1541,9 +1552,9 @@
   function patrolShiftSummary(d) {
     d.tours = state.sessionRecords.filter(function (r) { return r.kind === 'patrol'; }).map(function (r) {
       return { time: String(r.time || '').slice(0, 5), area: r.area || '', check: r.check || '',
-        facility: r.facility || '' };
+        facility: r.facility || '', pass: r.pass || '' };
     });
-    d.points = SA.patrolRecords.points(d.patrolId, state.sessionRecords);
+    d.points = SA.patrolRecords.points(d.patrolId, state.sessionRecords, d.shiftDate);
     d.findingList = state.sessionRecords.filter(function (r) { return SA.findings.is(r); }).map(function (r) {
       return { time: String(r.time || '').slice(0, 5), label: SA.patrolRecords.label(r), status: SA.findings.status(r) };
     });
@@ -1591,26 +1602,29 @@
     $('r-pend-km-end').value = '';
     // The checklist, from this shift's guard tours. Unchecked points are
     // named in the report; sending is never blocked by them (Billy).
-    var left = d.points.filter(function (p) { return !p.time; });
+    var left = d.points.filter(function (p) { return !SA.patrolRecords.done(p); });
     $('r-pend-points-note').textContent = left.length
-      ? left.length + ' dari ' + d.points.length + ' titik belum dicek shift ini. Tulis justifikasi tiap titik ' +
-        '— alasannya ikut di laporan.'
+      ? left.length + ' dari ' + d.points.length + ' titik belum dicek' +
+        (SA.patrolTwoPass(d.shiftDate) ? ' 2× (berangkat dan kembali)' : '') +
+        ' shift ini. Tulis justifikasi tiap titik — alasannya ikut di laporan.'
       : '';
     var box = $('r-pend-points');
     box.innerHTML = '';
     if (!d.points.length) box.textContent = 'Patrol ini belum punya daftar titik.';
     d.points.forEach(function (p) {
       var row = document.createElement('div');
-      row.className = !p.time ? 'missing' : p.facility === 'Tidak Aktif' ? 'missing' : 'ok';
+      var done = SA.patrolRecords.done(p), once = SA.patrolRecords.once(p);
+      row.className = !done ? 'missing' : p.facility === 'Tidak Aktif' ? 'missing' : 'ok';
       row.textContent = p.name + (p.rawan ? ' (titik rawan)' : '') + ' — ' +
-        (p.time ? '✓ ' + p.time + (p.facility ? ' · ' + p.facility : '') : 'belum dicek');
-      if (!p.time) {
-        // Why it was not checked: required for each one (Billy, 2026-10-20).
+        (p.time ? p.times.map(function (t) { return '✓ ' + t; }).join(' · ') + (once ? ' · kembali belum dicek' : '') +
+          (p.facility ? ' · ' + p.facility : '') : 'belum dicek');
+      if (!done) {
+        // Why it was not checked (Billy, 2026-10-20), or not checked again coming back (v56): required.
         var reason = document.createElement('input');
         reason.type = 'text';
         reason.className = 'reason';
         reason.autocomplete = 'off';
-        reason.placeholder = 'Justifikasi: kenapa tidak dicek…';
+        reason.placeholder = once ? 'Justifikasi: kenapa tidak dicek saat kembali…' : 'Justifikasi: kenapa tidak dicek…';
         reason.setAttribute('aria-label', 'Justifikasi ' + p.name);
         reason.value = d.reasons[p.name] || '';
         reason.addEventListener('input', function () {
@@ -2617,7 +2631,7 @@
         missing.push('KM akhir lebih kecil dari KM awal');
       }
       var unexplained = draft.points.filter(function (p) {
-        return !p.time && !String(draft.reasons[p.name] || '').trim();
+        return !SA.patrolRecords.done(p) && !String(draft.reasons[p.name] || '').trim();
       }).length;
       if (unexplained) missing.push('justifikasi ' + unexplained + ' titik yang belum dicek');
     }
@@ -3181,6 +3195,12 @@
         record.facility = draft.point ? draft.facility : '';
         // Frozen, so a later change to the list never rewrites a sent report.
         record.rawan = SA.patrolRecords.rawanOf(record);
+        // Going out or coming back (v56): from this shift's earlier guard tours at the point
+        var pass = SA.patrolRecords.passFor(draft, state.sessionRecords);
+        if (pass) {
+          record.pass = pass.name;
+          record.passNo = pass.n;
+        }
         record.check = String(draft.check).trim();
         record.weather = draft.weather;
         record.road = draft.road;
@@ -3198,7 +3218,8 @@
         record.kmStart = String(draft.kmStart).trim();
         record.kmEnd = String(draft.kmEnd).trim();
         record.points = draft.points.map(function (p) {
-          return p.time ? p : Object.assign({}, p, { reason: String(draft.reasons[p.name] || '').trim() });
+          return SA.patrolRecords.done(p) ? p
+            : Object.assign({}, p, { reason: String(draft.reasons[p.name] || '').trim() });
         });
         record.tours = draft.tours;
         record.findingList = draft.findingList;
@@ -3953,7 +3974,7 @@
   /* BUILD and CACHE_VERSION in sw.js are a PAIR -- bump both on every upload.
      The marker prints both; when they differ, the new version has downloaded
      but the app has not been restarted. */
-  var BUILD = 'v55';
+  var BUILD = 'v56';
   SA.BUILD = BUILD;                        // stamped on every export (SA.sheets.exported)
   var CACHE_PREFIX = 'superapp-laporan-';
 
