@@ -47,6 +47,8 @@
     <symbol id="i-truck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.62l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/></symbol>
     <symbol id="i-building" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="1.5"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01M12 6h.01M16 6h.01M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M16 14h.01"/></symbol>
     <symbol id="i-detector" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="8" height="11" rx="4"/><rect x="7.5" y="13" width="3" height="9" rx="1.5"/><path d="M16 5.5a4.5 4.5 0 0 1 0 5"/><path d="M19 3.5a8 8 0 0 1 0 9"/></symbol>
+    <symbol id="i-briefcase" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></symbol>
+    <symbol id="i-calendar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></symbol>
     <symbol id="i-send" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></symbol>
   </defs>
 </svg>
@@ -459,6 +461,73 @@
   </div>
 </section>
 
+<!-- ── M1. Manajemen: start of day ────────────────────────────────────────
+     ARCO North, ARCO South or the PM, and who of them reports today
+     (Billy, 2026-11-17). The day ends at midnight, like Walkthrough's.
+-->
+<section id="screen-m-setup" class="screen">
+  <header class="bar">
+    <button id="m-setup-back" class="link">Ganti tim</button>
+    <span class="who">Mulai hari · Manajemen</span>
+  </header>
+  <div class="pad">
+    <div class="section">
+      <p class="eyebrow">Unit</p>
+      <div id="m-unit" class="chips wrap"></div>
+    </div>
+    <div class="section">
+      <p id="m-officers-label" class="eyebrow">Nama</p>
+      <div id="m-officers" class="picklist"></div>
+      <p class="hint">Urutan dicentang = urutan di laporan · <span id="m-date"></span></p>
+    </div>
+    <button id="m-start" class="primary" disabled>Mulai</button>
+    <p id="m-blocker" class="hint" style="text-align:center"></p>
+  </div>
+</section>
+
+<!-- ── M2. Manajemen: the day ──────────────────────────────────────────────
+     Two reports: Laporan Giat (the day's supervision, A-J) and Laporan
+     Kegiatan (one event, 5W1H). Both kept on the phone until Simpan.
+-->
+<section id="screen-m-main" class="screen">
+  <header class="bar">
+    <span class="who">Manajemen</span>
+    <button id="m-main-team" class="link">Ganti tim</button>
+  </header>
+  <div class="pad">
+    <div class="post-card">
+      <div class="post-meta">
+        <div id="m-session" class="assign-line"></div>
+        <button id="m-edit" class="link">Ubah</button>
+      </div>
+    </div>
+
+    <button id="go-giat" class="action main">
+      <svg width="28" height="28" aria-hidden="true"><use href="#i-briefcase"/></svg>
+      <span><b>Laporan giat</b><small id="go-giat-sub">Supervisi hari ini, A sampai J</small></span>
+    </button>
+    <button id="go-event" class="action plain wide-plain">
+      <svg width="24" height="24" aria-hidden="true"><use href="#i-calendar"/></svg>
+      <span><b>Laporan kegiatan</b><small id="go-event-sub">Satu kegiatan · When, Where, What, Who, Why, How</small></span>
+    </button>
+
+    <div id="m-gps" class="gps-pill waiting">
+      <span class="dot"></span>
+      <span class="gps-text">
+        <span class="gps-line" id="m-gps-status"></span>
+        <span class="gps-line small" id="m-gps-detail"></span>
+      </span>
+    </div>
+
+    <div class="footer-row">
+      <span id="m-today"></span>
+      <button id="m-view-list" class="link">Riwayat</button>
+    </div>
+    <button id="m-go-export" class="secondary">Export ke Excel</button>
+    <p id="m-version" class="version"></p>
+  </div>
+</section>
+
 <!-- ── 4. Security: one report (hourly check, incident or shift) ──────────
      One screen, three shapes. The sections for the other two kinds are hidden.
 -->
@@ -652,6 +721,73 @@
       <p class="hint">Foto dan isian tersimpan di HP sampai Simpan — boleh ditutup dan dilanjutkan nanti.
         Disarankan 4–6 foto: buku tamu, area kantor, lainnya.</p>
       <button id="r-o-reset" class="danger-link" type="button">Reset foto dan isian</button>
+    </div>
+
+    <!-- Manajemen: Laporan Giat, items A-J. Kept on the phone until Simpan. -->
+    <div id="r-giat" class="hidden">
+      <div class="field-pair">
+        <label class="field"><span>Pukul mulai (opsional)</span><input id="r-m-start" type="time"></label>
+        <label class="field"><span>Pukul selesai (opsional)</span><input id="r-m-end" type="time"></label>
+      </div>
+      <label class="field">
+        <span>C. Supervisi</span>
+        <input id="r-m-supervisi" type="text" autocomplete="off" placeholder="mis. Arco patroli ke lapangan">
+      </label>
+      <label class="field">
+        <span>D. Lokasi — satu per baris</span>
+        <textarea id="r-m-lokasi" rows="2" placeholder="mis. Pos KBJ&#10;Kandis"></textarea>
+      </label>
+      <label class="field">
+        <span>E. Nama personil — satu per baris</span>
+        <textarea id="r-m-personil" rows="3" placeholder="mis. Arifin&#10;Rahmatan"></textarea>
+      </label>
+      <label class="field">
+        <span>F. Kegiatan supervisi</span>
+        <textarea id="r-m-kegiatan" rows="5" placeholder="Apa saja yang dicek dan dikerjakan…"></textarea>
+      </label>
+      <label class="field"><span>G. Temuan</span><textarea id="r-m-temuan" rows="1"></textarea></label>
+      <label class="field"><span>H. Event dll</span><textarea id="r-m-eventnote" rows="1"></textarea></label>
+      <label class="field"><span>I. Kejadian AGHT</span><textarea id="r-m-aght" rows="1"></textarea></label>
+      <label class="field"><span>J. Kendala</span><textarea id="r-m-kendala" rows="1"></textarea></label>
+      <p class="hint">Kosong = Nihil. Foto dan isian tersimpan di HP sampai Simpan — boleh ditutup dan dilanjutkan nanti.</p>
+      <button class="danger-link m-reset" type="button">Reset foto dan isian</button>
+    </div>
+
+    <!-- Manajemen: Laporan Kegiatan, one event in 5W1H. Who is grouped by party. -->
+    <div id="r-event" class="hidden">
+      <div class="field-pair">
+        <label class="field"><span>When — pukul mulai</span><input id="r-e-start" type="time"></label>
+        <label class="field"><span>Selesai (kosong = s/d selesai)</span><input id="r-e-end" type="time"></label>
+      </div>
+      <label class="field">
+        <span>Where — satu per baris</span>
+        <textarea id="r-e-where" rows="2" placeholder="mis. Manggala Booster"></textarea>
+      </label>
+      <label class="field">
+        <span>What</span>
+        <textarea id="r-e-what" rows="2" placeholder="mis. MWT Pertagas bersama Team Leader PHR"></textarea>
+      </label>
+      <div class="field">
+        <span>Who — per pihak, nama satu per baris</span>
+        <div id="r-e-groups" class="group-list"></div>
+        <datalist id="r-e-parties"></datalist>
+        <button id="r-e-add-group" class="add-link" type="button">+ Tambah pihak</button>
+      </div>
+      <label class="field">
+        <span>Why</span>
+        <textarea id="r-e-why" rows="2" placeholder="mis. Penebalan pengamanan untuk kegiatan MWT"></textarea>
+      </label>
+      <div class="field">
+        <span>How — urutan kejadian</span>
+        <div id="r-e-steps" class="step-list"></div>
+        <button id="r-e-add-step" class="add-link" type="button">+ Tambah urutan</button>
+      </div>
+      <label class="field">
+        <span>Penutup</span>
+        <textarea id="r-e-closing" rows="2"></textarea>
+      </label>
+      <p class="hint">Foto dan isian tersimpan di HP sampai Simpan — boleh ditutup dan dilanjutkan nanti.</p>
+      <button class="danger-link m-reset" type="button">Reset foto dan isian</button>
     </div>
 
     <!-- Patrol: one guard-tour checkpoint, picked from the patrol's list
@@ -909,6 +1045,7 @@
 <script src="js/wt-records.js"></script>
 <script src="js/patrol-records.js"></script>
 <script src="js/office-records.js"></script>
+<script src="js/mgmt-records.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

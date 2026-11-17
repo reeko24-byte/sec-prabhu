@@ -28,7 +28,10 @@ SA.TEAMS = [
   { id: 'walkthrough', label: 'Walkthrough',      ready: true,
     icon: 'i-steps',  note: 'Jalan kaki sepanjang ROW' },
   { id: 'office',      label: 'Security Perkantoran', ready: true,
-    icon: 'i-building', note: 'SECWAN · kantor SORA dan Area Melur' }
+    icon: 'i-building', note: 'SECWAN · kantor SORA dan Area Melur' },
+  // Billy, 2026-11-17: the Area Coordinators and the Project Manager (js/mgmt-records.js).
+  { id: 'mgmt',        label: 'Manajemen',        ready: true,
+    icon: 'i-clipboard', note: 'ARCO North, ARCO South dan PM' }
 ];
 
 /* Excel colours, one per team (Billy, 2026-10-01), taken from Prabhu's own
@@ -43,7 +46,9 @@ SA.EXCEL_THEMES = {
   patrol:      { primary: '0090C8', title: 'LAPORAN MONITORING PATROLI SECURITY' },
   walkthrough: { primary: '548235', title: 'LAPORAN TEAM WALKTHROUGH' },
   // Slate: apart from the other three teams' navy, blue and green.
-  office:      { primary: '4A5A6A', title: 'LAPORAN SECURITY PERKANTORAN' }
+  office:      { primary: '4A5A6A', title: 'LAPORAN SECURITY PERKANTORAN' },
+  // Plum: apart from the four field teams' blues, green and slate.
+  mgmt:        { primary: '6B3F69', title: 'LAPORAN MANAJEMEN' }
 };
 SA.EXCEL_LOGO = 'assets/brand/prabhu-logo.png';
 
@@ -160,6 +165,8 @@ SA.SECURITY = {
     patrol:   { min: 1, max: 4 },
     pend:     { min: 2, max: 4 },
     office:   { min: 4, max: 6 },
+    giat:     { min: 2, max: 6 },
+    event:    { min: 2, max: 8 },
     close:    { min: 1, max: 2 }
   },
 

@@ -27,6 +27,7 @@
     sessions: {},        // per team: Security's shift, Walkthrough's day
     wtSetup: { teamNo: 0, officers: [], routeId: '', others: false, allRoutes: false },
     oSetup: { post: '', officer: '' },
+    mSetup: { unit: '', officers: [], others: false },
     pSetup: { patrolId: '', officers: [], tni: '', vehicle: '', ownVehicle: false, km: '', shift: '', date: '', others: false },
     setup: { post: '', officers: [], bko: '', shift: '', date: '', others: false },
     gps: { state: 'waiting' },
@@ -61,7 +62,7 @@
   function $(id) { return document.getElementById(id); }
 
   var XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-  var SCREENS = ['team', 'setup', 'main', 'wt-setup', 'wt-main', 'p-setup', 'p-main', 'o-setup', 'o-main',
+  var SCREENS = ['team', 'setup', 'main', 'wt-setup', 'wt-main', 'p-setup', 'p-main', 'o-setup', 'o-main', 'm-setup', 'm-main',
     'report', 'send', 'list', 'export', 'cases'];
 
   function show(name) {
@@ -631,7 +632,7 @@
   var TITLES = { check: 'Pengecekan', incident: 'Laporan Kejadian', shift: 'Laporan Shift',
     access: 'Access Control', body: 'Body Check', wtkp: 'Laporan KP', lds: 'Laporan LDS',
     close: 'Tutup Temuan', patrol: 'Guard Tour', pend: 'Akhir Shift Patroli', office: 'Laporan Harian',
-    pstart: 'Mulai Shift — KM Awal' };
+    pstart: 'Mulai Shift — KM Awal', giat: 'Laporan Giat', event: 'Laporan Kegiatan' };
   /* ── Security Perkantoran: start of day ─────────────────────────────── */
 
   var O = SA.OFFICE;
@@ -930,6 +931,290 @@
       }
     });
   }
+
+
+  /* ── Manajemen: start of day (Billy, 2026-11-17) ─────────────────────────
+     ARCO North, ARCO South or the PM. Picking a unit ticks all its people --
+     the two ARCOs of an area report together ("A. Nama Arco : 1. 2."). One
+     day per session, like Walkthrough: tomorrow starts at the start screen. */
+
+  var MG = SA.MGMT;
+
+  function openMgmtSetup() {
+    var s = state.sessions.mgmt;
+    state.mSetup = s ? { unit: s.unit, officers: s.officers.slice(), others: false }
+      : { unit: '', officers: [], others: false };
+    renderMgmtSetup();
+    show('m-setup');
+  }
+
+  function renderMgmtSetup() {
+    var setup = state.mSetup;
+    renderChoice($('m-unit'), MG.units.map(function (u) { return { value: u.name, text: u.name }; }), setup.unit,
+      function (value) {
+        if (value !== setup.unit) {
+          var unit = SA.mgmtRecords.unitOf(value);
+          setup.officers = unit ? unit.members.slice() : [];
+        }
+        setup.unit = value;
+        renderMgmtSetup();
+      });
+    $('m-officers-label').textContent = 'Nama (' + setup.officers.length + ' dipilih)';
+    renderPicker($('m-officers'), setup.unit, setup.officers, setup.others,
+      function () { setup.others = !setup.others; renderMgmtSetup(); }, renderMgmtSetup,
+      { noun: 'unit', groups: MG.units.map(function (u) { return { name: u.name, members: u.members }; }) });
+    $('m-date').textContent = SA.longDate(new Date());
+    var ready = !!(setup.unit && setup.officers.length);
+    $('m-start').disabled = !ready;
+    $('m-blocker').textContent = ready ? '' : !setup.unit ? 'Pilih unit dulu.' : 'Centang nama.';
+  }
+
+  $('m-start').addEventListener('click', function () {
+    if (this.disabled) return;
+    var setup = state.mSetup;
+    var today = SA.dateOf(new Date());
+    var old = state.sessions.mgmt;
+    var unit = SA.mgmtRecords.unitOf(setup.unit);
+    // Same unit, same day: names corrected -- the reports kept so far stay with it.
+    var same = old && old.unit === setup.unit && old.date === today;
+    state.sessions.mgmt = {
+      id: same ? old.id : 'm' + Date.now().toString(36),
+      unit: setup.unit,
+      zone: unit ? unit.zone : '',
+      officers: setup.officers.slice(),
+      date: today,
+      shiftDate: today
+    };
+    SA.db.setPref('mgmtSession', state.sessions.mgmt);
+    renderMgmtMain();
+    show('m-main');
+    afterStart();
+  });
+
+  $('m-setup-back').addEventListener('click', function () { buildTeamChips(); show('team'); });
+  $('m-main-team').addEventListener('click', function () { buildTeamChips(); show('team'); });
+  $('m-edit').addEventListener('click', openMgmtSetup);
+
+  /* ── Manajemen: the day ─────────────────────────────────────────────── */
+
+  var MGMT_SUBS = { giat: 'Supervisi hari ini, A sampai J',
+    event: 'Satu kegiatan · When, Where, What, Who, Why, How' };
+
+  function renderMgmtMain() {
+    var s = state.sessions.mgmt;
+    if (!s) return;
+    var line = $('m-session');
+    line.textContent = s.unit + (s.zone ? ' · ' + s.zone : '');
+    var when = document.createElement('small');
+    when.className = 'when';
+    when.textContent = SA.longDate(SA.parseDate(s.date));
+    var who = document.createElement('small');
+    who.textContent = s.officers.join(', ');
+    line.appendChild(when);
+    line.appendChild(who);
+
+    loadSessionRecords().then(function (records) {
+      return Promise.all(['giat', 'event'].map(function (kind) {
+        return SA.db.getPref(keptKey('mgmt', kind), null).then(function (kept) {
+          var sent = records.filter(function (r) { return r.kind === kind; }).length;
+          var parts = [];
+          if (kept && kept.sessionId === s.id && kept.touched) parts.push('ada isian tersimpan, belum dikirim');
+          if (sent) parts.push(sent + ' dikirim hari ini');
+          $('go-' + kind + '-sub').textContent = parts.length ? parts.join(' · ') : MGMT_SUBS[kind];
+        });
+      }));
+    }).then(function () { return SA.db.all(); }).then(function (all) {
+      renderCount(all, 'mgmt', 'm-today', 'm-go-export');
+    });
+    offerKept('mgmt', 'giat');
+    offerKept('mgmt', 'event');
+  }
+
+  $('go-giat').addEventListener('click', function () {
+    var sent = latestRecord('giat', null);
+    if (sent && !confirm('Laporan giat hari ini sudah dikirim pukul ' + String(sent.time).slice(0, 5) +
+        '. Buat lagi?')) return;
+    openReport('giat');
+  });
+  $('go-event').addEventListener('click', function () { openReport('event'); });
+  $('m-view-list').addEventListener('click', function () { renderList(); show('list'); });
+  $('m-go-export').addEventListener('click', openExport);
+
+  /* ── Manajemen: the two reports, kept on the phone until Simpan ──────── */
+
+  function mgmtDraft(kind, s, now) {
+    var d = {
+      kind: kind, team: 'mgmt', date: s.date || SA.dateOf(now),
+      unit: s.unit, zone: s.zone, officers: s.officers.slice(), reporter: s.officers[0] || '',
+      timeStart: '', timeEnd: ''
+    };
+    if (kind === 'giat') {
+      Object.assign(d, { supervisi: '', lokasi: '', personil: '', kegiatan: '',
+        temuan: '', eventNote: '', aght: '', kendala: '' });
+    } else {
+      Object.assign(d, { where: '', what: '', why: '', closing: MG.CLOSING,
+        groups: [{ party: '', names: '' }], steps: [{ time: '', text: '' }] });
+    }
+    return d;
+  }
+
+  var GIAT_FIELDS = { 'r-m-start': 'timeStart', 'r-m-end': 'timeEnd', 'r-m-supervisi': 'supervisi',
+    'r-m-lokasi': 'lokasi', 'r-m-personil': 'personil', 'r-m-kegiatan': 'kegiatan', 'r-m-temuan': 'temuan',
+    'r-m-eventnote': 'eventNote', 'r-m-aght': 'aght', 'r-m-kendala': 'kendala' };
+  var EVENT_FIELDS = { 'r-e-start': 'timeStart', 'r-e-end': 'timeEnd', 'r-e-where': 'where', 'r-e-what': 'what',
+    'r-e-why': 'why', 'r-e-closing': 'closing' };
+
+  function fillFields(map) {
+    var d = state.draft;
+    Object.keys(map).forEach(function (id) { $(id).value = d[map[id]] || ''; });
+  }
+
+  function renderGiatFields() {
+    var d = state.draft;
+    fillFields(GIAT_FIELDS);
+    restoreKept(d, function (fields) { Object.assign(d, fields); fillFields(GIAT_FIELDS); });
+  }
+
+  function renderEventFields() {
+    var d = state.draft;
+    function fill() { fillFields(EVENT_FIELDS); renderGroups(); renderSteps(); }
+    fill();
+    restoreKept(d, function (fields) { Object.assign(d, fields); fill(); });
+  }
+
+  Object.keys(GIAT_FIELDS).forEach(function (id) { wireText(id, GIAT_FIELDS[id]); });
+  Object.keys(EVENT_FIELDS).forEach(function (id) { wireText(id, EVENT_FIELDS[id]); });
+  ['r-m-temuan', 'r-m-eventnote', 'r-m-aght', 'r-m-kendala'].forEach(function (id) { $(id).placeholder = MG.NIHIL; });
+  MG.parties.forEach(function (p) {
+    var option = document.createElement('option');
+    option.value = p;
+    $('r-e-parties').appendChild(option);
+  });
+
+  function removeButton(label, onClick) {
+    var button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'row-remove';
+    button.textContent = '×';
+    button.setAttribute('aria-label', label);
+    button.addEventListener('click', onClick);
+    return button;
+  }
+
+  /* Arrays are replaced, never changed in place: the kept draft notices a
+     change by comparing with what the form opened with. */
+  function changeItem(key, i, change) {
+    var d = state.draft;
+    d[key] = d[key].map(function (item, k) { return k === i ? Object.assign({}, item, change) : item; });
+    updateReport();
+  }
+
+  function removeItem(key, i, render) {
+    var d = state.draft;
+    d[key] = d[key].filter(function (item, k) { return k !== i; });
+    render();
+    updateReport();
+  }
+
+  /* Who: one card per party -- its name (offered list or typed) and its people. */
+  function renderGroups() {
+    var d = state.draft;
+    var box = $('r-e-groups');
+    box.innerHTML = '';
+    d.groups.forEach(function (g, i) {
+      var card = document.createElement('div');
+      card.className = 'group-card';
+      var head = document.createElement('div');
+      head.className = 'group-head';
+      var party = document.createElement('input');
+      party.type = 'text';
+      party.autocomplete = 'off';
+      party.setAttribute('list', 'r-e-parties');
+      party.setAttribute('aria-label', 'Pihak ' + (i + 1));
+      party.placeholder = 'Pihak, mis. PTG';
+      party.value = g.party;
+      party.addEventListener('input', function () { changeItem('groups', i, { party: party.value }); });
+      head.appendChild(party);
+      if (d.groups.length > 1) {
+        head.appendChild(removeButton('Hapus pihak ' + (g.party || i + 1), function () {
+          removeItem('groups', i, renderGroups);
+        }));
+      }
+      var names = document.createElement('textarea');
+      names.rows = 3;
+      names.setAttribute('aria-label', 'Nama dari pihak ' + (i + 1) + ', satu per baris');
+      names.placeholder = 'Satu nama per baris, mis.\nBpk Roby Yasin (GM)';
+      names.value = g.names;
+      names.addEventListener('input', function () { changeItem('groups', i, { names: names.value }); });
+      card.appendChild(head);
+      card.appendChild(names);
+      box.appendChild(card);
+    });
+  }
+
+  /* How: the timeline, each step with an optional time. */
+  function renderSteps() {
+    var d = state.draft;
+    var box = $('r-e-steps');
+    box.innerHTML = '';
+    d.steps.forEach(function (step, i) {
+      var row = document.createElement('div');
+      row.className = 'step-row';
+      var time = document.createElement('input');
+      time.type = 'time';
+      time.setAttribute('aria-label', 'Pukul urutan ' + (i + 1));
+      time.value = step.time;
+      time.addEventListener('input', function () { changeItem('steps', i, { time: time.value }); });
+      var text = document.createElement('textarea');
+      text.rows = 2;
+      text.setAttribute('aria-label', 'Urutan ' + (i + 1));
+      text.placeholder = i ? 'Lalu…' : 'mis. Team management Pertamina Gas merapat ke lokasi';
+      text.value = step.text;
+      text.addEventListener('input', function () { changeItem('steps', i, { text: text.value }); });
+      row.appendChild(time);
+      row.appendChild(text);
+      row.appendChild(d.steps.length > 1 ? removeButton('Hapus urutan ' + (i + 1), function () {
+        removeItem('steps', i, renderSteps);
+      }) : document.createElement('span'));
+      box.appendChild(row);
+    });
+  }
+
+  function addItem(key, item, render, boxId, selector) {
+    var d = state.draft;
+    if (!d) return;
+    d[key] = d[key].concat([item]);
+    render();
+    updateReport();
+    var fields = $(boxId).querySelectorAll(selector);
+    if (fields.length) fields[fields.length - 1].focus();
+  }
+  $('r-e-add-group').addEventListener('click', function () {
+    addItem('groups', { party: '', names: '' }, renderGroups, 'r-e-groups', 'input');
+  });
+  $('r-e-add-step').addEventListener('click', function () {
+    // A new step starts at the last step's time: the timeline only moves forward.
+    var steps = state.draft ? state.draft.steps : [];
+    var last = steps.length ? steps[steps.length - 1].time : '';
+    addItem('steps', { time: last, text: '' }, renderSteps, 'r-e-steps', 'textarea');
+  });
+
+  Array.prototype.forEach.call(document.querySelectorAll('.m-reset'), function (button) {
+    button.addEventListener('click', function () {
+      var d = state.draft;
+      if (!d || !confirm('Hapus semua foto dan isian laporan ini?')) return;
+      releasePhotoUrls(state.photos);
+      state.photos = [];
+      var blank = mgmtDraft(d.kind, d.session, new Date());
+      keptFields(d).forEach(function (f) { d[f] = blank[f]; });
+      if (d.kind === 'giat') fillFields(GIAT_FIELDS);
+      else { fillFields(EVENT_FIELDS); renderGroups(); renderSteps(); }
+      renderPhotoStrip();
+      updateReport();
+      saveKept(true);
+      toast('Foto dan isian direset.');
+    });
+  });
 
 
   /* ── Walkthrough: start of day ──────────────────────────────────────── */
@@ -1937,7 +2222,9 @@
     patrol:   ['r-patrol',   renderPatrolFields],
     pend:     ['r-pend',     renderPendFields],
     pstart:   ['r-pstart',   renderPstartFields],
-    office:   ['r-office',   renderOfficeFields]
+    office:   ['r-office',   renderOfficeFields],
+    giat:     ['r-giat',     renderGiatFields],
+    event:    ['r-event',    renderEventFields]
   };
 
   /** A Tutup temuan asked for before the day or shift was started: opened
@@ -2594,6 +2881,9 @@
     // The body check's Pukul is on the photo.
     if (draft.kind === 'body' && !draft.bodyTime) missing.push('Pukul');
     if (draft.kind === 'close' && !draft.closeTime) missing.push('Pukul');
+    // Manajemen: what the report is about is on the photo.
+    if (draft.kind === 'giat' && !String(draft.supervisi).trim()) missing.push('supervisi');
+    if (draft.kind === 'event' && !String(draft.what).trim()) missing.push('what');
     if (draft.kind === 'pstart' && !/^\d+$/.test(String(draft.kmStart))) missing.push('KM awal');
     // Patrol: the area and what was checked are on the photo.
     if (draft.kind === 'patrol') {
@@ -2624,6 +2914,14 @@
     }
     if (draft.kind === 'patrol' && draft.point && !draft.facility) missing.push('kondisi fasilitas');
     if (draft.kind === 'office' && !/^\d+$/.test(String(draft.visitors))) missing.push('jumlah tamu');
+    if (draft.kind === 'giat') {
+      if (!String(draft.lokasi).trim()) missing.push('lokasi');
+      if (!String(draft.kegiatan).trim()) missing.push('kegiatan supervisi');
+    }
+    if (draft.kind === 'event') {
+      if (!draft.timeStart) missing.push('pukul mulai');
+      if (!String(draft.where).trim()) missing.push('where');
+    }
     if (draft.kind === 'pend') {
       if (!draft.nextOfficers.length) missing.push('shift lanjut');
       if (!String(draft.kmEnd).trim()) missing.push('KM akhir');
@@ -2772,6 +3070,44 @@
       },
       summary: function (c, n) { return n + ' laporan harian.'; }
     },
+    mgmt: {
+      caption: function (r) { return SA.mgmtRecords.caption(r); },
+      label: function (r) { return SA.mgmtRecords.label(r); },
+      stamp: function (d) { return SA.mgmtRecords.stampLines(d); },
+      seal: function (d, t, f) { return SA.mgmtRecords.sealFacts(d, t, f); },
+      sealPrefix: 'MGT',
+      // No per-unit badge yet: the Prabhu logo in the corner.
+      badge: function () { return SA.EXCEL_LOGO; },
+      fallback: function (d) { return 'MANAJEMEN\n' + d.unit; },
+      sheets: function (rs) { return SA.mgmtRecords.sheets(rs); },
+      fileLabel: function (r) { return 'MGT ' + r.unit + ' ' + SA.mgmtRecords.label(r); },
+      exportName: function (rs) {
+        var s = state.sessions.mgmt;
+        return 'MANAJEMEN_' + SA.fileSafe(s ? s.unit : rs[0].unit).replace(/_/g, '');
+      },
+      where: function (r) { return r.unit; },
+      prefKey: 'mgmtSession',
+      // Written after the work is done, often over a few sittings: kept until Simpan.
+      keep: {
+        giat: ['timeStart', 'timeEnd', 'supervisi', 'lokasi', 'personil', 'kegiatan', 'temuan', 'eventNote',
+          'aght', 'kendala'],
+        event: ['timeStart', 'timeEnd', 'where', 'what', 'why', 'closing', 'groups', 'steps']
+      },
+      valid: function (s) { return !!(s && s.unit && s.officers && s.officers.length); },
+      sessionBadge: function () { return SA.EXCEL_LOGO; },
+      fresh: function (s) { return s.date === SA.dateOf(new Date()); },
+      home: function () { renderMgmtMain(); show('m-main'); },
+      setup: function () { openMgmtSetup(); },
+      draft: function (kind, session, now) { return mgmtDraft(kind, session, now); },
+      recordBase: function (draft, now, session) {
+        return {
+          team: 'mgmt', kind: draft.kind, sessionId: session.id,
+          date: draft.date, time: SA.timeOf(now), timestamp: SA.timestampOf(now),
+          unit: draft.unit, zone: draft.zone, officers: draft.officers.slice(), reporter: draft.reporter
+        };
+      },
+      summary: function (c, n) { return n + ' laporan: ' + (c.giat || 0) + ' giat, ' + (c.event || 0) + ' kegiatan.'; }
+    },
     patrol: {
       caption: function (r) { return SA.patrolRecords.caption(r); },
       label: function (r) { return SA.patrolRecords.label(r); },
@@ -2909,7 +3245,7 @@
   function renderGps() {
     var gps = state.gps;
     // The same panel sits on both main screens: Security's and Walkthrough's.
-    ['', 'wt-', 'p-', 'o-'].forEach(function (prefix) {
+    ['', 'wt-', 'p-', 'o-', 'm-'].forEach(function (prefix) {
       $(prefix + 'gps').className = 'gps-pill ' +
         (gps.state === 'ok' ? 'ok' : gps.state === 'denied' ? 'denied' : 'waiting');
       if (gps.state === 'ok') {
@@ -3229,6 +3565,8 @@
         record.visitors = Number(draft.visitors) || 0;
         record.visitTimes = draft.visitTimes.slice();
         record.situation = String(draft.situation).trim() || O.SITUATION;
+      } else if (draft.team === 'mgmt') {
+        Object.assign(record, SA.mgmtRecords.fields(draft));
       } else if (draft.kind === 'close') {
         record.closeTime = draft.closeTime;
         record.followUp = String(draft.followUp).trim();
@@ -3974,7 +4312,7 @@
   /* BUILD and CACHE_VERSION in sw.js are a PAIR -- bump both on every upload.
      The marker prints both; when they differ, the new version has downloaded
      but the app has not been restarted. */
-  var BUILD = 'v56';
+  var BUILD = 'v57';
   SA.BUILD = BUILD;                        // stamped on every export (SA.sheets.exported)
   var CACHE_PREFIX = 'superapp-laporan-';
 
@@ -3987,6 +4325,7 @@
       $('wt-version').textContent = text;
       $('p-version').textContent = text;
       $('o-version').textContent = text;
+      $('m-version').textContent = text;
     }
     if (!window.caches || !caches.keys) { put(running); return; }
     caches.keys().then(function (names) {

@@ -867,7 +867,7 @@ one car).
 - Retire `wt-surveillance` once the crews have switched; update `wt_tracker.py`
   for the new Excel layout.
 
-**Upload v56** (js/app.js, js/patrol-options.js, js/patrol-records.js, js/options.js, index.html,
+**Upload v57** — Manajemen (see v57 below). Earlier: **Upload v56** (js/app.js, js/patrol-options.js, js/patrol-records.js, js/options.js, index.html,
 sw.js) **before 12 Nov** — the two checks a shift start that day — and check phones show
 *kode v56 · cache v56*. Tell the Patrol crews: each point twice, going out and coming back, a new
 photo each time. Ask guards whose phones lose data whether a
@@ -913,6 +913,7 @@ shift.
 | v25 | Security Perkantoran (SECWAN): visitor counter, end-of-shift report kept on the phone until Simpan |
 | v26 | Fixes from the fifth code review: kept drafts made general, offered on the next day, cheap to save; corrections survive later taps |
 | v27 | Patrol checkpoint list per patrol: guard tour picks a point (Aktif / Tidak Aktif), main screen and akhir shift name the points not checked — a notice, not a block |
+| v57 | **Manajemen**: ARCO North, ARCO South and the PM -- Laporan giat (A–J) and Laporan kegiatan (5W1H, Who by party, How as a timeline), kept until Simpan, stamped photos, Excel *Laporan Giat* / *Laporan Kegiatan* |
 | v56 | Patrol checks each point twice a shift from 12 Nov 2026, going out (Berangkat) and coming back (Kembali), each its own guard tour and photo: pass worked out and shown, on the caption, stamp and Excel (*Putaran*); a point checked once needs its justifikasi at Akhir Shift; new Akhir Shift columns *Titik Dicek 2x*, *Sekali Saja*. MANGGALA BOOSTER: BAYU JULIANSAH |
 | v55 | Data that goes missing from a phone (2026-11-02): *data HP sejak* and *N dihapus* on the version line and in every export; Hapus warns twice for a report not yet in an Excel; a red warning, and a question, before hours are marked as the partner's when this phone sent none; a banner with *Buka di Chrome* inside WhatsApp or any WebView; MALAM chosen from 20:00 takes tomorrow's date (Patrol and Security) |
 | v54 | Every caption's colons line up in WhatsApp: `SA.aligner` pads labels to the same WIDTH in Roboto (WhatsApp's Android font; measured character widths + letter-pair kerning in `options.js`), not the same number of letters. Measured: all 32 label groups within 3.1 px (were up to 28.6 px, about 7 spaces). WT KP uses the same aligner (wide gap kept). Patrol Mulai Shift: blank line between sections B and C |
@@ -937,6 +938,39 @@ shift.
 | v30 | Patrol 5: the four Jl. Arjuna KPs are one checkpoint ("KP 6+500, 6+000, 18+000, 5+000 Jl. Arjuna Segment 6, 11B"), 12 points |
 | v29 | Fixes from the sixth code review: saved Patrol sessions take corrected segments, condition must be tapped, rawan frozen, main screen refreshes, old Excel columns kept |
 | v28 | Patrol 6 = ZONA 5 (SEG 8, 9, 7, Sigit Surya's crew), Patrol 8 = ZONA 7 (SEG 10/12, Fengki Hutasoit's crew) — were swapped |
+
+## v57 (2026-11-17) — Manajemen: ARCO North, ARCO South and the PM
+
+Billy (2026-11-17): a section for Management, the Area Coordinators and the Project Manager, with the
+reports they already send in WhatsApp (samples in `Downloads\FITUR TAMBAHAN\Contoh Laporan ARCO dan PM.txt`).
+Team id `mgmt`, label **Manajemen**, `js/mgmt-records.js`. Billy chose: the PM uses the same two forms; the
+Who list is grouped by party; stamped photos (never required) and an Excel export.
+
+- **Start of day**: unit ARCO NORTH (DENI MAULANA, DADANG KURNIA), ARCO SOUTH (YUDI HARDIANTO, DINO JULIVAN,
+  the tool's spelling) or PM (ARI SEPTIA T). Picking a unit ticks all its people: the two ARCOs of an area
+  report together. One day per session, like Walkthrough.
+- **Laporan giat** (kind `giat`): items A–J as the ARCOs write them -- Nama Arco / Nama PM, Hari/Tgl (+ Pukul,
+  optional), Supervisi, Lokasi (one per line), Nama Personil, Kegiatan Supervisi, Temuan, Event dll,
+  Kejadian AGHT, Kendala (empty = Nihil). Supervisi, Lokasi and Kegiatan are required.
+- **Laporan kegiatan** (kind `event`): one event in 5W1H -- WHEN (Hari/Tgl, pukul mulai, selesai or
+  "s/d selesai"), WHERE, WHAT, WHO **one card per party** (PTG, PHR, PDC, Security, BKO TNI, Pamovitnas,
+  Rifansi, OSCT offered, anything typed) with its names one per line, WHY, HOW as a timeline (each step an
+  optional time; a new step starts at the last one's), and a closing line. Pukul mulai, Where and What
+  required.
+- Header `To : Junior Officer Security`, `Cc : PM, Data Analyst` (the PM's own: `Cc : Data Analyst`),
+  `Hal : LAPORAN GIAT ARCO NORTH` / `LAPORAN KEGIATAN …`. The sender adds the WhatsApp @-tags (shared text
+  cannot make them). Signed `Salam,` + the unit.
+- Both are **kept on the phone until Simpan** (the v26 `keep` mechanism): typed over a few sittings,
+  Batal keeps them, Reset clears them, the next day offers to send or discard an unsent one.
+- Photo stamp `MANAJEMEN · ARCO NORTH`, the supervisi or the event, `Oleh: names`; the Prabhu logo in the
+  corner (no unit badge yet); seal `MGT1`, `MGT-VERIFY`.
+- Excel `MANAJEMEN_ARCONORTH_DeniDadang_<date>_<time>.xlsx`, plum (6B3F69): sheets **Laporan Giat** and
+  **Laporan Kegiatan** (only those with rows), headers on row 8 like every team; Kegiatan has *Who* as
+  "party: names" lines and *Jumlah Hadir*.
+- The office tool's Refresh puts these files in `MANAJEMEN\<month>`; no rekap reads them yet.
+
+**Upload v57** (index.html, styles.css, sw.js, js/app.js, js/options.js, js/mgmt-records.js) and check
+*kode v57 · cache v57*.
 
 ## v56 (2026-11-07) — each checkpoint twice, going out and coming back
 

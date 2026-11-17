@@ -997,3 +997,22 @@ input:focus, select:focus, textarea:focus {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; }
 }
+
+/* ── Manajemen (v57): two times side by side; the Who groups and How steps ── */
+.field-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.field-pair .field > span { min-height: 2.5em; }
+#r-giat textarea[rows="1"] { min-height: 48px; }
+.group-list, .step-list { display: grid; gap: 10px; margin-bottom: 4px; }
+.group-card { border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-2); padding: 10px; }
+.group-card .group-head { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+.group-card .group-head input { flex: 1; }
+.group-card textarea { min-height: 88px; }
+.step-row { display: grid; grid-template-columns: minmax(0, 150px) 1fr auto; grid-template-areas: "time . remove" "text text text";
+  gap: 6px 8px; align-items: center; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-2); padding: 10px; }
+.step-row input[type=time] { grid-area: time; }
+.step-row textarea { grid-area: text; min-height: 64px; }
+.step-row > :last-child { grid-area: remove; }
+.row-remove { min-width: var(--tap); min-height: var(--tap); border-radius: var(--radius-sm); color: var(--red);
+  font-size: 22px; line-height: 1; }
+.row-remove:focus-visible, .add-link:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
+.add-link { display: inline-flex; align-items: center; min-height: 44px; color: var(--link); font-weight: 600; font-size: 15px; }
