@@ -89,7 +89,7 @@
       // Where the finding was: the close report is filed there, even when the
       // phone has moved to another post or patrol since.
       var place = {};
-      ['post', 'zone', 'teamNo', 'patrolId', 'segments'].forEach(function (key) {
+      ['post', 'zone', 'teamNo', 'patrolId', 'segments', 'unit'].forEach(function (key) {
         if (record[key] !== undefined && record[key] !== null && record[key] !== '') place[key] = record[key];
       });
       return {

@@ -1007,6 +1007,11 @@ input:focus, select:focus, textarea:focus {
 .group-card .group-head { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
 .group-card .group-head input { flex: 1; }
 .group-card textarea { min-height: 88px; }
+.group-card .group-head select { flex: 1; min-width: 0; }
+.group-card .group-place { width: 100%; margin-bottom: 8px; }
+.group-card .roster { margin-bottom: 8px; }
+.group-card .roster .chip { flex: 0 1 auto; font-size: 13.5px; }
+.group-card .roster + textarea, .group-card .group-place + textarea { min-height: 56px; }
 .step-row { display: grid; grid-template-columns: minmax(0, 150px) 1fr auto; grid-template-areas: "time . remove" "text text text";
   gap: 6px 8px; align-items: center; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-2); padding: 10px; }
 .step-row input[type=time] { grid-area: time; }

@@ -510,6 +510,10 @@
       <svg width="24" height="24" aria-hidden="true"><use href="#i-calendar"/></svg>
       <span><b>Laporan kegiatan</b><small id="go-event-sub">Satu kegiatan · When, Where, What, Who, Why, How</small></span>
     </button>
+    <button id="go-m-incident" class="action danger">
+      <svg width="24" height="24" aria-hidden="true"><use href="#i-alert"/></svg>
+      <span><b>Laporan kejadian</b><small>Kejadian di jalur · kirim segera, tutup dengan Tutup temuan</small></span>
+    </button>
 
     <div id="m-gps" class="gps-pill waiting">
       <span class="dot"></span>
@@ -558,6 +562,10 @@
 
     <!-- Incident -->
     <div id="r-incident" class="hidden">
+      <div id="r-i-area-field" class="hidden">
+        <p class="eyebrow">Area</p>
+        <div id="r-i-area" class="chips" style="margin-bottom:16px"></div>
+      </div>
       <p class="eyebrow">Jenis kejadian</p>
       <div id="r-type" class="chips wrap" style="margin-bottom:16px"></div>
       <label id="r-other-field" class="field hidden">
@@ -568,6 +576,10 @@
       <label class="field">
         <span>Tindakan</span>
         <textarea id="r-tindakan" rows="3" placeholder="Tindakan yang sudah diambil…"></textarea>
+      </label>
+      <label id="r-i-demikian-field" class="field hidden">
+        <span>Kalimat penutup</span>
+        <input id="r-i-demikian" type="text" autocomplete="off">
       </label>
     </div>
 
@@ -725,9 +737,11 @@
 
     <!-- Manajemen: Laporan Giat, items A-J. Kept on the phone until Simpan. -->
     <div id="r-giat" class="hidden">
+      <p class="eyebrow">Pukul (opsional)</p>
+      <div id="r-m-timemode" class="chips" style="margin-bottom:12px"></div>
       <div class="field-pair">
-        <label class="field"><span>Pukul mulai (opsional)</span><input id="r-m-start" type="time"></label>
-        <label class="field"><span>Pukul selesai (opsional)</span><input id="r-m-end" type="time"></label>
+        <label class="field"><span>Pukul</span><input id="r-m-start" type="time"></label>
+        <label id="r-m-end-field" class="field"><span>Sampai</span><input id="r-m-end" type="time"></label>
       </div>
       <label class="field">
         <span>C. Supervisi</span>
@@ -737,14 +751,17 @@
         <span>D. Lokasi — satu per baris</span>
         <textarea id="r-m-lokasi" rows="2" placeholder="mis. Pos KBJ&#10;Kandis"></textarea>
       </label>
-      <label class="field">
-        <span>E. Nama personil — satu per baris</span>
-        <textarea id="r-m-personil" rows="3" placeholder="mis. Arifin&#10;Rahmatan"></textarea>
-      </label>
-      <label class="field">
-        <span>F. Kegiatan supervisi</span>
-        <textarea id="r-m-kegiatan" rows="5" placeholder="Apa saja yang dicek dan dikerjakan…"></textarea>
-      </label>
+      <div class="field">
+        <span>E. Nama personil — per pos, patrol atau tim WT</span>
+        <div id="r-m-personil-groups" class="group-list"></div>
+        <button id="r-m-add-personil" class="add-link" type="button">+ Tambah pos</button>
+      </div>
+      <div class="field">
+        <span>F. Kegiatan supervisi — per jam</span>
+        <div id="r-m-entries" class="step-list"></div>
+        <button id="r-m-add-entry" class="add-link" type="button">+ Tambah kegiatan</button>
+        <p class="hint" style="margin:4px 0 0">Baris yang diawali "- " jadi poin di bawahnya, mis. isi TBM.</p>
+      </div>
       <label class="field"><span>G. Temuan</span><textarea id="r-m-temuan" rows="1"></textarea></label>
       <label class="field"><span>H. Event dll</span><textarea id="r-m-eventnote" rows="1"></textarea></label>
       <label class="field"><span>I. Kejadian AGHT</span><textarea id="r-m-aght" rows="1"></textarea></label>
@@ -755,9 +772,11 @@
 
     <!-- Manajemen: Laporan Kegiatan, one event in 5W1H. Who is grouped by party. -->
     <div id="r-event" class="hidden">
+      <p class="eyebrow">When — pukul</p>
+      <div id="r-e-timemode" class="chips" style="margin-bottom:12px"></div>
       <div class="field-pair">
-        <label class="field"><span>When — pukul mulai</span><input id="r-e-start" type="time"></label>
-        <label class="field"><span>Selesai (kosong = s/d selesai)</span><input id="r-e-end" type="time"></label>
+        <label class="field"><span>Pukul</span><input id="r-e-start" type="time"></label>
+        <label id="r-e-end-field" class="field"><span>Sampai</span><input id="r-e-end" type="time"></label>
       </div>
       <label class="field">
         <span>Where — satu per baris</span>
@@ -785,6 +804,10 @@
       <label class="field">
         <span>Penutup</span>
         <textarea id="r-e-closing" rows="2"></textarea>
+      </label>
+      <label class="field">
+        <span>Kalimat penutup</span>
+        <input id="r-e-demikian" type="text" autocomplete="off">
       </label>
       <p class="hint">Foto dan isian tersimpan di HP sampai Simpan — boleh ditutup dan dilanjutkan nanti.</p>
       <button class="danger-link m-reset" type="button">Reset foto dan isian</button>

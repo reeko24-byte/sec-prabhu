@@ -871,6 +871,8 @@ one car).
 - Retire `wt-surveillance` once the crews have switched; update `wt_tracker.py`
   for the new Excel layout.
 
+**Upload v61** — the v60 list (v61 changes js/app.js and sw.js only); check *kode v61 · cache v61*.
+**Upload v60** — index.html, styles.css, sw.js, js/app.js, js/options.js, js/mgmt-records.js, js/findings.js, js/patrol-options.js (v57 + v58 + v60 together; v59 is the board add-on in superapp-laporan2, not here); check *kode v60 · cache v60*.
 **Upload v58** — the v57 files plus js/patrol-options.js (see v58 below); check *kode v58 · cache v58*.
 **Upload v57** — Manajemen (see v57 below). Earlier: **Upload v56** (js/app.js, js/patrol-options.js, js/patrol-records.js, js/options.js, index.html,
 sw.js) **before 12 Nov** — the two checks a shift start that day — and check phones show
@@ -918,6 +920,8 @@ shift.
 | v25 | Security Perkantoran (SECWAN): visitor counter, end-of-shift report kept on the phone until Simpan |
 | v26 | Fixes from the fifth code review: kept drafts made general, offered on the next day, cheap to save; corrections survive later taps |
 | v27 | Patrol checkpoint list per patrol: guard tour picks a point (Aktif / Tidak Aktif), main screen and akhir shift name the points not checked — a notice, not a block |
+| v61 | Patrol: a shift more than an hour past its end takes only Akhir Shift and Tutup temuan; any other report opens Mulai shift with the shift of now |
+| v60 | Manajemen: **Laporan kejadian** (the incident form, Open/Close, Tutup temuan; the PM picks North/South), Pukul as one time / range / s/d selesai, Giat E per post with roster names, Giat F per hour, editable closing line |
 | v58 | Patrol cars: the new plates BM 8166–8171 QT, BM 8206 QT, BM 8207 QT; the old list kept as `formerVehicles` |
 | v57 | **Manajemen**: ARCO North, ARCO South and the PM -- Laporan giat (A–J) and Laporan kegiatan (5W1H, Who by party, How as a timeline), kept until Simpan, stamped photos, Excel *Laporan Giat* / *Laporan Kegiatan* |
 | v56 | Patrol checks each point twice a shift from 12 Nov 2026, going out (Berangkat) and coming back (Kembali), each its own guard tour and photo: pass worked out and shown, on the caption, stamp and Excel (*Putaran*); a point checked once needs its justifikasi at Akhir Shift; new Akhir Shift columns *Titik Dicek 2x*, *Sekali Saja*. MANGGALA BOOSTER: BAYU JULIANSAH |
@@ -1047,3 +1051,47 @@ plate into that patrol's new one; the Patrol start screen uses it when it carrie
 forward. A shift already running keeps the car it started with.
 
 Changed: js/patrol-options.js, js/app.js, sw.js (BUILD = CACHE_VERSION = v58).
+
+## v60 (2026-11-23) — Manajemen: incidents, and the forms the ARCOs actually write
+
+From four of the ARCOs' own WhatsApp reports (Billy, 23 Nov):
+
+- **Laporan kejadian** on the Manajemen screen: the same chooser as every team (Masih Open + Tutup temuan,
+  Kejadian baru) and the same incident form (pipeline types, 5W1H, Tindakan, Open/Close). The PM picks the
+  area (North/South, required); an ARCO's is its own. Caption under the Manajemen To/Cc header; Excel sheets
+  *Kejadian* and *Update Temuan* with Patrol's columns plus Unit/Zona -- the office tool reads them (a file
+  holding only incidents is recognised by its Unit column). Not kept: sent at once, like every team's.
+- **Pukul**: *Jam saja* (15:21 WIB), *Sampai jam* (09:30–16:00 WIB, end required), *s/d selesai*. Records
+  without a mode print as before.
+- **Giat E** per post / patrol / WT team, picked from the area's list (the PM: all), names tapped from that
+  roster, others typed; caption "- POS" then numbered names; Excel *Personil* "Pos: names" + *Jumlah Personil*.
+- **Giat F** as entries with a time each ("- Pukul : 10.00 WIB", text indented, "- " lines kept as points,
+  a blank line between). A kept v57-v59 draft's plain text moves into one entry / one typed group.
+- **Kalimat penutup** (Kegiatan, Kejadian): "Demikian Komandan laporan kegiatan/kejadian ini." by default.
+
+Changed: index.html, styles.css, sw.js, js/app.js, js/mgmt-records.js, js/findings.js (refOf keeps `unit`)
+(BUILD = CACHE_VERSION = v60). Tested in the browser (PM incident -> Tutup temuan, giat form) and with the
+office tool's tests; not on a phone.
+
+## v61 (2026-11-24) — a finished Patrol shift can't take new reports
+
+PATROL 1's phone kept SORE 22 Nov and filed the whole of 23 Nov's SORE (18 reports, 17:34-23:41) under it; the
+office saw 23 Nov SORE as missing. The main screen only warned ("Shift ini sudah selesai").
+
+Now, once a Patrol shift is more than an hour past its end (`sessionOver`):
+- Akhir Shift and Tutup temuan still open (the end report is often written late), and *Ulangi foto KM awal*
+  from inside Akhir Shift;
+- Mulai shift, guard tour, Laporan kejadian, LDS open the start screen with the shift of now (a toast says
+  which shift is over); a Tutup temuan asked for then opens after the new shift's KM awal;
+- a shift that was never started takes nothing.
+
+Security is unchanged (its sessions never expire, v16). The office tool's *tanggal-shift* check (24 Nov) finds the
+cases already sent. Changed: js/app.js, sw.js (BUILD = CACHE_VERSION = v61).
+
+Code review fixes (same day, still v61):
+- A started Patrol shift that is over and has **no Akhir Shift yet** opens Akhir Shift first ("Kirim Laporan Akhir
+  Shift dulu"), never the start screen -- a new shift would replace it on the phone and its Akhir Shift could not be
+  sent afterwards. With its Akhir Shift sent, other reports go to the start screen as above.
+- A Giat / Kegiatan draft kept before v60 keeps its Pukul meaning (start, no end = s/d selesai).
+- Giat E: a post picked with no names is asked for before saving ("Isi dulu: nama personil ST BATANG"); names kept
+  from before v60 (no post) print without a "- -" heading.
