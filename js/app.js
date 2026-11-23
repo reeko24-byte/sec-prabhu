@@ -1403,9 +1403,11 @@
         ownVehicle: P.vehicles.indexOf(s.vehicle) === -1, km: patrolStarted(s) ? '' : s.kmStart || '',
         shift: s.shift, date: s.shiftDate, others: false };
     } else {
-      // A finished shift keeps its patrol and vehicle, not its people or its time.
-      state.pSetup = { patrolId: s ? s.patrolId : '', officers: [], tni: '', vehicle: s ? s.vehicle : '',
-        ownVehicle: !!(s && P.vehicles.indexOf(s.vehicle) === -1), km: '',
+      // A finished shift keeps its patrol and vehicle, not its people or its time
+      // (a car from the former list becomes the patrol's new one, v58).
+      var lastCar = s ? SA.currentPlate(s.vehicle) : '';
+      state.pSetup = { patrolId: s ? s.patrolId : '', officers: [], tni: '', vehicle: lastCar,
+        ownVehicle: !!(s && P.vehicles.indexOf(lastCar) === -1), km: '',
         shift: current.shift, date: current.date, others: false };
     }
     renderPatrolSetup();
@@ -4312,7 +4314,7 @@
   /* BUILD and CACHE_VERSION in sw.js are a PAIR -- bump both on every upload.
      The marker prints both; when they differ, the new version has downloaded
      but the app has not been restarted. */
-  var BUILD = 'v57';
+  var BUILD = 'v58';
   SA.BUILD = BUILD;                        // stamped on every export (SA.sheets.exported)
   var CACHE_PREFIX = 'superapp-laporan-';
 

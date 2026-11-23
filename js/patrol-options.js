@@ -169,9 +169,15 @@
       'SBV 002 Segment 6 KP 11+850': 'SBV 001/002 Segment 6 KP 11+850 Simpang Bangko'
     },
 
-    /* Each patrol's vehicle, in Patrol order (Billy, 2026-10-02). Picked by
+    /* Each patrol's vehicle, in Patrol order (Billy's new list, 2026-11-23). Picked by
        default for that patrol; another one, or a typed plate, when swapped. */
-    vehicles: ['BM 8036 QI', 'BM 8034 QI', 'BM 8035 QI', 'BM 8033 QI',
+    vehicles: ['BM 8166 QT', 'BM 8167 QT', 'BM 8168 QT', 'BM 8169 QT',
+      'BM 8170 QT', 'BM 8171 QT', 'BM 8206 QT', 'BM 8207 QT'],
+
+    /* The cars before that list (2026-10-02 to the change), same order. Not offered any more;
+       a phone whose last shift used one starts the next shift on the patrol's new car. The
+       office tool still needs them for the GPS of older shifts. */
+    formerVehicles: ['BM 8036 QI', 'BM 8034 QI', 'BM 8035 QI', 'BM 8033 QI',
       'BM 8031 QI', 'BM 8032 QI', 'BM 8541 SJ', 'BM 8248 QD'],
 
     /* A checkpoint's condition, picked on its guard tour. */
@@ -238,7 +244,13 @@
     });
   };
 
-  /** The patrol's own vehicle: "PATROL 6" -> "BM 8541 SJ". */
+  /** A plate from the former list -> the same patrol's car now; any other plate unchanged. */
+  SA.currentPlate = function (plate) {
+    var i = (SA.PATROL.formerVehicles || []).indexOf(plate);
+    return i === -1 ? plate : SA.PATROL.vehicles[i] || plate;
+  };
+
+  /** The patrol's own vehicle: "PATROL 6" -> "BM 8171 QT". */
   SA.patrolVehicle = function (id) {
     var u = SA.patrolUnit(id);
     return u ? SA.PATROL.vehicles[u.n - 1] || '' : '';

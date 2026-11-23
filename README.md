@@ -339,12 +339,16 @@ Personil").
    Excel: *Shift Lanjut* and *TNI Lanjut* columns on Akhir Shift. An end-of-shift
    report saved before v24 (no incoming crew) is re-sent without section G.
 
-**Vehicles** (Billy, 2026-10-02) — picked by default for the patrol, another
+**Vehicles** (Billy's new list, 2026-11-23, v58) — picked by default for the patrol, another
 one or *Ketik sendiri* when swapped; the report prints the plate:
 
 | Patrol | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
 |---|---|---|---|---|---|---|---|---|
-| Plate | BM 8036 QI | BM 8034 QI | BM 8035 QI | BM 8033 QI | BM 8031 QI | BM 8541 SJ | BM 8032 QI | BM 8248 QD |
+| Plate | BM 8166 QT | BM 8167 QT | BM 8168 QT | BM 8169 QT | BM 8170 QT | BM 8171 QT | BM 8206 QT | BM 8207 QT |
+| Before (v22–v57) | BM 8036 QI | BM 8034 QI | BM 8035 QI | BM 8033 QI | BM 8031 QI | BM 8032 QI | BM 8541 SJ | BM 8248 QD |
+
+The former cars stay in `formerVehicles` (patrol-options.js): the office tool needs them for the GPS
+of older shifts, and a phone whose last shift used one starts the next on the patrol's new car.
 
 **Checkpoints** (v27): Billy's list per patrol, typos tidied (Launcer,
 Recivee, Vantchock, Menggala Boster, Sesudsh) and tags written one way
@@ -867,6 +871,7 @@ one car).
 - Retire `wt-surveillance` once the crews have switched; update `wt_tracker.py`
   for the new Excel layout.
 
+**Upload v58** — the v57 files plus js/patrol-options.js (see v58 below); check *kode v58 · cache v58*.
 **Upload v57** — Manajemen (see v57 below). Earlier: **Upload v56** (js/app.js, js/patrol-options.js, js/patrol-records.js, js/options.js, index.html,
 sw.js) **before 12 Nov** — the two checks a shift start that day — and check phones show
 *kode v56 · cache v56*. Tell the Patrol crews: each point twice, going out and coming back, a new
@@ -913,6 +918,7 @@ shift.
 | v25 | Security Perkantoran (SECWAN): visitor counter, end-of-shift report kept on the phone until Simpan |
 | v26 | Fixes from the fifth code review: kept drafts made general, offered on the next day, cheap to save; corrections survive later taps |
 | v27 | Patrol checkpoint list per patrol: guard tour picks a point (Aktif / Tidak Aktif), main screen and akhir shift name the points not checked — a notice, not a block |
+| v58 | Patrol cars: the new plates BM 8166–8171 QT, BM 8206 QT, BM 8207 QT; the old list kept as `formerVehicles` |
 | v57 | **Manajemen**: ARCO North, ARCO South and the PM -- Laporan giat (A–J) and Laporan kegiatan (5W1H, Who by party, How as a timeline), kept until Simpan, stamped photos, Excel *Laporan Giat* / *Laporan Kegiatan* |
 | v56 | Patrol checks each point twice a shift from 12 Nov 2026, going out (Berangkat) and coming back (Kembali), each its own guard tour and photo: pass worked out and shown, on the caption, stamp and Excel (*Putaran*); a point checked once needs its justifikasi at Akhir Shift; new Akhir Shift columns *Titik Dicek 2x*, *Sekali Saja*. MANGGALA BOOSTER: BAYU JULIANSAH |
 | v55 | Data that goes missing from a phone (2026-11-02): *data HP sejak* and *N dihapus* on the version line and in every export; Hapus warns twice for a report not yet in an Excel; a red warning, and a question, before hours are marked as the partner's when this phone sent none; a banner with *Buka di Chrome* inside WhatsApp or any WebView; MALAM chosen from 20:00 takes tomorrow's date (Patrol and Security) |
@@ -1032,3 +1038,12 @@ pressure, or a cleaner app). v55 makes this visible and harder to cover up:
   were filed under the evening's date.)
 
 Changed: js/app.js, js/sheets.js, index.html, styles.css, sw.js (BUILD = CACHE_VERSION = v55).
+
+## v58 (2026-11-23) — new patrol cars
+
+Billy's list: Patrol 1–6 = BM 8166 QT … BM 8171 QT, Patrol 7 = BM 8206 QT, Patrol 8 = BM 8207 QT.
+The old plates moved to `SA.PATROL.formerVehicles` (same order). `SA.currentPlate(plate)` turns an old
+plate into that patrol's new one; the Patrol start screen uses it when it carries the last shift's car
+forward. A shift already running keeps the car it started with.
+
+Changed: js/patrol-options.js, js/app.js, sw.js (BUILD = CACHE_VERSION = v58).
