@@ -169,10 +169,15 @@
       'SBV 002 Segment 6 KP 11+850': 'SBV 001/002 Segment 6 KP 11+850 Simpang Bangko'
     },
 
-    /* Each patrol's vehicle, in Patrol order (Billy's new list, 2026-11-23). Picked by
-       default for that patrol; another one, or a typed plate, when swapped. */
+    /* Each patrol's vehicle, in Patrol order (Billy's new list, 2026-11-23; North swapped
+       2026-11-27: P6 BM 8206 QT, P7 BM 8207 QT, P8 BM 8171 QT). Picked by default for that
+       patrol; another one, or a typed plate, when swapped. */
     vehicles: ['BM 8166 QT', 'BM 8167 QT', 'BM 8168 QT', 'BM 8169 QT',
-      'BM 8170 QT', 'BM 8171 QT', 'BM 8206 QT', 'BM 8207 QT'],
+      'BM 8170 QT', 'BM 8206 QT', 'BM 8207 QT', 'BM 8171 QT'],
+
+    /* A patrol's default car before the 2026-11-27 swap: a phone carrying it into the next
+       shift of that patrol takes the patrol's car now. A car the crew picked themselves stays. */
+    previousDefaults: { 'PATROL 6': 'BM 8171 QT', 'PATROL 7': 'BM 8206 QT', 'PATROL 8': 'BM 8207 QT' },
 
     /* The cars before that list (2026-10-02 to the change), same order. Not offered any more;
        a phone whose last shift used one starts the next shift on the patrol's new car. The
@@ -244,8 +249,10 @@
     });
   };
 
-  /** A plate from the former list -> the same patrol's car now; any other plate unchanged. */
-  SA.currentPlate = function (plate) {
+  /** A plate from the former list -> the same patrol's car now; the patrol's own default before the
+      North swap (v62) -> its car now; any other plate unchanged. */
+  SA.currentPlate = function (plate, patrolId) {
+    if (patrolId && (SA.PATROL.previousDefaults || {})[patrolId] === plate) return SA.patrolVehicle(patrolId);
     var i = (SA.PATROL.formerVehicles || []).indexOf(plate);
     return i === -1 ? plate : SA.PATROL.vehicles[i] || plate;
   };

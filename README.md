@@ -344,7 +344,7 @@ one or *Ketik sendiri* when swapped; the report prints the plate:
 
 | Patrol | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
 |---|---|---|---|---|---|---|---|---|
-| Plate | BM 8166 QT | BM 8167 QT | BM 8168 QT | BM 8169 QT | BM 8170 QT | BM 8171 QT | BM 8206 QT | BM 8207 QT |
+| Plate (v62) | BM 8166 QT | BM 8167 QT | BM 8168 QT | BM 8169 QT | BM 8170 QT | BM 8206 QT | BM 8207 QT | BM 8171 QT |
 | Before (v22–v57) | BM 8036 QI | BM 8034 QI | BM 8035 QI | BM 8033 QI | BM 8031 QI | BM 8032 QI | BM 8541 SJ | BM 8248 QD |
 
 The former cars stay in `formerVehicles` (patrol-options.js): the office tool needs them for the GPS
@@ -871,6 +871,7 @@ one car).
 - Retire `wt-surveillance` once the crews have switched; update `wt_tracker.py`
   for the new Excel layout.
 
+**Upload v62** — the v61 list (v62 changes js/patrol-options.js, js/app.js, sw.js); check *kode v62 · cache v62*.
 **Upload v61** — the v60 list (v61 changes js/app.js and sw.js only); check *kode v61 · cache v61*.
 **Upload v60** — index.html, styles.css, sw.js, js/app.js, js/options.js, js/mgmt-records.js, js/findings.js, js/patrol-options.js (v57 + v58 + v60 together; v59 is the board add-on in superapp-laporan2, not here); check *kode v60 · cache v60*.
 **Upload v58** — the v57 files plus js/patrol-options.js (see v58 below); check *kode v58 · cache v58*.
@@ -920,6 +921,7 @@ shift.
 | v25 | Security Perkantoran (SECWAN): visitor counter, end-of-shift report kept on the phone until Simpan |
 | v26 | Fixes from the fifth code review: kept drafts made general, offered on the next day, cheap to save; corrections survive later taps |
 | v27 | Patrol checkpoint list per patrol: guard tour picks a point (Aktif / Tidak Aktif), main screen and akhir shift name the points not checked — a notice, not a block |
+| v62 | North patrol cars swapped (Billy, 27 Nov): Patrol 6 BM 8206 QT, Patrol 7 BM 8207 QT, Patrol 8 BM 8171 QT |
 | v61 | Patrol: a shift more than an hour past its end takes only Akhir Shift and Tutup temuan; any other report opens Mulai shift with the shift of now |
 | v60 | Manajemen: **Laporan kejadian** (the incident form, Open/Close, Tutup temuan; the PM picks North/South), Pukul as one time / range / s/d selesai, Giat E per post with roster names, Giat F per hour, editable closing line |
 | v58 | Patrol cars: the new plates BM 8166–8171 QT, BM 8206 QT, BM 8207 QT; the old list kept as `formerVehicles` |
@@ -1095,3 +1097,10 @@ Code review fixes (same day, still v61):
 - A Giat / Kegiatan draft kept before v60 keeps its Pukul meaning (start, no end = s/d selesai).
 - Giat E: a post picked with no names is asked for before saving ("Isi dulu: nama personil ST BATANG"); names kept
   from before v60 (no post) print without a "- -" heading.
+
+## v62 (2026-11-27) — North patrol plates
+
+Billy: Patrol 6 = BM 8206 QT, Patrol 7 = BM 8207 QT, Patrol 8 = BM 8171 QT (were 8171 / 8206 / 8207). South and
+Patrol 5 unchanged. A finished shift's car is carried to the next by plate, so a phone whose last shift used the old
+default keeps that plate until the crew picks the right one on the start screen. Changed: js/patrol-options.js,
+js/app.js, sw.js (BUILD = CACHE_VERSION = v62).
