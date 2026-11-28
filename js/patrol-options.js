@@ -175,10 +175,6 @@
     vehicles: ['BM 8166 QT', 'BM 8167 QT', 'BM 8168 QT', 'BM 8169 QT',
       'BM 8170 QT', 'BM 8206 QT', 'BM 8207 QT', 'BM 8171 QT'],
 
-    /* A patrol's default car before the 2026-11-27 swap: a phone carrying it into the next
-       shift of that patrol takes the patrol's car now. A car the crew picked themselves stays. */
-    previousDefaults: { 'PATROL 6': 'BM 8171 QT', 'PATROL 7': 'BM 8206 QT', 'PATROL 8': 'BM 8207 QT' },
-
     /* The cars before that list (2026-10-02 to the change), same order. Not offered any more;
        a phone whose last shift used one starts the next shift on the patrol's new car. The
        office tool still needs them for the GPS of older shifts. */
@@ -249,15 +245,30 @@
     });
   };
 
-  /** A plate from the former list -> the same patrol's car now; the patrol's own default before the
-      North swap (v62) -> its car now; any other plate unchanged. */
-  SA.currentPlate = function (plate, patrolId) {
-    if (patrolId && (SA.PATROL.previousDefaults || {})[patrolId] === plate) return SA.patrolVehicle(patrolId);
-    var i = (SA.PATROL.formerVehicles || []).indexOf(plate);
-    return i === -1 ? plate : SA.PATROL.vehicles[i] || plate;
+  /* Each patrol's default cars through time, oldest first, in Patrol order: a shift dated up to
+     `until` had that entry's plates; later shifts have SA.PATROL.vehicles. A fleet change is one more
+     entry here. (formerVehicles stays a list of its own: the office tool reads it for old GPS.) */
+  SA.PATROL.vehicleHistory = [
+    { until: '2026-11-21', plates: SA.PATROL.formerVehicles },          // the new cars drove from SORE 21 Nov
+    { until: '2026-11-26', plates: ['BM 8166 QT', 'BM 8167 QT', 'BM 8168 QT', 'BM 8169 QT',
+      'BM 8170 QT', 'BM 8171 QT', 'BM 8206 QT', 'BM 8207 QT'] }          // before the North swap of 27 Nov
+  ];
+
+  /** The patrol's default car on a date: "PATROL 6", "2026-11-25" -> "BM 8171 QT". */
+  SA.patrolVehicleOn = function (id, date) {
+    var u = SA.patrolUnit(id);
+    if (!u) return '';
+    var then = SA.PATROL.vehicleHistory.filter(function (h) { return date && String(date) <= h.until; })[0];
+    return (then ? then.plates : SA.PATROL.vehicles)[u.n - 1] || '';
   };
 
-  /** The patrol's own vehicle: "PATROL 6" -> "BM 8171 QT". */
+  /** The car to start the next shift with: the last shift's, unless it was simply that patrol's
+      default on that shift's date -- then the patrol's default now. A car the crew picked stays. */
+  SA.currentPlate = function (plate, patrolId, shiftDate) {
+    return patrolId && plate === SA.patrolVehicleOn(patrolId, shiftDate) ? SA.patrolVehicle(patrolId) : plate;
+  };
+
+  /** The patrol's own vehicle: "PATROL 6" -> "BM 8206 QT". */
   SA.patrolVehicle = function (id) {
     var u = SA.patrolUnit(id);
     return u ? SA.PATROL.vehicles[u.n - 1] || '' : '';

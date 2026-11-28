@@ -318,6 +318,9 @@
   }
 
   SA.photo = {
+    /* The resize and JPEG steps, shared with xlsx.js (the Excel's smaller copy of each photo). */
+    scaled: drawScaled,
+    jpeg: toBlob,
 
     /**
      * Raw camera file in, stored photograph out: { blob, thumb, width, height }.

@@ -19,9 +19,17 @@
 
   var dbPromise = null;
 
+  /* The connection can be closed under the app: Chrome closes it when the phone is short of storage or the
+     site's data is cleared, and another copy of the app opening a newer version asks it to close. It used to be
+     kept forever, so every save after that failed ("The database connection is closing", WT TIM 6, 28 Nov
+     2026) until the app was reopened. Now a closed connection is forgotten and the next call opens a new one. */
+  function forget(db) {
+    if (dbPromise && dbPromise.db === db) dbPromise = null;
+  }
+
   function open() {
     if (dbPromise) return dbPromise;
-    dbPromise = new Promise(function (resolve, reject) {
+    var promise = new Promise(function (resolve, reject) {
       var request = indexedDB.open(DB_NAME, DB_VERSION);
       request.onupgradeneeded = function (event) {
         var db = event.target.result;
@@ -38,25 +46,55 @@
           db.createObjectStore(PREFS, { keyPath: 'key' });
         }
       };
-      request.onsuccess = function () { resolve(request.result); };
-      request.onerror = function () { reject(request.error); };
+      request.onsuccess = function () {
+        var db = request.result;
+        // Given up on (blocked) while it waited: never left open beside the next connection
+        if (dbPromise !== promise) { db.close(); return; }
+        promise.db = db;
+        db.onclose = function () { forget(db); };
+        db.onversionchange = function () { db.close(); forget(db); };
+        resolve(db);
+      };
+      // A failed open is not kept either: the next call tries again.
+      request.onerror = function () { dbPromise = null; reject(request.error); };
       request.onblocked = function () {
+        if (dbPromise === promise) dbPromise = null;
         reject(new Error('Database is blocked by another open copy of the app'));
       };
     });
-    return dbPromise;
+    dbPromise = promise;
+    return promise;
   }
 
-  function tx(storeName, mode, work) {
+  function tx(storeName, mode, work, retried) {
     return open().then(function (db) {
+      var transaction;
+      try {
+        transaction = db.transaction(storeName, mode);
+      } catch (e) {
+        // Closed since it was opened (onclose comes late, or not at all): open again, once.
+        if (retried || !e || e.name !== 'InvalidStateError') throw e;
+        forget(db);
+        return tx(storeName, mode, work, true);
+      }
       return new Promise(function (resolve, reject) {
-        var transaction = db.transaction(storeName, mode);
         var store = transaction.objectStore(storeName);
         var result;
         // Resolve on commit, not on the request: a write is durable only then.
         transaction.oncomplete = function () { resolve(result); };
-        transaction.onerror = function () { reject(transaction.error); };
-        transaction.onabort = function () { reject(transaction.error); };
+        // A failed request aborts its transaction, and onabort below decides: retry or reject. (Rejecting here
+        // came first, with an empty error, when the connection closed mid-write.)
+        transaction.onabort = function () {
+          // Aborted with no error of its own: the connection was closed under it (Chrome closing the
+          // database mid-write). Nothing was committed, so it runs once more on a new connection.
+          var error = transaction.error;
+          if (!retried && (!error || error.name === 'AbortError')) {
+            forget(db);
+            resolve(tx(storeName, mode, work, true));
+            return;
+          }
+          reject(error || new Error('Transaction aborted'));
+        };
         result = work(store, function (value) { result = value; });
       });
     });

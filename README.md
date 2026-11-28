@@ -871,6 +871,7 @@ one car).
 - Retire `wt-surveillance` once the crews have switched; update `wt_tracker.py`
   for the new Excel layout.
 
+**Upload v63** — the v62 list plus js/db.js and js/xlsx.js; check *kode v63 · cache v63*.
 **Upload v62** — the v61 list (v62 changes js/patrol-options.js, js/app.js, sw.js); check *kode v62 · cache v62*.
 **Upload v61** — the v60 list (v61 changes js/app.js and sw.js only); check *kode v61 · cache v61*.
 **Upload v60** — index.html, styles.css, sw.js, js/app.js, js/options.js, js/mgmt-records.js, js/findings.js, js/patrol-options.js (v57 + v58 + v60 together; v59 is the board add-on in superapp-laporan2, not here); check *kode v60 · cache v60*.
@@ -921,6 +922,7 @@ shift.
 | v25 | Security Perkantoran (SECWAN): visitor counter, end-of-shift report kept on the phone until Simpan |
 | v26 | Fixes from the fifth code review: kept drafts made general, offered on the next day, cheap to save; corrections survive later taps |
 | v27 | Patrol checkpoint list per patrol: guard tour picks a point (Aktif / Tidak Aktif), main screen and akhir shift name the points not checked — a notice, not a block |
+| v63 | Saving survives a database connection Chrome closed ("The database connection is closing"); Excel photos shrunk to 1024 px (about half the file) |
 | v62 | North patrol cars swapped (Billy, 27 Nov): Patrol 6 BM 8206 QT, Patrol 7 BM 8207 QT, Patrol 8 BM 8171 QT |
 | v61 | Patrol: a shift more than an hour past its end takes only Akhir Shift and Tutup temuan; any other report opens Mulai shift with the shift of now |
 | v60 | Manajemen: **Laporan kejadian** (the incident form, Open/Close, Tutup temuan; the PM picks North/South), Pukul as one time / range / s/d selesai, Giat E per post with roster names, Giat F per hour, editable closing line |
@@ -1104,3 +1106,28 @@ Billy: Patrol 6 = BM 8206 QT, Patrol 7 = BM 8207 QT, Patrol 8 = BM 8171 QT (were
 Patrol 5 unchanged. A finished shift's car is carried to the next by plate, so a phone whose last shift used the old
 default keeps that plate until the crew picks the right one on the start screen. Changed: js/patrol-options.js,
 js/app.js, sw.js (BUILD = CACHE_VERSION = v62).
+
+## v63 (2026-11-28) — "Gagal menyimpan ... database connection is closing"; smaller Excel files
+
+WT TIM 6 could not save a KP report (so it never reached WhatsApp either): *Gagal menyimpan: InvalidStateError:
+Failed to execute 'transaction' on 'IDBDatabase': The database connection is closing.* db.js opened the phone's
+database once and kept that connection forever; when Chrome closes it (the phone short of storage, the site's data
+cleared, another copy opening a newer version) every later save failed until the app was reopened. Now the
+connection's close is noticed (onclose, onversionchange), a transaction on a closed one opens a new connection and
+tries once more, and a failed or blocked open is not kept. If Chrome closed it because it CLEARED the data, the new
+database is empty -- the version line's *data HP sejak* shows that; the report on screen is saved all the same.
+
+The same export was 26 MB: 24 KP x 3 photos of 1600 px (about 350 KB each). The Excel now holds each photo at most
+1024 px wide (JPEG 0.7, about 160 KB; measured on that file: 26 MB -> about 12 MB). The stamp and verification code
+stay legible; the photo on the phone and in WhatsApp is unchanged. Manual exports built in Node keep full photos.
+Changed: js/db.js, js/xlsx.js, js/app.js, sw.js (BUILD = CACHE_VERSION = v63).
+
+Code review fixes (same day, still v63):
+- The car carried into the next Patrol shift is swapped for the patrol's car now only when it was that patrol's default
+  on the last shift's date (`SA.PATROL.vehicleHistory`, `SA.patrolVehicleOn`); a car a crew picks stays. The next fleet
+  change is one more entry in vehicleHistory (formerVehicles stays: the office tool reads it for old GPS).
+- A write aborted because the connection closed mid-write (no error of its own) runs once more on a new connection;
+  the abort handler alone decides (onerror used to reject first, with an empty error). Real errors still fail.
+- An open rejected as "blocked" closes its connection if it succeeds later.
+- Export yields to the screen between photos (scheduler.yield, else setTimeout) and says "Mengecilkan dan menulis foto".
+- /simplify: xlsx.js shrinks with photo.js's own resize and JPEG steps (SA.photo.scaled / jpeg) and frees each canvas at once.

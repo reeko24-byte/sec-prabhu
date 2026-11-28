@@ -507,6 +507,40 @@
     return xml + '</Relationships>';
   }
 
+  /* The Excel's copy of a photo, at most PHOTO_MAX_SIDE px (v63): a 24-KP WT export was 26 MB with the 1600 px
+     photos sent to WhatsApp; at 1024 px it is about half, and the stamp and its code still read clearly. The
+     photo on the phone and in WhatsApp is untouched. Where there is no canvas (the office's manual-export
+     scripts run in Node) the photo goes in as it is. */
+  var PHOTO_MAX_SIDE = 1024;
+  var PHOTO_QUALITY = 0.7;
+  var SHRINK_ABOVE_BYTES = 200000;
+
+  /* Between photos, give the screen a turn (modern-web-guidance 'performance': break up long tasks,
+     scheduler.yield with a fallback), so a 70-photo export never freezes the page. */
+  function yieldToMain() {
+    if (typeof scheduler !== 'undefined' && scheduler && typeof scheduler.yield === 'function') {
+      return scheduler.yield();
+    }
+    return new Promise(function (resolve) { setTimeout(resolve, 0); });
+  }
+
+  function shrink(blob) {
+    if (typeof createImageBitmap !== 'function' || typeof document === 'undefined' || !SA.photo ||
+        blob.size <= SHRINK_ABOVE_BYTES) {
+      return Promise.resolve(blob);
+    }
+    return createImageBitmap(blob).then(function (bitmap) {
+      // photo.js's own resize and JPEG steps
+      var canvas = Math.max(bitmap.width, bitmap.height) > PHOTO_MAX_SIDE ? SA.photo.scaled(bitmap, PHOTO_MAX_SIDE) : null;
+      if (bitmap.close) bitmap.close();
+      if (!canvas) return blob;
+      return SA.photo.jpeg(canvas, PHOTO_QUALITY).then(function (small) {
+        canvas.width = canvas.height = 0;     // freed now, not at the next GC (iPhone caps canvas memory)
+        return small && small.size < blob.size ? small : blob;
+      });
+    }).catch(function () { return blob; });      // never lose a photo over its size
+  }
+
   SA.xlsx = {
     PHOTO_WIDTH_CM: PHOTO_WIDTH_CM,
     PHOTO_HEIGHT_CM: PHOTO_HEIGHT_CM,
@@ -575,7 +609,7 @@
       return media.reduce(function (chain, blob, index) {
         return chain.then(function () {
           if (onProgress) onProgress(index, media.length);
-          return bytesOf(blob).then(function (data) {
+          return yieldToMain().then(function () { return shrink(blob); }).then(bytesOf).then(function (data) {
             entries.push({ name: 'xl/media/image' + (index + 1) + '.jpeg', data: data });
           });
         });

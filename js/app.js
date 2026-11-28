@@ -1559,7 +1559,7 @@
     } else {
       // A finished shift keeps its patrol and vehicle, not its people or its time
       // (a car from the former list becomes the patrol's new one, v58).
-      var lastCar = s ? SA.currentPlate(s.vehicle, s.patrolId) : '';
+      var lastCar = s ? SA.currentPlate(s.vehicle, s.patrolId, s.shiftDate) : '';
       state.pSetup = { patrolId: s ? s.patrolId : '', officers: [], tni: '', vehicle: lastCar,
         ownVehicle: !!(s && P.vehicles.indexOf(lastCar) === -1), km: '',
         shift: current.shift, date: current.date, others: false };
@@ -4381,7 +4381,7 @@
     loadLogo().then(function (logo) {
       var team = currentTeam();
       return SA.xlsx.build(moduleOf(team).sheets(records), function (done, total) {
-        status.textContent = 'Menulis foto ' + done + ' dari ' + total + '…';
+        status.textContent = 'Mengecilkan dan menulis foto ' + done + ' dari ' + total + '…';
       }, { primary: SA.EXCEL_THEMES[team].primary, logo: logo });
     }).then(function (blob) {
       var filename = moduleOf(currentTeam()).exportName(records) + shiftAndNames(records.filter(inExcel)) +
@@ -4533,7 +4533,7 @@
   /* BUILD and CACHE_VERSION in sw.js are a PAIR -- bump both on every upload.
      The marker prints both; when they differ, the new version has downloaded
      but the app has not been restarted. */
-  var BUILD = 'v62';
+  var BUILD = 'v63';
   SA.BUILD = BUILD;                        // stamped on every export (SA.sheets.exported)
   var CACHE_PREFIX = 'superapp-laporan-';
 
